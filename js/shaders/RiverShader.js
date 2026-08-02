@@ -115,7 +115,8 @@ export const riverFragment = `
     // Hacemos que la nieve "tape" el río.
     // Leemos la máscara de nieve y calculamos el mismo ciclo climático del terreno.
     float snowMask = smoothstep(0.1, 0.5, packedMasks.b);
-    float cycle = sin(uTime * 0.4) * 0.5 + 0.5;
+    float tCycle = fract(uTime * 0.05);
+    float cycle = smoothstep(0.0, 0.2, tCycle) - smoothstep(0.6, 1.0, tCycle);
     float localCoverage = cycle * snowMask;
 
     // Reducimos la opacidad del río drásticamente donde hay nieve acumulada

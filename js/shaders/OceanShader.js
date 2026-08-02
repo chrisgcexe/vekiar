@@ -222,9 +222,13 @@ float mountainFade = smoothstep(0.01, 0.8, blurryMountain);
 // a medida que te acercas al centro de la montaña, pero sin borrar la nieve por completo.
 snowZone *= mix(1.0, 0.35, mountainFade);
 
-// 2. CICLO DE CLIMA: Lento y gradual (sin popping)
-// uTime * 0.4 hace que el ciclo sea bastante más lento para apreciar cómo se pinta la nieve
-float cycle = sin(uTime * 0.4) * 0.5 + 0.5; // Va de 0.0 a 1.0 de forma ultra suave
+// 2. CICLO DE CLIMA ASIMÉTRICO
+// En lugar de un seno básico, creamos un ciclo (20 seg) donde:
+// - Cae la nieve rápido (0.0 a 0.2)
+// - Perdura al máximo (0.2 a 0.6)
+// - Se derrite muy lentamente (0.6 a 1.0)
+float tCycle = fract(uTime * 0.05);
+float cycle = smoothstep(0.0, 0.2, tCycle) - smoothstep(0.6, 1.0, tCycle);
 
 // 3. RUIDO DEL TERRENO
 // Simula las imperfecciones del suelo. Usamos alta frecuencia para que los bordes sean naturales.
@@ -245,8 +249,21 @@ float snowFactor = smoothstep(groundNoise - 0.1, groundNoise + 0.1, localCoverag
 // Esto generaba parches aleatorios por todo el mapa. Forzamos a cero estricto si no hay cobertura:
 snowFactor *= smoothstep(0.0, 0.01, localCoverage);
 
+// 5. RELIEVE 3D EN NIEVE DENSA (Bumps / Montículos)
+// Calculamos un ruido de muy alta frecuencia desplazado para simular sombras (derivada direccional)
+vec2 bumpPos = vGlobalPos * 400.0;
+float n0 = fbm(bumpPos);
+float n1 = fbm(bumpPos + vec2(0.015, 0.015)); // Offset diagonal
+float bumpShadow = (n1 - n0) * 12.0; // Falsa iluminación (relieve)
+
 // Mezclamos el terreno con blanco puro
-vec3 snowColor = vec3(0.95, 0.98, 1.0);
+vec3 snowColorBase = vec3(0.95, 0.98, 1.0);
+
+// Aplicamos el relieve SOLO donde la nieve está muy densa (>0.7 de acumulación)
+float bumpMask = smoothstep(0.6, 1.0, snowFactor);
+// Le sumamos/restamos luz para crear los "montículos"
+vec3 snowColor = snowColorBase + (bumpShadow * bumpMask * vec3(0.4, 0.45, 0.5)); // Sombras frías
+
 float zoomFadeSnow = smoothstep(0.3, 0.8, uZoomAlpha);
 diffuseColor.rgb = mix(diffuseColor.rgb, snowColor, snowFactor * zoomFadeSnow);
 `;
