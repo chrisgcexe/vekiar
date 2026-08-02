@@ -2,17 +2,10 @@ import * as THREE from 'three';
 // Se importan de forma indirecta a través de TerrainMaterial
 
 
-import {
-    snowParticleVertex,
-    snowParticleFragment
-} from '../shaders/SnowShader.js';
-import {
-    permafrostMistVertex,
-    permafrostMistFragment
-} from '../shaders/PermafrostMistShader.js';
-
 import { AssetLoader } from '../utils/AssetLoader.js';
 import { TerrainMaterial } from './TerrainMaterial.js';
+import { SnowSystem } from '../systems/SnowSystem.js';
+import { PermafrostMistMaterial } from '../systems/PermafrostMistMaterial.js';
 
 export class Map {
     constructor(scene, renderer) {
@@ -49,23 +42,8 @@ export class Map {
             const mapMaterial = TerrainMaterial.create(assets);
             this.material = mapMaterial; // Lo exponemos para actualizarlo desde main.js
 
-
-
             // --- MATERIAL DE HUMO DE PERMAFROST ---
-            const permafrostMistMaterial = new THREE.ShaderMaterial({
-                uniforms: {
-                    tPackedMasks: { value: packedMasksTexture },
-                    tMapDataPacked: { value: mapDataPackedTexture },
-                    tNoise: { value: noiseTexture },
-                    uTime: mapMaterial.userData.uTime,
-                    uZoomAlpha: mapMaterial.userData.uZoomAlpha
-                },
-                vertexShader: permafrostMistVertex,
-                fragmentShader: permafrostMistFragment,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending // Additive blending hace que el humo brille como escarcha
-            });
+            const permafrostMistMaterial = PermafrostMistMaterial.create(assets, mapMaterial);
             this.permafrostMistMaterial = permafrostMistMaterial;
 
 
@@ -120,102 +98,11 @@ export class Map {
                     mapGroup.add(mistLayerMesh);
                 } // <--- CERRAR EL LOOP DE CHUNKS AQUÍ
 
-                // --- SISTEMA DE CLIMA FIJO A LAS MONTAÑAS (DENSIDAD EXTREMA) ---
-                // Leemos la textura de datos (donde el canal Azul es la máscara de nieve)
-                const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = mapDataPackedTexture.image.width;
-                maskCanvas.height = mapDataPackedTexture.image.height;
-                const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-                maskCtx.drawImage(mapDataPackedTexture.image, 0, 0);
-                const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
-
-                const particleCount = 25000; // Reducido levemente por optimización extrema, tamaño compensado en shader
-                const particleGeometry = new THREE.BufferGeometry();
-                const particlePositions = new Float32Array(particleCount * 3);
-                const particleRandoms = new Float32Array(particleCount);
-                const particleSpeeds = new Float32Array(particleCount);
-
-                let spawned = 0;
-                let sumX = 0;
-                let sumZ = 0;
-                let attempts = 0;
-
-                // Buscamos coordenadas válidas al azar hasta llenar las 20.000 partículas
-                while(spawned < particleCount && attempts < 500000) {
-                    attempts++;
-                    const rx = Math.random();
-                    const ry = Math.random(); // UV Y (0 = abajo, 1 = arriba)
-                    
-                    const px = Math.floor(rx * maskCanvas.width);
-                    // Invertimos Y para leer el canvas correctamente (0 = arriba en canvas)
-                    const py = Math.floor((1.0 - ry) * maskCanvas.height);
-                    
-                    const index = (py * maskCanvas.width + px) * 4;
-                    // Extraemos el Canal Azul (+2) que contiene la máscara de nieve
-                    const blueValue = maskData[index + 2];
-                    
-                    if (blueValue < 128) {
-                        // Mapeamos (rx, ry) a las coordenadas del mundo (-50 a 50)
-                        // Eliminamos el "sangrado" para que caigan exactamente y de forma densa sobre la máscara negra
-                        const worldX = (rx - 0.5) * totalSize;
-                        const worldZ = - (ry - 0.5) * totalSize / this.aspect;
-                        
-                        particlePositions[spawned*3] = worldX; 
-                        particlePositions[spawned*3+1] = Math.random() * 15.0; // Altura inicial aleatoria (0 a 15)
-                        particlePositions[spawned*3+2] = worldZ;
-                        
-                        particleRandoms[spawned] = Math.random();
-                        particleSpeeds[spawned] = 0.5 + Math.random() * 1.5; // Velocidad de caída MÁS LENTA
-                        
-                        sumX += worldX;
-                        sumZ += worldZ;
-                        
-                        spawned++;
-                    }
-                }
-
-                // --- PUNTO DE LUZ (FOCAL) SOBRE LA MONTAÑA ---
-                // Calculamos el centro de masa de la montaña nevada usando el promedio de las partículas
-                const avgX = sumX / spawned;
-                const avgZ = sumZ / spawned;
-                
-                // Actualizamos el shader con el centro matemático de la montaña para el radio de nieve
-                mapMaterial.userData.uMountainCenter.value.set(avgX, avgZ);
-                
-                // Creamos una PointLight potente de color blanco frío (hielo)
-                const snowLight = new THREE.PointLight(0xdff0ff, 15.0, 40.0, 1.5);
-                snowLight.position.set(avgX, 12.0, avgZ); // Elevada 12 unidades sobre el centro de la montaña
-                
-                // Animamos la luz focal en el render loop para que oscile sutilmente
-                this.snowLight = snowLight;
-                this.snowLightBaseIntensity = 15.0;
-                this.scene.add(snowLight);
-
-                particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-                particleGeometry.setAttribute('aRandom', new THREE.BufferAttribute(particleRandoms, 1));
-                particleGeometry.setAttribute('aSpeed', new THREE.BufferAttribute(particleSpeeds, 1));
-                
-                // CRÍTICO para Optimización: Ahora que las partículas están en posiciones fijas del mundo (con Y variando entre 0 y 50),
-                // podemos calcular el Bounding Sphere original, y Three.js hará un Frustum Culling perfecto
-                // apagando el sistema entero si no estamos mirando ninguna montaña.
-                particleGeometry.computeBoundingSphere();
-
-                const snowParticleMaterial = new THREE.ShaderMaterial({
-                    uniforms: {
-                        uTime: mapMaterial.userData.uTime,
-                        uZoomAlpha: mapMaterial.userData.uZoomAlpha
-                    },
-                    vertexShader: snowParticleVertex,
-                    fragmentShader: snowParticleFragment,
-                    transparent: true,
-                    depthWrite: false,
-                    blending: THREE.NormalBlending
-                });
-
-                const particleSystem = new THREE.Points(particleGeometry, snowParticleMaterial);
-                
-                // Lo añadimos directamente a la ESCENA GLOBAL
-                this.scene.add(particleSystem);
+                // --- SISTEMA DE CLIMA FIJO A LAS MONTAÑAS ---
+                this.snowSystem = new SnowSystem(this.scene, assets, mapMaterial, this.aspect);
+                // Exponemos la luz de la nieve para que la UI o main.js pueda verificar si existe, 
+                // aunque ahora se anima sola dentro de SnowSystem.
+                this.snowLight = this.snowSystem.snowLight;
 
                 // Rotar todo el grupo para acostarlo
                 mapGroup.rotation.x = -Math.PI / 2;

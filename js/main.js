@@ -70,11 +70,9 @@ function animate(timeMs) {
         if (map.lakeMaterial) map.lakeMaterial.displacementScale = 3.5 * appState.currentIn3DAlpha;
     }
 
-    // Animamos la luz focal de la nieve (pulso mágico)
-    if (map.snowLight) {
-        // Oscilación caótica pero sutil (12.0 a 18.0 aprox)
-        let pulse = Math.sin(appState.time * 2.0) * 3.0 + Math.cos(appState.time * 3.5) * 1.5;
-        map.snowLight.intensity = (map.snowLightBaseIntensity + pulse) * appState.currentIn3DAlpha;
+    // Animamos los sistemas climáticos de la montaña
+    if (map.snowSystem) {
+        map.snowSystem.update(appState);
     }
 
     // 6. Renderizar frame
