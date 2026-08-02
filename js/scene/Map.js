@@ -18,6 +18,8 @@ import {
     permafrostMistFragment
 } from '../shaders/PermafrostMistShader.js';
 
+import { AssetLoader } from '../utils/AssetLoader.js';
+
 export class Map {
     constructor(scene, renderer) {
         this.scene = scene;
@@ -31,35 +33,14 @@ export class Map {
     }
 
     _initMap() {
-        const textureLoader = new THREE.TextureLoader();
-        
-        // Cargamos las texturas en paralelo
-        Promise.all([
-            textureLoader.loadAsync('./assets/images/vekiar_sin_letras.jpg'),
-            textureLoader.loadAsync('./assets/images/map_data_packed.png'),
-            textureLoader.loadAsync('./assets/images/noise.jpg'),
-            textureLoader.loadAsync('./assets/images/biomas_packed_R_river_G_lake_B_desert_A_snow.png'),
-            textureLoader.loadAsync('./assets/images/flowmap_small.png')
-        ]).then(([colorTexture, mapDataPackedTexture, noiseTexture, packedMasksTexture, flowmapTexture]) => {
-            
-            colorTexture.colorSpace = THREE.SRGBColorSpace;
-            colorTexture.minFilter = THREE.LinearMipmapLinearFilter;
-            colorTexture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-            
-            // OPTIMIZACIÓN: Las máscaras y mapas de altura no necesitan MipMaps (copias miniatura para antialiasing).
-            // NOTA: mapDataPackedTexture usa la nieve en el canal Azul, y el shader SÍ usa MipMaps (bias) 
-            // para difuminar la base de la montaña. Así que NO APAGAMOS LOS MIPMAPS en esta textura empaquetada.
-            
-            packedMasksTexture.generateMipmaps = false;
-            packedMasksTexture.minFilter = THREE.LinearFilter;
-            
-            flowmapTexture.generateMipmaps = false;
-            flowmapTexture.minFilter = THREE.LinearFilter;
-            
-            // Textura de ruido precalculada para optimización masiva de rendimiento
-            noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping;
-            noiseTexture.generateMipmaps = false;
-            noiseTexture.minFilter = THREE.LinearFilter;
+        AssetLoader.loadVekiarAssets(this.renderer).then((assets) => {
+            const { 
+                colorTexture, 
+                mapDataPackedTexture, 
+                noiseTexture, 
+                packedMasksTexture, 
+                flowmapTexture 
+            } = assets;
             
             this.aspect = colorTexture.image.width / colorTexture.image.height;
             
