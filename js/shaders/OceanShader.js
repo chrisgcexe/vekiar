@@ -203,10 +203,9 @@ export const mapFragmentColorChunk = `
 float m = texture2D(tPackedMasks, vGlobalPos).b; 
 float snowZone = smoothstep(0.1, 0.5, m);
 
-// Excluir el agua (ríos/lagos)
+// Leemos todas las máscaras empaquetadas
 vec4 packedMasks = texture2D(tPackedMasks, vGlobalPos);
-float isWater = max(1.0 - smoothstep(0.1, 0.5, packedMasks.r), 1.0 - smoothstep(0.1, 0.5, packedMasks.g));
-snowZone *= (1.0 - isWater);
+// NOTA: Ya no excluimos el agua, para que la nieve tape los ríos y lagos.
 
 // Excluir la nieve base en la montaña de forma ULTRA SUAVE.
 // Usamos el "bias" de texture2D (3er parámetro en GLSL) para leer un 

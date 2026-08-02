@@ -111,7 +111,16 @@ export const riverFragment = `
     // Aplicamos opacidad basándonos en la máscara.
     // El río base casi no tiene opacidad (0.05), y el caminante llega como máximo a 0.5 (semi-transparente)
     float finalAlpha = isRiver * max(0.05, walker * 0.5);
-    
+
+    // Hacemos que la nieve "tape" el río.
+    // Leemos la máscara de nieve y calculamos el mismo ciclo climático del terreno.
+    float snowMask = smoothstep(0.1, 0.5, packedMasks.b);
+    float cycle = sin(uTime * 0.4) * 0.5 + 0.5;
+    float localCoverage = cycle * snowMask;
+
+    // Reducimos la opacidad del río drásticamente donde hay nieve acumulada
+    finalAlpha *= (1.0 - localCoverage);
+
     float zoomFade = smoothstep(0.3, 0.8, uZoomAlpha);
     gl_FragColor = vec4(illuminatedRiver, finalAlpha * zoomFade);
 `;
