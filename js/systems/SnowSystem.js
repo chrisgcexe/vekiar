@@ -47,7 +47,8 @@ export class SnowSystem {
             const py = Math.floor((1.0 - ry) * maskCanvas.height);
             
             const index = (py * maskCanvas.width + px) * 4;
-            // El canal Azul (+2) contiene la máscara de nieve
+            // El canal Azul (+2) contiene la máscara de nieve de las partículas
+            // (Leyendo de map_data_R_elevation_B_snow_particles.png)
             const blueValue = maskData[index + 2];
             
             if (blueValue < 128) {

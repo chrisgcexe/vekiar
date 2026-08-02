@@ -5,7 +5,7 @@
   - Actualizar `AssetLoader.js` para usar la nueva textura.
   - Verificar que cargue.
   - Eliminar textura vieja y hacer commit.
-- `[ ]` **Paso 2: Renombrar textura de Elevación**
+- `[x]` **Paso 2: Renombrar textura de Elevación**
   - Copiar textura original a `map_data_R_elevation_B_snow_particles.png`.
   - Actualizar `AssetLoader.js` para usar la nueva textura.
   - Verificar que cargue.

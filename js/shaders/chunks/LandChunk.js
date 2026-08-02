@@ -1,5 +1,19 @@
+// ==========================================
+// LAND CHUNK: Tierra, Nieve en Piso y Desierto
+// 
+// tMapDataPacked: map_data_R_elevation_B_snow_particles.png
+//   -> R: Elevación 3D (Usado en worker)
+//   -> B: Máscara de Nieve 
+// 
+// tPackedMasks: masks_1_R_river_G_lake_B_snow.png
+//   -> R: Ríos
+//   -> G: Lagos
+//   -> B: Zonas de Nieve 
+// ==========================================
+
 export const landFragmentChunk = `
 // === 1. ACUMULACIÓN DE NIEVE (Efecto Clásico Gradual) ===
+// Leemos la máscara de nieve del canal Azul de la textura de máscaras
 float m = texture2D(tPackedMasks, vGlobalPos).b; 
 float snowZone = smoothstep(0.1, 0.5, m);
 

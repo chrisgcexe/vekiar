@@ -1,3 +1,12 @@
+// ==========================================
+// WATER CHUNK: Océanos, Ríos y Lagos
+// 
+// tPackedMasks: masks_1_R_river_G_lake_B_snow.png
+//   -> R: Ríos
+//   -> G: Lagos
+//   -> B: Zonas de Nieve 
+// ==========================================
+
 export const waterFragmentChunk = `
 // === 1. ANIMACIÓN DEL OCÉANO ===
 // Usamos tu nueva máscara perfecta (Blanco=Tierra, Negro=Agua).
