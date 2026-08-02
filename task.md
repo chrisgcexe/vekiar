@@ -1,6 +1,6 @@
 # Tareas: Limpieza y Renombramiento Seguro
 
-- `[ ]` **Paso 1: Renombrar textura de Biomas**
+- `[x]` **Paso 1: Renombrar textura de Biomas**
   - Copiar la textura original a `masks_1_R_river_G_lake_B_snow.png`.
   - Actualizar `AssetLoader.js` para usar la nueva textura.
   - Verificar que cargue.
