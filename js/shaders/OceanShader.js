@@ -280,8 +280,9 @@ export const mapFragmentColorChunk = `
 
 // === ACUMULACIÓN DE NIEVE (Efecto Clásico Gradual) ===
 // 1. ZONA DE NIEVE: Leemos la máscara de nieve del piso desde la imagen empaquetada de biomas.
-// Según el nombre del archivo (A_snow), la nieve de las praderas está en el canal Alfa (a).
-float m = texture2D(tPackedMasks, vGlobalPos).a; 
+// Aunque el archivo dice "A_snow", el canal Alpha es completamente opaco (255) y la nieve
+// está guardada en el canal Azul (.b).
+float m = texture2D(tPackedMasks, vGlobalPos).b; 
 float snowZone = smoothstep(0.1, 0.5, m);
 
 // Leemos todas las máscaras empaquetadas
