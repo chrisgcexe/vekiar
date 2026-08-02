@@ -6,6 +6,8 @@ import { AssetLoader } from '../utils/AssetLoader.js';
 import { TerrainMaterial } from './TerrainMaterial.js';
 import { SnowSystem } from '../systems/SnowSystem.js';
 import { PermafrostMistMaterial } from '../systems/PermafrostMistMaterial.js';
+import { OceanSystem } from '../systems/OceanSystem.js';
+import { LandSystem } from '../systems/LandSystem.js';
 
 export class Map {
     constructor(scene, renderer) {
@@ -98,6 +100,10 @@ export class Map {
                     mapGroup.add(mistLayerMesh);
                 } // <--- CERRAR EL LOOP DE CHUNKS AQUÍ
 
+                // --- SISTEMAS BASE DEL TERRENO ---
+                this.oceanSystem = new OceanSystem(mapMaterial);
+                this.landSystem = new LandSystem(mapMaterial);
+                
                 // --- SISTEMA DE CLIMA FIJO A LAS MONTAÑAS ---
                 this.snowSystem = new SnowSystem(this.scene, assets, mapMaterial, this.aspect);
                 // Exponemos la luz de la nieve para que la UI o main.js pueda verificar si existe, 

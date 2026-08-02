@@ -71,9 +71,9 @@ function animate(timeMs) {
     }
 
     // Animamos los sistemas climáticos de la montaña
-    if (map.snowSystem) {
-        map.snowSystem.update(appState);
-    }
+    if (map.snowSystem) map.snowSystem.update(appState);
+    if (map.oceanSystem) map.oceanSystem.update(appState);
+    if (map.landSystem) map.landSystem.update(appState);
 
     // 6. Renderizar frame
     sceneManager.render();

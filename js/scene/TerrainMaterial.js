@@ -5,9 +5,9 @@ import {
     mapVertexBegin, 
     mapVertexWorldPos, 
     mapFragmentCommon, 
-    mapOceanFragment,
+    mapDitheringFragment,
     mapFragmentColorChunk
-} from '../shaders/OceanShader.js';
+} from '../shaders/TerrainShader.js';
 
 export class TerrainMaterial {
     static create(assets) {
@@ -50,7 +50,7 @@ export class TerrainMaterial {
             shader.vertexShader = shader.vertexShader.replace('#include <worldpos_vertex>', mapVertexWorldPos);
             shader.fragmentShader = shader.fragmentShader.replace('#include <common>', mapFragmentCommon);
             shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', mapFragmentColorChunk);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', mapOceanFragment);
+            shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', mapDitheringFragment);
         };
 
         return material;
