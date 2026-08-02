@@ -15,7 +15,7 @@ export class AssetLoader {
             textureLoader.loadAsync('./assets/images/vekiar_sin_letras.jpg'),
             textureLoader.loadAsync('./assets/images/map_data_packed.png'),
             textureLoader.loadAsync('./assets/images/noise.jpg'),
-            textureLoader.loadAsync('./assets/images/biomas_packed_R_river_G_lake_B_desert_A_snow.png'),
+            textureLoader.loadAsync('./assets/images/masks_1_R_river_G_lake_B_snow.png'),
             textureLoader.loadAsync('./assets/images/flowmap_small.png')
         ]);
 
