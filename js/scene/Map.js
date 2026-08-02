@@ -1,13 +1,6 @@
 import * as THREE from 'three';
-import { 
-    mapVertexCommon, 
-    mapVertexUv, 
-    mapVertexBegin, 
-    mapVertexWorldPos, 
-    mapFragmentCommon, 
-    mapOceanFragment,
-    mapFragmentColorChunk
-} from '../shaders/OceanShader.js';
+// Se importan de forma indirecta a través de TerrainMaterial
+
 
 import {
     snowParticleVertex,
@@ -19,6 +12,7 @@ import {
 } from '../shaders/PermafrostMistShader.js';
 
 import { AssetLoader } from '../utils/AssetLoader.js';
+import { TerrainMaterial } from './TerrainMaterial.js';
 
 export class Map {
     constructor(scene, renderer) {
@@ -52,40 +46,8 @@ export class Map {
             const mapGroup = new THREE.Group();
             
             // Un solo material compartido para todos los chunks
-            const mapMaterial = new THREE.MeshStandardMaterial({ 
-                map: colorTexture,
-                roughness: 0.8,
-                metalness: 0.1,
-            });
+            const mapMaterial = TerrainMaterial.create(assets);
             this.material = mapMaterial; // Lo exponemos para actualizarlo desde main.js
-            
-            // Creamos las variables que recibirán datos desde JS
-            mapMaterial.userData.uZoomAlpha = { value: 1.0 };
-            mapMaterial.userData.uTime = { value: 0.0 };
-            mapMaterial.userData.tMapDataPacked = { value: mapDataPackedTexture };
-            mapMaterial.userData.tNoise = { value: noiseTexture };
-            mapMaterial.userData.tPackedMasks = { value: packedMasksTexture };
-            mapMaterial.userData.tFlowMap = { value: flowmapTexture };
-            mapMaterial.userData.uMountainCenter = { value: new THREE.Vector2(0, 0) };
-
-            // Inyectamos el código del shader modularizado (OceanShader.js)
-            mapMaterial.onBeforeCompile = (shader) => {
-                shader.uniforms.uZoomAlpha = mapMaterial.userData.uZoomAlpha;
-                shader.uniforms.uTime = mapMaterial.userData.uTime;
-                shader.uniforms.tMapDataPacked = mapMaterial.userData.tMapDataPacked;
-                shader.uniforms.tNoise = mapMaterial.userData.tNoise;
-                shader.uniforms.tPackedMasks = mapMaterial.userData.tPackedMasks;
-                shader.uniforms.tFlowMap = mapMaterial.userData.tFlowMap;
-                shader.uniforms.uMountainCenter = mapMaterial.userData.uMountainCenter;
-
-                shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);
-                shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', mapVertexUv);
-                shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', mapVertexBegin);
-                shader.vertexShader = shader.vertexShader.replace('#include <worldpos_vertex>', mapVertexWorldPos);
-                shader.fragmentShader = shader.fragmentShader.replace('#include <common>', mapFragmentCommon);
-                shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', mapFragmentColorChunk);
-                shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', mapOceanFragment);
-            };
 
 
 
