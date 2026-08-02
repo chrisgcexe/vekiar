@@ -13,9 +13,9 @@ export class AssetLoader {
             .detectSupport(renderer);
 
         // 1. Cargar Assets Visuales (Comprimidos en VRAM)
-        //const colorPromise = textureLoader.loadAsync('./assets/images/base_color_map.jpg');
+        const noisePromise = textureLoader.loadAsync('./assets/images/source_assets/water_noise_distortion.jpg');
         const colorPromise = ktx2Loader.loadAsync('./assets/images/base_color_map.ktx2');
-        const noisePromise = ktx2Loader.loadAsync('./assets/images/water_noise_distortion.ktx2');
+  
 
         // 2. Cargar Assets de Datos (Crudos en PNG para no perder matemática)
         const mapDataPromise = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
