@@ -56,6 +56,12 @@ export class Map {
             waterMaskTexture.generateMipmaps = false;
             waterMaskTexture.minFilter = THREE.LinearFilter;
             
+            packedMasksTexture.generateMipmaps = false;
+            packedMasksTexture.minFilter = THREE.LinearFilter;
+            
+            flowmapTexture.generateMipmaps = false;
+            flowmapTexture.minFilter = THREE.LinearFilter;
+            
             // Textura de ruido precalculada para optimización masiva de rendimiento
             noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping;
             noiseTexture.generateMipmaps = false;
