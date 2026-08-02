@@ -85,13 +85,13 @@ float simplexNoise(vec2 v){
 }
 `;
 
-export const mapFragmentColorChunk = \`
+export const mapFragmentColorChunk = `
 #include <map_fragment>
-\${landFragmentChunk}
-\`;
+${landFragmentChunk}
+`;
 
-export const mapDitheringFragment = \`
+export const mapDitheringFragment = `
 #include <dithering_fragment>
-\${waterFragmentChunk}
-\${landColorAdjustmentChunk}
-\`;
+${waterFragmentChunk}
+${landColorAdjustmentChunk}
+`;
