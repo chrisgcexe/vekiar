@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo Vékiar</title>
+    <!-- CSS en archivo separado -->
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <div id="ui">
+        <h1>VÉKIAR</h1>
+    </div>
+
+    <!-- Efecto Viñeta (Atmósfera) -->
+    <div id="vignette"></div>
+
+    <div id="compass">
+        <div class="dir n">N</div>
+        <div class="dir s">S</div>
+        <div class="dir e">E</div>
+        <div class="dir w">O</div>
+        <div class="center-dot"></div>
+    </div>
+
+    <!-- Mapeo de Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- Script separado -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

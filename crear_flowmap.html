@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Creador de Flowmap - Vekiar</title>
+    <style>
+        body { margin: 0; background: #222; color: white; font-family: sans-serif; text-align: center; }
+        #container { position: relative; display: inline-block; margin-top: 60px; box-shadow: 0px 0px 20px black; }
+        canvas { cursor: crosshair; }
+        #bgCanvas { position: absolute; top: 0; left: 0; opacity: 0.5; pointer-events: none; mix-blend-mode: overlay; }
+        #controls { padding: 15px; background: #111; position: fixed; top: 0; width: 100%; z-index: 10; border-bottom: 2px solid #444; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .instructions { margin-left: 20px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button onclick="download()">Descargar flowmap.png</button>
+        <span class="instructions">
+            <b>INSTRUCCIONES:</b> Mantené presionado y arrastrá el mouse <b>en la dirección</b> en la que querés que corra el agua. <br>
+            Se va a pintar de colores raros (rojo/verde). ¡Eso es correcto! Luego guardalo y ponelo en tu carpeta de imágenes.
+        </span>
+    </div>
+    
+    <div id="container">
+        <canvas id="flowCanvas"></canvas>
+        <canvas id="bgCanvas"></canvas>
+    </div>
+
+    <script>
+        const flowCanvas = document.getElementById('flowCanvas');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const ctx = flowCanvas.getContext('2d');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        const img = new Image();
+        img.src = 'assets/images/vekiar_sin_letras.jpg'; 
+        
+        img.onload = () => {
+            flowCanvas.width = img.width;
+            flowCanvas.height = img.height;
+            bgCanvas.width = img.width;
+            bgCanvas.height = img.height;
+            
+            // Fondo Neutral de Flowmap (Ni se mueve en X ni en Y)
+            ctx.fillStyle = "rgb(128, 128, 0)";
+            ctx.fillRect(0, 0, flowCanvas.width, flowCanvas.height);
+            
+            // Dibujar mapa base para guiarnos
+            bgCtx.drawImage(img, 0, 0);
+        };
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        flowCanvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            lastX = e.offsetX;
+            lastY = e.offsetY;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        flowCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            
+            const currentX = e.offsetX;
+            const currentY = e.offsetY;
+            
+            let dx = currentX - lastX;
+            let dy = currentY - lastY;
+            
+            const length = Math.sqrt(dx*dx + dy*dy);
+            
+            // Si nos movimos suficiente, calculamos el color
+            if (length > 1.0) {
+                dx /= length;
+                dy /= length;
+                
+                // Mapeo vectorial de -1..1 a 0..255
+                // El eje Y lo invertimos porque en los shaders WebGL Y+ es hacia arriba, pero en Canvas es hacia abajo
+                const r = Math.round((dx * 0.5 + 0.5) * 255);
+                const g = Math.round((-dy * 0.5 + 0.5) * 255);
+                
+                // Pincel suave
+                const radius = 25;
+                const gradient = ctx.createRadialGradient(currentX, currentY, 0, currentX, currentY, radius);
+                gradient.addColorStop(0, `rgba(${r}, ${g}, 0, 0.4)`);
+                gradient.addColorStop(1, `rgba(${r}, ${g}, 0, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(currentX, currentY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            lastX = currentX;
+            lastY = currentY;
+        });
+
+        function download() {
+            const link = document.createElement('a');
+            link.download = 'flowmap.png';
+            link.href = flowCanvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
