@@ -15,7 +15,7 @@ export class AssetLoader {
             textureLoader.loadAsync('./assets/images/base_color_map.jpg'),
             textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png'),
             textureLoader.loadAsync('./assets/images/water_noise_distortion.jpg'),
-            textureLoader.loadAsync('./assets/images/masks_1_R_river_G_lake_B_snow.png'),
+            textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png'),
             textureLoader.loadAsync('./assets/images/river_flow_directions.png')
         ]);
 

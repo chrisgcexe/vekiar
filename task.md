@@ -1,15 +1,14 @@
-# Tareas: Limpieza de Imágenes Huérfanas y Nomenclatura
+# Tareas: Dunas y Polvo Volumétrico
 
-- `[ ]` **Paso 1: Mover assets inactivos**
-  - Crear carpeta `assets/images/source_assets/`
-  - Mover `heightmap_custom.png`, `vekiar_biomas_mask.jpg`, y todos los `vekiar_sin_letras_h*.jpg`.
-- `[ ]` **Paso 2: Renombrar assets activos**
-  - Renombrar `noise.jpg` a `water_noise_distortion.jpg`.
-  - Renombrar `flowmap_small.png` a `river_flow_directions.png`.
-  - Renombrar `vekiar_sin_letras.jpg` a `base_color_map.jpg`.
-- `[ ]` **Paso 3: Actualizar Código y Docs**
-  - Actualizar `AssetLoader.js` con las nuevas rutas.
-  - Actualizar `ARCHITECTURE.md`.
-- `[ ]` **Paso 4: Verificar y Comitear**
-  - Verificar que cargue.
-  - Hacer commit.
+- `[ ]` **Paso 1: Corregir enmascaramiento del mar (pack_masks.py)**
+  - Leer el mapa de altura (`map_data_R_elevation...`).
+  - Restringir la máscara del desierto a la zona de tierra (por encima del nivel del mar).
+  - Ejecutar script para actualizar `masks_2_...png`.
+- `[ ]` **Paso 2: Shader de Dunas en LandChunk.js**
+  - Remover rosa de debug.
+  - Reemplazar completamente el color base por el color arena/dorado donde hay desierto.
+  - Implementar onda procedural con matemática (senos y ruidos) para las dunas.
+  - Aplicar sombras e iluminación local según las crestas.
+- `[ ]` **Paso 3: Niebla de Polvo en DesertMistShader.js**
+  - Implementar ruido de polvo rasante con dirección al Este (+u).
+  - Aplicar máscara corregida y color cálido.

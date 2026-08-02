@@ -5,10 +5,11 @@
 //   -> R: Elevación 3D (Usado en worker)
 //   -> B: Máscara de Nieve 
 // 
-// tPackedMasks: masks_1_R_river_G_lake_B_snow.png
+// tPackedMasks: masks_2_R_river_G_lake_B_snow_A_desert.png
 //   -> R: Ríos
 //   -> G: Lagos
 //   -> B: Zonas de Nieve 
+//   -> A: Desierto (Heat haze y color) 
 // ==========================================
 
 export const landFragmentChunk = `
@@ -42,6 +43,11 @@ vec3 snowColor = snowColorBase + (bumpShadow * bumpMask * vec3(0.4, 0.45, 0.5));
 
 float zoomFadeSnow = smoothstep(0.3, 0.8, uZoomAlpha);
 diffuseColor.rgb = mix(diffuseColor.rgb, snowColor, snowFactor * zoomFadeSnow);
+
+// === 2. AMBIENTACIÓN DEL DESIERTO ===
+// (Efectos de shader eliminados por feedback. El canal Alpha queda listo para usar con partículas)
+float desertMask = 1.0 - texture2D(tPackedMasks, vGlobalPos).a;
+float aridZone = smoothstep(0.1, 0.5, desertMask);
 `;
 
 export const landColorAdjustmentChunk = `

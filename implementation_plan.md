@@ -1,30 +1,29 @@
-# Plan de Implementación: Nomenclatura Descriptiva y Limpieza de Source Assets
+# Plan de Implementación: Dunas del Desierto y Polvo Volumétrico
 
-Vamos a dejar el directorio de imágenes impecable. Las imágenes activas tendrán nombres que expliquen exactamente qué función cumplen en el código.
+Para lograr el aspecto espectacular de las referencias que compartiste (dunas esculpidas por el viento) y el polvo moviéndose, vamos a trabajar en dos frentes:
 
 ## Proposed Changes
 
-### 1. Renombramiento de Assets Activos (Game Assets)
-Estas texturas SÍ se usan en el código actual, pero sus nombres son vagos. Las renombraremos:
-- `noise.jpg` ➔ **`water_noise_distortion.jpg`** (Se usa para animar las olas y el agua en el shader).
-- `flowmap_small.png` ➔ **`river_flow_directions.png`** (Le dice al agua de los ríos hacia dónde debe fluir).
-- `vekiar_sin_letras.jpg` ➔ **`base_color_map.jpg`** (Es la textura de color principal que recubre todo el mapa).
+### 1. Limpieza de la Máscara (`pack_masks.py`)
+- **[MODIFY] `tools/pack_masks.py`**: 
+  - Actualmente, la máscara rosa sangra hacia el océano a la derecha. 
+  - Vamos a actualizar el script para que cruce la máscara del desierto con la máscara de tierra (usando el canal Rojo de `map_data_...` que tiene la elevación). Así, el desierto se cortará perfectamente en la costa.
 
-### 2. Mover Assets Inactivos (Source Assets)
-Estas imágenes NO son llamadas por el código. Son tus editables o pruebas viejas. Las moveremos a `assets/images/source_assets/` para que no estorben:
-- `heightmap_custom.png` (Tu mapa de altura original crudo).
-- `vekiar_biomas_mask.jpg` (Tu máscara colorida cruda).
-- Todas las versiones de elevación viejas: `vekiar_sin_letras_h.jpg`, `h2.jpg`, `h3.jpg`, `h4.jpg`, `h5.jpg`, `h6.jpg`.
+### 2. Shader de Dunas (`LandChunk.js`)
+- **[MODIFY] `js/shaders/chunks/LandChunk.js`**:
+  - En la zona del desierto (canal Alpha), inyectaremos un shader procedural de dunas.
+  - Usaremos una función matemática basada en ondas senoidales distorsionadas por ruido (`sin(uv + noise)`) para generar las crestas características de las dunas de arena.
+  - Aplicaremos un color cálido base (dorado/arena) y le daremos sombra en los valles de las dunas para simular el relieve 3D sin modificar los vértices.
 
-### 3. Actualización de Código y Docs
-- **[MODIFY] `js/utils/AssetLoader.js`**: Actualizar con las 3 nuevas rutas (`water_noise_distortion.jpg`, `river_flow_directions.png`, `base_color_map.jpg`).
-- **[MODIFY] `ARCHITECTURE.md`**: Explicar el propósito de cada una de estas texturas (Ruido del agua, Direcciones del flujo, Color base).
+### 3. Ajuste de la Niebla de Polvo (`DesertMistShader.js`)
+- **[MODIFY] `js/shaders/DesertMistShader.js`**:
+  - Reemplazaremos el código de debug rosa por el sistema de partículas que habíamos empezado a armar.
+  - Ajustaremos la velocidad y dirección del "viento" hacia el Este, y el color a un tono arena claro para que parezca polvo levantado por el viento barriendo las dunas.
 
 ## Verification Plan
-1. Crear el directorio `source_assets/`.
-2. Mover los archivos inactivos usando comandos de consola.
-3. Renombrar los 3 archivos activos.
-4. Actualizar el código y confirmar que el mapa siga cargando perfectamente.
+1. Ejecutar el nuevo script de empaquetado y verificar que la máscara rosa ya no toque el agua.
+2. Inyectar el shader de dunas y verificar las sombras y formas.
+3. Restaurar y ajustar la niebla volumétrica.
 
 ## Open Questions
-- ¿Te parecen bien esos nombres (`water_noise_distortion`, `river_flow_directions`, `base_color_map`) o preferís que sean en español?
+- Las dunas procedurales se dibujan en 2D sobre la textura original. ¿Te gustaría que los colores cálidos de las dunas reemplacen por completo la textura del piso en esa zona, o que se mezclen con el color verde/marrón que tiene el mapa de base ahí? (Generalmente, para dunas reales, lo mejor es reemplazar el color por completo).

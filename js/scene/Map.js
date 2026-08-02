@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 // Se importan de forma indirecta a través de TerrainMaterial
 
-
 import { AssetLoader } from '../utils/AssetLoader.js';
 import { TerrainMaterial } from './TerrainMaterial.js';
 import { SnowSystem } from '../systems/SnowSystem.js';
 import { PermafrostMistMaterial } from '../systems/PermafrostMistMaterial.js';
+import { DesertMistMaterial } from '../systems/DesertMistMaterial.js';
 import { OceanSystem } from '../systems/OceanSystem.js';
 import { LandSystem } from '../systems/LandSystem.js';
 
@@ -17,6 +17,9 @@ export class Map {
         this.aspect = 1.0;
         this.plane = null;
         this.onLoadCallback = null;
+        
+        // Array para guardar las referencias de los LODs (lo lee AppState)
+        this.chunksLOD = []; 
 
         this._initMap();
     }
@@ -42,12 +45,15 @@ export class Map {
             
             // Un solo material compartido para todos los chunks
             const mapMaterial = TerrainMaterial.create(assets);
-            this.material = mapMaterial; // Lo exponemos para actualizarlo desde main.js
+            this.material = mapMaterial; 
 
             // --- MATERIAL DE HUMO DE PERMAFROST ---
             const permafrostMistMaterial = PermafrostMistMaterial.create(assets, mapMaterial);
             this.permafrostMistMaterial = permafrostMistMaterial;
 
+            // --- MATERIAL DE NIEBLA DEL DESIERTO ---
+            const desertMistMaterial = DesertMistMaterial.create(assets, mapMaterial);
+            this.desertMistMaterial = desertMistMaterial;
 
             // Leer alturas (Canal Rojo del empaquetado)
             const canvas = document.createElement('canvas');
@@ -59,46 +65,62 @@ export class Map {
             // Extraemos los pixeles como ArrayBuffer
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             
-            // Aumentamos la escala para exagerar las montañas y valles físicamente
             const displacementScale = 3.5;
 
-            // Inicializamos el Web Worker (es un módulo ES6)
+            // Inicializamos el Web Worker
             const worker = new Worker('./js/workers/mapWorker.js', { type: 'module' });
 
-            // Configuramos qué hacer cuando el worker termine su trabajo
             worker.onmessage = (e) => {
                 const { sharedIndices, chunks } = e.data;
                 
-                // Creamos un BufferAttribute para los índices (compartido entre todos los chunks)
-                const indexAttribute = new THREE.BufferAttribute(sharedIndices, 1);
+                // sharedIndices ahora es un array con 3 sets de índices. Mapeamos a BufferAttributes.
+                const indexAttributes = sharedIndices.map(indices => new THREE.BufferAttribute(indices, 1));
+                
+                // Distancias de LOD: Alta (0), Media (25), Baja (45). Ajustá estos números testeando la cámara.
+                const lodDistances = [0, 40, 60]; 
 
                 for (let chunkData of chunks) {
-                    const geometry = new THREE.BufferGeometry();
+                    const lod = new THREE.LOD();
                     
-                    // Asignamos los buffers de memoria procesados por el worker
-                    geometry.setAttribute('position', new THREE.BufferAttribute(chunkData.positions, 3));
-                    geometry.setAttribute('uv', new THREE.BufferAttribute(chunkData.uvs, 2));
-                    geometry.setAttribute('normal', new THREE.BufferAttribute(chunkData.normals, 3));
-                    geometry.setIndex(indexAttribute);
+                    // Posicionamiento 2D del chunk completo (se hace una sola vez, no por nivel)
+                    const posX = (-totalSize / 2) + (chunkData.cx * chunkSize) + (chunkSize / 2);
+                    const posY = (totalSize / 2) - (chunkData.cy * chunkSize) - (chunkSize / 2);
 
-                    const chunkMesh = new THREE.Mesh(geometry, mapMaterial);
+                    chunkData.lods.forEach((levelData, index) => {
+                        const geometry = new THREE.BufferGeometry();
+                        
+                        // Asignamos los buffers generados por el worker para ESTE nivel de detalle
+                        geometry.setAttribute('position', new THREE.BufferAttribute(levelData.positions, 3));
+                        geometry.setAttribute('uv', new THREE.BufferAttribute(levelData.uvs, 2));
+                        geometry.setAttribute('normal', new THREE.BufferAttribute(levelData.normals, 3));
+                        geometry.setIndex(indexAttributes[index]);
+
+                        // Agrupamos el terreno y las mallas de fx para que el LOD switchee todo junto
+                        const lodLevelGroup = new THREE.Group();
+
+                        const chunkMesh = new THREE.Mesh(geometry, mapMaterial);
+                        chunkMesh.castShadow = true;
+                        chunkMesh.receiveShadow = true;
+                        lodLevelGroup.add(chunkMesh);
+
+                        // CAPA 4: HUMO DE PERMAFROST
+                        const mistLayerMesh = new THREE.Mesh(geometry, permafrostMistMaterial);
+                        lodLevelGroup.add(mistLayerMesh);
+
+                        // CAPA 5: NIEBLA DEL DESIERTO
+                        const desertMistMesh = new THREE.Mesh(geometry, desertMistMaterial);
+                        lodLevelGroup.add(desertMistMesh);
+
+                        // Inyectamos el grupo al contenedor LOD en la distancia correspondiente
+                        lod.addLevel(lodLevelGroup, lodDistances[index]);
+                    });
+
+                    // Posicionamos el contenedor LOD entero
+                    lod.position.set(posX, posY, 0);
                     
-                    // Posicionar chunk en el espacio 2D del mapa (-50 a 50)
-                    chunkMesh.position.x = (-totalSize / 2) + (chunkData.cx * chunkSize) + (chunkSize / 2);
-                    chunkMesh.position.y = (totalSize / 2) - (chunkData.cy * chunkSize) - (chunkSize / 2);
-                    
-                    chunkMesh.castShadow = true;
-                    chunkMesh.receiveShadow = true;
-                    
-                    mapGroup.add(chunkMesh);
-
-
-
-                    // CAPA 4: HUMO DE PERMAFROST
-                    const mistLayerMesh = new THREE.Mesh(geometry, permafrostMistMaterial);
-                    mistLayerMesh.position.copy(chunkMesh.position);
-                    mapGroup.add(mistLayerMesh);
-                } // <--- CERRAR EL LOOP DE CHUNKS AQUÍ
+                    mapGroup.add(lod);
+                    this.chunksLOD.push(lod); 
+                } // <--- CIERRE DEL LOOP DE CHUNKS
 
                 // --- SISTEMAS BASE DEL TERRENO ---
                 this.oceanSystem = new OceanSystem(mapMaterial);
@@ -106,8 +128,6 @@ export class Map {
                 
                 // --- SISTEMA DE CLIMA FIJO A LAS MONTAÑAS ---
                 this.snowSystem = new SnowSystem(this.scene, assets, mapMaterial, this.aspect);
-                // Exponemos la luz de la nieve para que la UI o main.js pueda verificar si existe, 
-                // aunque ahora se anima sola dentro de SnowSystem.
                 this.snowLight = this.snowSystem.snowLight;
 
                 // Rotar todo el grupo para acostarlo
@@ -117,7 +137,6 @@ export class Map {
                 this.plane = mapGroup;
                 this.scene.add(this.plane);
 
-                // Limpiamos el worker para liberar memoria
                 worker.terminate();
 
                 if (this.onLoadCallback) {
@@ -125,7 +144,6 @@ export class Map {
                 }
             };
 
-            // Enviamos los datos pesados al worker (Transfiriendo el ArrayBuffer original por performance)
             worker.postMessage({
                 imageData: imageData.buffer,
                 width: canvas.width,
