@@ -56,21 +56,10 @@ void main() {
     float noise1 = texture2D(tNoise, flowUv1).r;
     float noise2 = texture2D(tNoise, flowUv2).r;
     
-    // Leemos la textura de nieve con un Box Blur procedural para crear bordes desvanecidos
-    // Esto genera un gradiente en los bordes duros de la imagen original
-    float blur = 0.02; // Tamaño del desvanecimiento
-    float m = 0.0;
-    m += 1.0 - texture2D(tSnowMask, vUv).r;
-    m += 1.0 - texture2D(tSnowMask, vUv + vec2(blur, 0.0)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv - vec2(blur, 0.0)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv + vec2(0.0, blur)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv - vec2(0.0, blur)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv + vec2(blur, blur)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv - vec2(blur, blur)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv + vec2(blur, -blur)).r;
-    m += 1.0 - texture2D(tSnowMask, vUv - vec2(blur, -blur)).r;
-    m /= 9.0;
-
+    // Leemos la textura de nieve usando el "bias" nativo de WebGL (MipMap inferior)
+    // Esto nos da un desenfoque (blur) extremadamente barato en rendimiento (1 muestreo vs 9)
+    float m = 1.0 - texture2D(tSnowMask, vUv, 3.0).r;
+    
     // Solo mostramos niebla donde hay nieve (m > 0)
     // Ampliamos el rango del smoothstep para que el desvanecimiento sea ultra suave
     float mask = smoothstep(0.02, 0.8, m); 

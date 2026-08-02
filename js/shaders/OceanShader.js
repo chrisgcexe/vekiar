@@ -4,11 +4,13 @@ export const mapVertexCommon = `
 varying vec2 vGlobalPos;
 varying float vHeight;
 varying vec3 vWorldPosition;
+varying vec2 vLocalPosition;
 `;
 
 export const mapVertexUv = `
 #include <uv_vertex>
 vGlobalPos = uv;
+vLocalPosition = position.xy;
 `;
 
 export const mapVertexBegin = `
@@ -27,12 +29,14 @@ export const mapFragmentCommon = `
 varying vec2 vGlobalPos;
 varying float vHeight;
 varying vec3 vWorldPosition;
+varying vec2 vLocalPosition;
 uniform float uTime;
 uniform float uZoomAlpha;
 uniform sampler2D tWaterMask; 
 uniform sampler2D tNoise;
 uniform sampler2D tPackedMasks;
 uniform sampler2D tSnowMask;
+uniform sampler2D tFlowMap; // Agregado para el agua dulce
 uniform vec2 uMountainCenter;
 
 float fbm(vec2 p) {
@@ -46,13 +50,39 @@ float hash(vec2 p) {
     return fract(p.x * p.y);
 }
 
-// Value Noise suave
+// Value Noise suave (usado en océano)
 float snoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), f.x),
                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Simplex 2D noise (ORIGINAL DEL RÍO - Orgánico)
+vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+float simplexNoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy) );
+  vec2 x0 = v -   i + dot(i, C.xx);
+  vec2 i1;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m ;
+  m = m*m ;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
 }
 `;
 
@@ -178,6 +208,55 @@ gl_FragColor.rgb = mix(vec3(luminance), gl_FragColor.rgb, 1.18); // +18% de Satu
 gl_FragColor.rgb *= 1.05; // +5% de Brillo general
 
 // (La nieve se movió a mapFragmentColorChunk para ser afectada por la luz)
+
+// === 0. AGUA DULCE (Ríos y Lagos) ===
+// Lo calculamos AQUÍ (post-iluminación) para que los brillos del agua no se oscurezcan con las sombras del terreno.
+vec4 packedMasksRiver = texture2D(tPackedMasks, vGlobalPos);
+float isRiver = 1.0 - smoothstep(0.1, 0.5, packedMasksRiver.r);
+float isLake  = 1.0 - smoothstep(0.1, 0.5, packedMasksRiver.g);
+float isFreshWater = max(isRiver, isLake);
+
+if (isFreshWater > 0.01) {
+    // RESTAURACIÓN EXACTA DE COORDENADAS:
+    // En lugar de calcularlas, usamos directamente el atributo position.xy original de la malla
+    // (exactamente el mismo valor que tenía vGlobalPos.xy en el RiverShader).
+    vec2 localPosRiver = vLocalPosition;
+    
+    vec2 flowmapData = texture2D(tFlowMap, vGlobalPos).rg;
+    vec2 flowDir = vec2(flowmapData.r * 2.0 - 1.0, -(flowmapData.g * 2.0 - 1.0));
+    if (length(flowDir) < 0.1) flowDir = vec2(0.0, 0.0);
+    else flowDir = normalize(flowDir);
+    
+    float flowAxis = dot(localPosRiver, flowDir);
+    float walkerWave = fract(flowAxis * 8.0 - uTime * 1.2);
+    float stroke = smoothstep(0.0, 0.4, walkerWave) * (1.0 - smoothstep(0.6, 1.0, walkerWave));
+    
+    // USAMOS EL SIMPLEX NOISE ORIGINAL DEL RÍO
+    float noiseBreak = simplexNoise(localPosRiver * 8.0);
+    float lifeCycle = simplexNoise(localPosRiver * 4.0 - vec2(uTime * 0.5));
+    
+    float walker = stroke * smoothstep(0.0, 0.8, noiseBreak + 0.5) * smoothstep(-0.2, 0.8, lifeCycle);
+    
+    vec3 riverColorBase = vec3(0.0, 0.5, 0.7);
+    vec3 riverHighlight = vec3(0.5, 0.8, 0.9);
+    
+    vec3 finalRiverColor = mix(riverColorBase * 0.15, riverHighlight * 1.2, walker);
+    
+    vec3 illuminatedRiver = gl_FragColor.rgb * finalRiverColor;
+    illuminatedRiver += riverHighlight * walker * 0.4;
+    
+    float riverAlpha = isFreshWater * max(0.05, walker * 0.5);
+    
+    float snowMaskRiver = smoothstep(0.1, 0.5, packedMasksRiver.b);
+    float tCycleRiver = fract(uTime * 0.05);
+    float cycleRiver = smoothstep(0.0, 0.2, tCycleRiver) - smoothstep(0.6, 1.0, tCycleRiver);
+    float localCoverageRiver = cycleRiver * snowMaskRiver;
+    
+    riverAlpha *= (1.0 - localCoverageRiver);
+    
+    float zoomFade = smoothstep(0.3, 0.8, uZoomAlpha);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, illuminatedRiver, riverAlpha * zoomFade);
+}
 
 // === NIEBLA DE LOS BORDES ===
 float edgeX = max(0.0, abs(vGlobalPos.x - 0.5) * 2.0 - 0.88) / 0.12;

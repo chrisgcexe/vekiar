@@ -8,18 +8,7 @@ import {
     mapOceanFragment,
     mapFragmentColorChunk
 } from '../shaders/OceanShader.js';
-import {
-    riverVertexCommon,
-    riverVertexUv,
-    riverFragmentCommon,
-    riverFragment
-} from '../shaders/RiverShader.js';
-import {
-    lakeVertexCommon,
-    lakeVertexUv,
-    lakeFragmentCommon,
-    lakeFragment
-} from '../shaders/LakeShader.js';
+
 import {
     snowParticleVertex,
     snowParticleFragment
@@ -96,6 +85,7 @@ export class Map {
             mapMaterial.userData.tNoise = { value: noiseTexture };
             mapMaterial.userData.tPackedMasks = { value: packedMasksTexture };
             mapMaterial.userData.tSnowMask = { value: snowMaskTexture };
+            mapMaterial.userData.tFlowMap = { value: flowmapTexture };
             mapMaterial.userData.uMountainCenter = { value: new THREE.Vector2(0, 0) };
 
             // Inyectamos el código del shader modularizado (OceanShader.js)
@@ -106,6 +96,7 @@ export class Map {
                 shader.uniforms.tNoise = mapMaterial.userData.tNoise;
                 shader.uniforms.tPackedMasks = mapMaterial.userData.tPackedMasks;
                 shader.uniforms.tSnowMask = mapMaterial.userData.tSnowMask;
+                shader.uniforms.tFlowMap = mapMaterial.userData.tFlowMap;
                 shader.uniforms.uMountainCenter = mapMaterial.userData.uMountainCenter;
 
                 shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);
@@ -117,58 +108,7 @@ export class Map {
                 shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', mapOceanFragment);
             };
 
-            // --- MATERIAL DEL RÍO ---
-            const riverMaterial = mapMaterial.clone();
-            riverMaterial.transparent = true;
-            riverMaterial.depthWrite = false; 
 
-            // Guardar la referencia en la clase
-            this.riverMaterial = riverMaterial;
-
-            riverMaterial.userData.uTime = mapMaterial.userData.uTime;
-            riverMaterial.userData.uZoomAlpha = mapMaterial.userData.uZoomAlpha;
-            riverMaterial.userData.tPackedMasks = { value: packedMasksTexture };
-            riverMaterial.userData.tFlowMap = { value: flowmapTexture };
-
-            riverMaterial.onBeforeCompile = (shader) => {
-                shader.uniforms.uTime = riverMaterial.userData.uTime;
-                shader.uniforms.uZoomAlpha = riverMaterial.userData.uZoomAlpha;
-                // Le pasamos la textura empaquetada (R=Ríos, G=Lagos, B=Desierto, A=Nieve)
-                shader.uniforms.tPackedMasks = riverMaterial.userData.tPackedMasks;
-                shader.uniforms.tFlowMap = riverMaterial.userData.tFlowMap;
-
-                shader.vertexShader = shader.vertexShader.replace('#include <common>', riverVertexCommon);
-                shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', riverVertexUv);
-                
-                shader.fragmentShader = shader.fragmentShader.replace('#include <common>', riverFragmentCommon);
-                shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', riverFragment);
-            };
-
-            // --- MATERIAL DEL LAGO ---
-            const lakeMaterial = mapMaterial.clone();
-            lakeMaterial.transparent = true;
-            lakeMaterial.depthWrite = false; 
-
-            // Guardar la referencia en la clase
-            this.lakeMaterial = lakeMaterial;
-
-            lakeMaterial.userData.uTime = mapMaterial.userData.uTime;
-            lakeMaterial.userData.uZoomAlpha = mapMaterial.userData.uZoomAlpha;
-            lakeMaterial.userData.tPackedMasks = { value: packedMasksTexture };
-            lakeMaterial.userData.tFlowMap = { value: flowmapTexture };
-
-            lakeMaterial.onBeforeCompile = (shader) => {
-                shader.uniforms.uTime = lakeMaterial.userData.uTime;
-                shader.uniforms.uZoomAlpha = lakeMaterial.userData.uZoomAlpha;
-                shader.uniforms.tPackedMasks = lakeMaterial.userData.tPackedMasks;
-                shader.uniforms.tFlowMap = lakeMaterial.userData.tFlowMap;
-
-                shader.vertexShader = shader.vertexShader.replace('#include <common>', lakeVertexCommon);
-                shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', lakeVertexUv);
-                
-                shader.fragmentShader = shader.fragmentShader.replace('#include <common>', lakeFragmentCommon);
-                shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', lakeFragment);
-            };
 
             // --- MATERIAL DE HUMO DE PERMAFROST ---
             const permafrostMistMaterial = new THREE.ShaderMaterial({
@@ -231,17 +171,7 @@ export class Map {
                     
                     mapGroup.add(chunkMesh);
 
-                    // CAPA 2: RÍOS
-                    // Usamos la misma geometría exacta, pero con el material de los ríos
-                    const riverLayerMesh = new THREE.Mesh(geometry, riverMaterial);
-                    riverLayerMesh.position.copy(chunkMesh.position);
-                    // No necesita sombras porque es transparente
-                    mapGroup.add(riverLayerMesh);
 
-                    // CAPA 3: LAGOS
-                    const lakeLayerMesh = new THREE.Mesh(geometry, lakeMaterial);
-                    lakeLayerMesh.position.copy(chunkMesh.position);
-                    mapGroup.add(lakeLayerMesh);
 
                     // CAPA 4: HUMO DE PERMAFROST
                     const mistLayerMesh = new THREE.Mesh(geometry, permafrostMistMaterial);
