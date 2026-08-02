@@ -81,10 +81,9 @@ export class Map {
             // Creamos las variables que recibirán datos desde JS
             mapMaterial.userData.uZoomAlpha = { value: 1.0 };
             mapMaterial.userData.uTime = { value: 0.0 };
-            mapMaterial.userData.tWaterMask = { value: waterMaskTexture };
+            mapMaterial.userData.tMapDataPacked = { value: mapDataPackedTexture };
             mapMaterial.userData.tNoise = { value: noiseTexture };
             mapMaterial.userData.tPackedMasks = { value: packedMasksTexture };
-            mapMaterial.userData.tSnowMask = { value: snowMaskTexture };
             mapMaterial.userData.tFlowMap = { value: flowmapTexture };
             mapMaterial.userData.uMountainCenter = { value: new THREE.Vector2(0, 0) };
 
@@ -92,10 +91,9 @@ export class Map {
             mapMaterial.onBeforeCompile = (shader) => {
                 shader.uniforms.uZoomAlpha = mapMaterial.userData.uZoomAlpha;
                 shader.uniforms.uTime = mapMaterial.userData.uTime;
-                shader.uniforms.tWaterMask = mapMaterial.userData.tWaterMask;
+                shader.uniforms.tMapDataPacked = mapMaterial.userData.tMapDataPacked;
                 shader.uniforms.tNoise = mapMaterial.userData.tNoise;
                 shader.uniforms.tPackedMasks = mapMaterial.userData.tPackedMasks;
-                shader.uniforms.tSnowMask = mapMaterial.userData.tSnowMask;
                 shader.uniforms.tFlowMap = mapMaterial.userData.tFlowMap;
                 shader.uniforms.uMountainCenter = mapMaterial.userData.uMountainCenter;
 
