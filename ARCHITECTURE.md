@@ -60,16 +60,19 @@ El mapa no es un modelo `.obj` tradicional. Se genera proceduralmente a través 
 > [!TIP]
 > **Optimización extrema:** En vez de cargar 4 imágenes en blanco y negro para máscaras, se unificaron en los distintos canales (R, G, B, A) de un solo PNG.
 
-- **`vekiar_sin_letras.jpg`**: El color base.
-- **`map_data_packed.png`**: 
+- **`base_color_map.jpg`**: El color base de la isla.
+- **`map_data_R_elevation_B_snow_particles.png`**: 
   - Canal Rojo (R): Mapa de Alturas (Elevación del modelo 3D).
-  - Canal Verde (G): Máscara estricta del Océano (Separa física de agua y tierra).
-  - Canal Azul (B): Gradiente de la Nieve.
-- **`biomas_packed_R_river_G_lake_B_desert_A_snow.png`**:
+  - Canal Azul (B): Máscara estricta de la nieve para spawnear las **25.000 partículas** en el aire, y difuminado de base de montañas (`blurryMountain`).
+- **`masks_1_R_river_G_lake_B_snow.png`**:
   - Canal Rojo (R): Cauces de ríos.
   - Canal Verde (G): Lagos internos.
-  - Canal Azul (B): Zonas densas de nieve para las partículas.
-- **`flowmap_small.png`**: Direcciones vectoriales para que los ríos fluyan hacia el lado correcto.
+  - Canal Azul (B): Máscara de **nieve acumulada en el suelo** para el shader.
+  - Canal Alpha (A): Vacío (Ocupable para futuras máscaras).
+- **`water_noise_distortion.jpg`**: Textura de ruido para animar el oleaje del océano y los bordes.
+- **`river_flow_directions.png`**: Direcciones vectoriales para que los ríos fluyan hacia el lado correcto.
+
+> **Nota sobre `source_assets/`**: En `assets/images/source_assets/` se guardan backups e imágenes originales de experimentación (como los heightmaps o biomas separados) que no son cargadas por el juego para preservar la memoria.
 
 El **Worker** lee el canal rojo, eleva los vértices, calcula el sombreado (`computeVertexNormals` propio) y devuelve 64 mallas ("Chunks") a `Map.js` para usar Frustum Culling (Three.js no dibuja los chunks que la cámara no está mirando).
 

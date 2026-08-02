@@ -1,33 +1,30 @@
-# Plan de Implementación: Limpieza y Reorganización de Nomenclaturas
+# Plan de Implementación: Nomenclatura Descriptiva y Limpieza de Source Assets
 
-Tenés muchísima razón. Si construimos sobre cimientos confusos, en el futuro no vamos a entender nada. Vamos a emprolijar los nombres de las texturas, los comentarios en el código y la documentación oficial antes de agregar una sola línea de lógica para el desierto.
+Vamos a dejar el directorio de imágenes impecable. Las imágenes activas tendrán nombres que expliquen exactamente qué función cumplen en el código.
 
 ## Proposed Changes
 
-### 1. Renombramiento de Archivos (Assets)
-Vamos a cambiar el nombre de las imágenes físicas para que describan **exactamente** lo que contienen hoy en día.
+### 1. Renombramiento de Assets Activos (Game Assets)
+Estas texturas SÍ se usan en el código actual, pero sus nombres son vagos. Las renombraremos:
+- `noise.jpg` ➔ **`water_noise_distortion.jpg`** (Se usa para animar las olas y el agua en el shader).
+- `flowmap_small.png` ➔ **`river_flow_directions.png`** (Le dice al agua de los ríos hacia dónde debe fluir).
+- `vekiar_sin_letras.jpg` ➔ **`base_color_map.jpg`** (Es la textura de color principal que recubre todo el mapa).
 
-- `biomas_packed_R_river_G_lake_B_desert_A_snow.png` 
-  ➔ **Pasa a llamarse:** `masks_1_R_river_G_lake_B_snow.png`
-- `map_data_packed.png` 
-  ➔ **Pasa a llamarse:** `map_data_R_elevation_B_snow_particles.png`
+### 2. Mover Assets Inactivos (Source Assets)
+Estas imágenes NO son llamadas por el código. Son tus editables o pruebas viejas. Las moveremos a `assets/images/source_assets/` para que no estorben:
+- `heightmap_custom.png` (Tu mapa de altura original crudo).
+- `vekiar_biomas_mask.jpg` (Tu máscara colorida cruda).
+- Todas las versiones de elevación viejas: `vekiar_sin_letras_h.jpg`, `h2.jpg`, `h3.jpg`, `h4.jpg`, `h5.jpg`, `h6.jpg`.
 
-### 2. Actualización de Código (Javascript)
-- **[MODIFY] `js/utils/AssetLoader.js`**: Actualizaremos las rutas de carga de las imágenes con los nuevos nombres y añadiremos comentarios clarísimos explicando qué tiene cada canal.
-- **[MODIFY] `js/scene/TerrainMaterial.js`**: Mejoraremos los nombres de los uniforms si es necesario, o al menos agregaremos comentarios descriptivos.
-- **[MODIFY] `js/systems/SnowSystem.js`**: Comentaremos explícitamente que lee el canal Azul de la textura de datos del mapa para generar partículas.
-
-### 3. Actualización de Shaders (GLSL)
-- **[MODIFY] `js/shaders/chunks/WaterChunk.js` y `LandChunk.js`**: Agregaremos un bloque de comentarios en la cabecera del archivo detallando qué canales se usan (Ej: `// tPackedMasks -> R: Ríos, G: Lagos, B: Nieve Piso`).
-
-### 4. Actualización de Documentación
-- **[MODIFY] `ARCHITECTURE.md`**: Reescribiremos la sección 3 ("Pipeline de Generación del Mapa") con la información 100% verídica de qué hace cada canal de cada imagen.
+### 3. Actualización de Código y Docs
+- **[MODIFY] `js/utils/AssetLoader.js`**: Actualizar con las 3 nuevas rutas (`water_noise_distortion.jpg`, `river_flow_directions.png`, `base_color_map.jpg`).
+- **[MODIFY] `ARCHITECTURE.md`**: Explicar el propósito de cada una de estas texturas (Ruido del agua, Direcciones del flujo, Color base).
 
 ## Verification Plan
-1. Verificaremos que el proyecto corra sin errores 404 (File not found).
-2. Verificaremos que todo se renderice igual que antes.
-3. Leeremos los archivos clave para asegurarnos de que los comentarios disipen cualquier duda.
+1. Crear el directorio `source_assets/`.
+2. Mover los archivos inactivos usando comandos de consola.
+3. Renombrar los 3 archivos activos.
+4. Actualizar el código y confirmar que el mapa siga cargando perfectamente.
 
 ## Open Questions
-- ¿Estás de acuerdo con los nuevos nombres de archivo (`masks_1_R_river_G_lake_B_snow.png` y `map_data_R_elevation_B_snow_particles.png`) o preferís algo más corto/largo?
-- Cuando implementemos el desierto, ¿lo metemos en el canal Alpha de `masks_1_...png` (así la renombramos a `..._A_desert.png`)?
+- ¿Te parecen bien esos nombres (`water_noise_distortion`, `river_flow_directions`, `base_color_map`) o preferís que sean en español?

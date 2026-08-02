@@ -1,18 +1,15 @@
-# Tareas: Limpieza y Renombramiento Seguro
+# Tareas: Limpieza de Imágenes Huérfanas y Nomenclatura
 
-- `[x]` **Paso 1: Renombrar textura de Biomas**
-  - Copiar la textura original a `masks_1_R_river_G_lake_B_snow.png`.
-  - Actualizar `AssetLoader.js` para usar la nueva textura.
+- `[ ]` **Paso 1: Mover assets inactivos**
+  - Crear carpeta `assets/images/source_assets/`
+  - Mover `heightmap_custom.png`, `vekiar_biomas_mask.jpg`, y todos los `vekiar_sin_letras_h*.jpg`.
+- `[ ]` **Paso 2: Renombrar assets activos**
+  - Renombrar `noise.jpg` a `water_noise_distortion.jpg`.
+  - Renombrar `flowmap_small.png` a `river_flow_directions.png`.
+  - Renombrar `vekiar_sin_letras.jpg` a `base_color_map.jpg`.
+- `[ ]` **Paso 3: Actualizar Código y Docs**
+  - Actualizar `AssetLoader.js` con las nuevas rutas.
+  - Actualizar `ARCHITECTURE.md`.
+- `[ ]` **Paso 4: Verificar y Comitear**
   - Verificar que cargue.
-  - Eliminar textura vieja y hacer commit.
-- `[x]` **Paso 2: Renombrar textura de Elevación**
-  - Copiar textura original a `map_data_R_elevation_B_snow_particles.png`.
-  - Actualizar `AssetLoader.js` para usar la nueva textura.
-  - Verificar que cargue.
-  - Eliminar textura vieja y hacer commit.
-- `[ ]` **Paso 3: Comentar el Código (Shaders y JS)**
-  - Agregar bloques de comentarios descriptivos en `WaterChunk.js`, `LandChunk.js` y `SnowSystem.js`.
-  - Hacer commit.
-- `[ ]` **Paso 4: Actualizar Documentación**
-  - Corregir `ARCHITECTURE.md` para reflejar la realidad de los canales.
   - Hacer commit.
