@@ -32,10 +32,9 @@ varying vec3 vWorldPosition;
 varying vec2 vLocalPosition;
 uniform float uTime;
 uniform float uZoomAlpha;
-uniform sampler2D tWaterMask; 
 uniform sampler2D tNoise;
+uniform sampler2D tMapDataPacked; // R=Height, G=WaterMask, B=SnowMask
 uniform sampler2D tPackedMasks;
-uniform sampler2D tSnowMask;
 uniform sampler2D tFlowMap; // Agregado para el agua dulce
 uniform vec2 uMountainCenter;
 
@@ -92,7 +91,7 @@ export const mapOceanFragment = `
 // === 1. ANIMACIÓN DEL OCÉANO ===
 // Usamos tu nueva máscara perfecta (Blanco=Tierra, Negro=Agua).
 // Como queremos que el agua sea 1.0 y la tierra 0.0, lo invertimos (1.0 - mask)
-float maskValue = texture2D(tWaterMask, vGlobalPos).r;
+float maskValue = texture2D(tMapDataPacked, vGlobalPos).g;
 float waterMix = 1.0 - maskValue;
 
 if (waterMix > 0.0) {
@@ -142,6 +141,10 @@ if (waterMix > 0.0) {
     // Como el fondo no se mueve, NO deben tener parallax. Le acabo de quitar el viewDir.
     vec2 wUv = diagPos * 30.0; 
     vec2 warp = vec2(fbm(wUv * 0.5 + uTime * 0.15), fbm(wUv * 0.5 - uTime * 0.1)) * 4.0;
+    // === MÁSCARA DEL OCÉANO ===
+    // Invertimos la textura y aplicamos smoothstep suave para suavizar los bordes
+    // (Canal G = WaterMask)
+    float isWater = 1.0 - smoothstep(0.1, 0.5, texture2D(tMapDataPacked, vGlobalPos).g);
     wUv += warp;
     
     float celdas = sin(wUv.x) * sin(wUv.y);
@@ -279,7 +282,7 @@ export const mapFragmentColorChunk = `
 // 1. ZONA DE NIEVE: Leemos la máscara de nieve del piso desde la imagen empaquetada amarilla.
 // El usuario indica usar el "canal alpha", pero como la imagen es RGB plana con nieve en blanco, 
 // la leemos desde el canal Azul (b).
-float m = texture2D(tPackedMasks, vGlobalPos).b; 
+float m = texture2D(tMapDataPacked, vGlobalPos).b; 
 float snowZone = smoothstep(0.1, 0.5, m);
 
 // Leemos todas las máscaras empaquetadas
@@ -289,8 +292,8 @@ vec4 packedMasks = texture2D(tPackedMasks, vGlobalPos);
 // Excluir la nieve base en la montaña de forma ULTRA SUAVE.
 // Usamos el "bias" de texture2D (3er parámetro en GLSL) para leer un 
 // MipMap inferior, lo que nos da una versión extremadamente borrosa 
-// de la máscara de forma nativa y sin costo de rendimiento.
-float blurryMountain = 1.0 - texture2D(tSnowMask, vGlobalPos, 5.0).r;
+// (Canal B = SnowMask)
+float blurryMountain = 1.0 - texture2D(tMapDataPacked, vGlobalPos, 5.0).b;
 
 // El resultado es un gradiente perfecto y gigante. Lo ajustamos con smoothstep
 // para que el desvanecimiento sea mantequilla pura.

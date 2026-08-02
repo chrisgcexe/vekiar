@@ -36,25 +36,19 @@ export class Map {
         // Cargamos las texturas en paralelo
         Promise.all([
             textureLoader.loadAsync('./assets/images/vekiar_sin_letras.jpg'),
-            textureLoader.loadAsync('./assets/images/vekiar_sin_letras_h7.jpg'),
-            textureLoader.loadAsync('./assets/images/vekiar_water_mask.jpg'),
+            textureLoader.loadAsync('./assets/images/map_data_packed.png'),
             textureLoader.loadAsync('./assets/images/noise.jpg'),
             textureLoader.loadAsync('./assets/images/biomas_packed_R_river_G_lake_B_desert_A_snow.png'),
-            textureLoader.loadAsync('./assets/images/flowmap.png'),
-            textureLoader.loadAsync('./assets/images/vekiar_m_nevadas_mask.jpg')
-        ]).then(([colorTexture, heightTexture, waterMaskTexture, noiseTexture, packedMasksTexture, flowmapTexture, snowMaskTexture]) => {
+            textureLoader.loadAsync('./assets/images/flowmap_small.png')
+        ]).then(([colorTexture, mapDataPackedTexture, noiseTexture, packedMasksTexture, flowmapTexture]) => {
             
             colorTexture.colorSpace = THREE.SRGBColorSpace;
             colorTexture.minFilter = THREE.LinearMipmapLinearFilter;
             colorTexture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
             
             // OPTIMIZACIÓN: Las máscaras y mapas de altura no necesitan MipMaps (copias miniatura para antialiasing).
-            // Apagarlos ahorra un 33% extra de VRAM por cada máscara.
-            heightTexture.generateMipmaps = false;
-            heightTexture.minFilter = THREE.LinearFilter;
-            
-            waterMaskTexture.generateMipmaps = false;
-            waterMaskTexture.minFilter = THREE.LinearFilter;
+            // NOTA: mapDataPackedTexture usa la nieve en el canal Azul, y el shader SÍ usa MipMaps (bias) 
+            // para difuminar la base de la montaña. Así que NO APAGAMOS LOS MIPMAPS en esta textura empaquetada.
             
             packedMasksTexture.generateMipmaps = false;
             packedMasksTexture.minFilter = THREE.LinearFilter;
@@ -120,7 +114,7 @@ export class Map {
             const permafrostMistMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     tPackedMasks: { value: packedMasksTexture },
-                    tSnowMask: { value: snowMaskTexture },
+                    tMapDataPacked: { value: mapDataPackedTexture },
                     tNoise: { value: noiseTexture },
                     uTime: mapMaterial.userData.uTime,
                     uZoomAlpha: mapMaterial.userData.uZoomAlpha
@@ -134,12 +128,12 @@ export class Map {
             this.permafrostMistMaterial = permafrostMistMaterial;
 
 
-            // Leer alturas
+            // Leer alturas (Canal Rojo del empaquetado)
             const canvas = document.createElement('canvas');
-            canvas.width = heightTexture.image.width;
-            canvas.height = heightTexture.image.height;
+            canvas.width = mapDataPackedTexture.image.width;
+            canvas.height = mapDataPackedTexture.image.height;
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(heightTexture.image, 0, 0);
+            ctx.drawImage(mapDataPackedTexture.image, 0, 0);
             
             // Extraemos los pixeles como ArrayBuffer
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -186,12 +180,12 @@ export class Map {
                 } // <--- CERRAR EL LOOP DE CHUNKS AQUÍ
 
                 // --- SISTEMA DE CLIMA FIJO A LAS MONTAÑAS (DENSIDAD EXTREMA) ---
-                // Leemos la textura de nieve en un canvas para saber exactamente dónde hay nieve
+                // Leemos la textura de datos (donde el canal Azul es la máscara de nieve)
                 const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = snowMaskTexture.image.width;
-                maskCanvas.height = snowMaskTexture.image.height;
+                maskCanvas.width = mapDataPackedTexture.image.width;
+                maskCanvas.height = mapDataPackedTexture.image.height;
                 const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-                maskCtx.drawImage(snowMaskTexture.image, 0, 0);
+                maskCtx.drawImage(mapDataPackedTexture.image, 0, 0);
                 const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
 
                 const particleCount = 25000; // Reducido levemente por optimización extrema, tamaño compensado en shader
@@ -216,10 +210,10 @@ export class Map {
                     const py = Math.floor((1.0 - ry) * maskCanvas.height);
                     
                     const index = (py * maskCanvas.width + px) * 4;
-                    // El usuario proveyó un JPG blanco y negro, donde la nieve es negra (R=0).
-                    const redValue = maskData[index];
+                    // Extraemos el Canal Azul (+2) que contiene la máscara de nieve
+                    const blueValue = maskData[index + 2];
                     
-                    if (redValue < 128) {
+                    if (blueValue < 128) {
                         // Mapeamos (rx, ry) a las coordenadas del mundo (-50 a 50)
                         // Eliminamos el "sangrado" para que caigan exactamente y de forma densa sobre la máscara negra
                         const worldX = (rx - 0.5) * totalSize;

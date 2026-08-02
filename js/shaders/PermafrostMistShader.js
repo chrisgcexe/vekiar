@@ -34,7 +34,7 @@ void main() {
 
 export const permafrostMistFragment = `
 uniform sampler2D tPackedMasks;
-uniform sampler2D tSnowMask;
+uniform sampler2D tMapDataPacked;
 uniform sampler2D tNoise;
 uniform float uTime;
 uniform float uZoomAlpha;
@@ -58,7 +58,8 @@ void main() {
     
     // Leemos la textura de nieve usando el "bias" nativo de WebGL (MipMap inferior)
     // Esto nos da un desenfoque (blur) extremadamente barato en rendimiento (1 muestreo vs 9)
-    float m = 1.0 - texture2D(tSnowMask, vUv, 3.0).r;
+    // Canal Azul (b) de tMapDataPacked contiene la máscara de nieve de montañas
+    float m = 1.0 - texture2D(tMapDataPacked, vUv, 3.0).b;
     
     // Solo mostramos niebla donde hay nieve (m > 0)
     // Ampliamos el rango del smoothstep para que el desvanecimiento sea ultra suave
