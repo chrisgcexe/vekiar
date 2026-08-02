@@ -240,6 +240,12 @@ float localCoverage = cycle * snowZone;
 // Esto genera el efecto visual exacto de manchas de nieve que crecen, se unen y forman un manto sólido.
 float snowFactor = smoothstep(groundNoise - 0.1, groundNoise + 0.1, localCoverage);
 
+// FIX DEL BUG DE NIEVE FANTASMA: 
+// Debido al ancho del smoothstep anterior (groundNoise - 0.1), un localCoverage de 0.0
+// podía devolver un valor mayor a cero si el groundNoise era muy bajo (ej: 0.05 - 0.1 = -0.05).
+// Esto generaba parches aleatorios por todo el mapa. Forzamos a cero estricto si no hay cobertura:
+snowFactor *= smoothstep(0.0, 0.01, localCoverage);
+
 // Mezclamos el terreno con blanco puro
 vec3 snowColor = vec3(0.95, 0.98, 1.0);
 float zoomFadeSnow = smoothstep(0.3, 0.8, uZoomAlpha);
