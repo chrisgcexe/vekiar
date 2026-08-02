@@ -58,6 +58,19 @@ export class SceneManager {
         this.scene.add(this.sunLight);
     }
 
+    update(appState) {
+        // La luz del sol se atenúa un poco en 2D, pero NO se apaga, para mantener el color vivo
+        if (this.sunLight) {
+            this.sunLight.intensity = 0.8 + appState.currentIn3DAlpha * 0.7;
+        }
+
+        // Si tenemos el viñeteado en el DOM, actualizar opacidad
+        const vignetteElement = document.getElementById('vignette');
+        if (vignetteElement) {
+            vignetteElement.style.opacity = appState.currentIn3DAlpha;
+        }
+    }
+
     handleResize(aspect, width, height) {
         this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
