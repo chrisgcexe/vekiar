@@ -5,7 +5,6 @@ import { AssetLoader } from '../utils/AssetLoader.js';
 import { TerrainMaterial } from './TerrainMaterial.js';
 import { SnowSystem } from '../systems/SnowSystem.js';
 import { PermafrostMistMaterial } from '../systems/PermafrostMistMaterial.js';
-import { DesertMistMaterial } from '../systems/DesertMistMaterial.js';
 import { OceanSystem } from '../systems/OceanSystem.js';
 import { LandSystem } from '../systems/LandSystem.js';
 
@@ -51,9 +50,6 @@ export class Map {
             const permafrostMistMaterial = PermafrostMistMaterial.create(assets, mapMaterial);
             this.permafrostMistMaterial = permafrostMistMaterial;
 
-            // --- MATERIAL DE NIEBLA DEL DESIERTO ---
-            const desertMistMaterial = DesertMistMaterial.create(assets, mapMaterial);
-            this.desertMistMaterial = desertMistMaterial;
 
             // Leer alturas (Canal Rojo del empaquetado)
             const canvas = document.createElement('canvas');
@@ -77,7 +73,7 @@ export class Map {
                 const indexAttributes = sharedIndices.map(indices => new THREE.BufferAttribute(indices, 1));
                 
                 // Distancias de LOD: Alta (0), Media (25), Baja (45). Ajustá estos números testeando la cámara.
-                const lodDistances = [0, 40, 60]; 
+                const lodDistances = [0, 35, 60]; 
 
                 for (let chunkData of chunks) {
                     const lod = new THREE.LOD();
@@ -107,9 +103,7 @@ export class Map {
                         const mistLayerMesh = new THREE.Mesh(geometry, permafrostMistMaterial);
                         lodLevelGroup.add(mistLayerMesh);
 
-                        // CAPA 5: NIEBLA DEL DESIERTO
-                        const desertMistMesh = new THREE.Mesh(geometry, desertMistMaterial);
-                        lodLevelGroup.add(desertMistMesh);
+
 
                         // Inyectamos el grupo al contenedor LOD en la distancia correspondiente
                         lod.addLevel(lodLevelGroup, lodDistances[index]);

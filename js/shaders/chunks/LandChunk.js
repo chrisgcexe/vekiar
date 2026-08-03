@@ -44,11 +44,64 @@ vec3 snowColor = snowColorBase + (bumpShadow * bumpMask * vec3(0.4, 0.45, 0.5));
 float zoomFadeSnow = smoothstep(0.3, 0.8, uZoomAlpha);
 diffuseColor.rgb = mix(diffuseColor.rgb, snowColor, snowFactor * zoomFadeSnow);
 
-// === 2. AMBIENTACIÓN DEL DESIERTO ===
-// (Efectos de shader eliminados por feedback. El canal Alpha queda listo para usar con partículas)
-float desertMask = 1.0 - texture2D(tPackedMasks, vGlobalPos).a;
-float aridZone = smoothstep(0.1, 0.5, desertMask);
+
+// === 2. AMBIENTACIÓN DEL DESIERTO (ESPEJISMO + POLVO) ===
+
+// 1. Calculamos las máscaras UNA SOLA VEZ para ambos efectos
+float rawDesert = texture2D(tPackedMasks, vGlobalPos, 4.0).a;
+float desertMaskAlpha = 1.0 - rawDesert;
+float aridZone = smoothstep(0.2, 0.7, desertMaskAlpha);
+
+float landMask = texture2D(tMapDataPacked, vGlobalPos).g;
+aridZone *= smoothstep(0.1, 0.5, landMask);
+
+if (aridZone > 0.01) {
+    // --- EFECTO 1: TORMENTA DE ARENA (POLVO) ---
+    vec2 windUv1 = vGlobalPos * 25.0 + vec2(-uTime * 1.5, -uTime * 1.0);
+    vec2 windUv2 = vGlobalPos * 35.0 + vec2(-uTime * 2.2, uTime * 0.5);
+
+    float dustNoise = fbm(windUv1) * fbm(windUv2);
+    float movingDust = smoothstep(0.05, 0.25, dustNoise);
+    
+    float dustClouds = 0.25 + 0.7 * movingDust; 
+    
+    vec3 baseDustColor = vec3(0.92, 0.78, 0.50);
+    vec3 peakDustColor = vec3(1.0, 0.88, 0.65);
+    vec3 finalDustColor = mix(baseDustColor, peakDustColor, movingDust);
+    
+    float zoomFadeDust = smoothstep(0.3, 0.8, uZoomAlpha);
+    float finalDustAlpha = clamp(aridZone * dustClouds * zoomFadeDust, 0.0, 1.0);
+
+    // Aplicamos el polvo PRIMERO al terreno
+    diffuseColor.rgb = mix(diffuseColor.rgb, finalDustColor, finalDustAlpha);
+
+    // --- EFECTO 2: HEAT HAZE SOBRE TODO (Terreno + Polvo) ---
+    // Bajamos la escala a 30.0 para que las ondas sean más grandes y legibles, y aceleramos el pulso
+    vec2 heatUv = vGlobalPos * 30.0 + vec2(sin(uTime * 3.0) * 0.15, -uTime * 4.5);
+    float heatNoise = fbm(heatUv);
+    
+    // Contraste más duro para aislar bien la refracción
+    float shimmer = smoothstep(0.3, 0.6, heatNoise);
+    
+    // Tomamos el color actual (que ahora ya tiene la arena incorporada)
+    vec3 currentTerrain = diffuseColor.rgb;
+    
+    // Exageramos la luminosidad brutalmente para que se note el destello térmico
+    vec3 heatWarp = currentTerrain + (shimmer * 0.35); 
+    // Y lo cruzamos con sombras duras
+    heatWarp = mix(heatWarp, currentTerrain * 0.6, shimmer * 0.7); 
+    
+    // Tinte mucho más agresivo (empuja los rojos y amarillos)
+    vec3 heatTint = vec3(1.15, 0.9, 0.75);
+    
+    float zoomFadeHeat = smoothstep(0.3, 0.8, uZoomAlpha);
+    float finalHeatAlpha = clamp(aridZone * zoomFadeHeat, 0.0, 1.0);
+
+    // Distorsionamos todo junto antes de mandarlo al motor de iluminación
+    diffuseColor.rgb = mix(currentTerrain, heatWarp * heatTint, finalHeatAlpha);
+}    
 `;
+
 
 export const landColorAdjustmentChunk = `
 // === AJUSTES GLOBALES DE COLOR (Vibrancia y Luz) ===

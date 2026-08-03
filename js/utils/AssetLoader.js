@@ -13,13 +13,13 @@ export class AssetLoader {
             .detectSupport(renderer);
 
         // 1. Cargar Assets Visuales (Comprimidos en VRAM)
-        const noisePromise = textureLoader.loadAsync('./assets/images/source_assets/water_noise_distortion.jpg');
+        const noisePromise = textureLoader.loadAsync('./assets/images/water_noise_distortion.jpg');
         const colorPromise = ktx2Loader.loadAsync('./assets/images/base_color_map.ktx2');
   
 
         // 2. Cargar Assets de Datos (Crudos en PNG para no perder matemática)
         const mapDataPromise = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
-        const packedMasksPromise = textureLoader.loadAsync('./assets/images/masks_1_R_river_G_lake_B_snow.png');
+        const packedMasksPromise = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
         const flowmapPromise = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
 
         // Esperamos a que baje todo en paralelo
