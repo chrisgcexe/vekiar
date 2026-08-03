@@ -73,7 +73,7 @@ export class Map {
                 const indexAttributes = sharedIndices.map(indices => new THREE.BufferAttribute(indices, 1));
                 
                 // Distancias de LOD: Alta (0), Media (25), Baja (45). Ajustá estos números testeando la cámara.
-                const lodDistances = [0, 35, 60]; 
+                const lodDistances = [0, 40, 55]; 
 
                 for (let chunkData of chunks) {
                     const lod = new THREE.LOD();
