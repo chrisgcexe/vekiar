@@ -57,7 +57,7 @@ aridZone *= smoothstep(0.1, 0.5, landMask);
 
 if (aridZone > 0.01) {
     // --- EFECTO 1: TORMENTA DE ARENA (POLVO) ---
-    vec2 windUv1 = vGlobalPos * 25.0 + vec2(-uTime * 1.5, -uTime * 1.0);
+    vec2 windUv1 = vGlobalPos * 25.0 + vec2(-uTime * 2.8, -uTime * 1.0);
     vec2 windUv2 = vGlobalPos * 35.0 + vec2(-uTime * 2.2, uTime * 0.5);
 
     float dustNoise = fbm(windUv1) * fbm(windUv2);
@@ -77,7 +77,7 @@ if (aridZone > 0.01) {
 
     // --- EFECTO 2: HEAT HAZE SOBRE TODO (Terreno + Polvo) ---
     // Bajamos la escala a 30.0 para que las ondas sean más grandes y legibles, y aceleramos el pulso
-    vec2 heatUv = vGlobalPos * 30.0 + vec2(sin(uTime * 3.0) * 0.15, -uTime * 4.5);
+    vec2 heatUv = vGlobalPos * 30.0 + vec2(-uTime * 3.0, -uTime * 4.5);
     float heatNoise = fbm(heatUv);
     
     // Contraste más duro para aislar bien la refracción
