@@ -37,7 +37,7 @@ export class Map {
             const totalSize = 100;
             const chunkSize = totalSize / gridSize;
             
-const mapGroup = new THREE.Group();
+            const mapGroup = new THREE.Group();
             
             // --- NUEVO: PLANOS DE CORTE Y CILINDROS ---
             // El plano izquierdo corta lo que está a la izquierda (apunta a +X)
@@ -47,20 +47,120 @@ const mapGroup = new THREE.Group();
             const clippingPlanes = [this.clipLeft, this.clipRight];
 
 // Cilindros base para hacer de bordes del papel
-// Compensamos exactamente la escala inversa que aplica el mapGroup
             const mapWidth = 100;
-            const mapHeight = (mapWidth / this.aspect) * this.aspect; // O simplemente mapWidth, o ajustado por el aspect real
+            const mapHeight = (mapWidth / this.aspect) * this.aspect; 
+            const finalRollHeight = (100 / this.aspect) * 1.78; 
             
-            // Si el mapa se aplana por (1 / this.aspect), el cilindro necesita estirarse multiplicándose por el aspect
-            const correctRollHeight = (100 / this.aspect) * (this.aspect * this.aspect); 
+            const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32, 64);
+            const rollMat = new THREE.MeshStandardMaterial({ 
+                            color: 0xe3d4be,      // Un tono base más cálido y luminoso
+                            roughness: 0.98,      // Casi totalmente mate para eliminar el brillo plástico
+                            metalness: 0.0,       // Cero metálico
+                            roughnessMap: noiseTexture,
+                            bumpMap: noiseTexture,
+                            bumpScale: 0.4        // Bajamos el bump para que no parezca piedra rugosa
+                        });
             
-            // Dicho de forma directa y limpia para que ocupe todo el alto visual:
-            const finalRollHeight = (100 / this.aspect) * 1.78; // Probá este factor de escala directo en pantalla
-            
-            const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32);
-            const rollMat = new THREE.MeshStandardMaterial({ color: 0xd4c3a3, roughness: 0.9 });
+// --- INYECCIÓN DE DEFORMACIÓN Y TEXTURIZADO ORGÁNICO EN EL SHADER ---
+            rollMat.onBeforeCompile = (shader) => {
+                shader.uniforms.uTime = { value: 0.0 };
+                rollMat.userData.shaderUniforms = shader.uniforms;
+
+                shader.vertexShader = `
+                    uniform float uTime;
+                    varying vec3 vWorldPositionRoll;
+                    varying vec2 vUvRoll;
+                    
+                    float hashRoll(vec2 p) {
+                        p = fract(p * vec2(123.34, 456.21));
+                        p += dot(p, p + 45.32);
+                        return fract(p.x * p.y);
+                    }
+                    
+                    float snoiseRoll(vec2 p) {
+                        vec2 i = floor(p);
+                        vec2 f = fract(p);
+                        f = f * f * (3.0 - 2.0 * f);
+                        return mix(mix(hashRoll(i + vec2(0.0, 0.0)), hashRoll(i + vec2(1.0, 0.0)), f.x),
+                                   mix(hashRoll(i + vec2(0.0, 1.0)), hashRoll(i + vec2(1.0, 1.0)), f.x), f.y);
+                    }
+                ` + shader.vertexShader;
+
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <begin_vertex>',
+                    `
+                    #include <begin_vertex>
+                    vUvRoll = uv;
+                    
+                    // Calculamos la posición para usarla en el fragment shader sin distorsiones UV
+                    vWorldPositionRoll = position;
+                    
+                    // Ruido sutil para romper la perfección del tubo geométrico
+                    float noiseWave = snoiseRoll(vec2(position.y * 0.15, uTime * 0.1)) * 0.05;
+                    transformed.x += transformed.x * noiseWave;
+                    transformed.z += transformed.z * noiseWave;
+                    `
+                );
+
+                shader.fragmentShader = `
+                    varying vec3 vWorldPositionRoll;
+                    varying vec2 vUvRoll;
+                    
+                    float hashF(vec2 p) {
+                        p = fract(p * vec2(234.34, 321.21));
+                        p += dot(p, p + 34.32);
+                        return fract(p.x * p.y);
+                    }
+                    
+                    float perlinF(vec2 p) {
+                        vec2 i = floor(p);
+                        vec2 f = fract(p);
+                        f = f * f * (3.0 - 2.0 * f);
+                        return mix(mix(hashF(i + vec2(0.0, 0.0)), hashF(i + vec2(1.0, 0.0)), f.x),
+                                   mix(hashF(i + vec2(0.0, 1.0)), hashF(i + vec2(1.0, 1.0)), f.x), f.y);
+                    }
+                ` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <color_fragment>',
+                    `
+                    #include <color_fragment>
+                    
+                    // Mapeo cilíndrico continuo basado en la posición 3D local del cilindro
+                    float angle = atan(vWorldPositionRoll.x, vWorldPositionRoll.z);
+                    vec2 cylindricalUv = vec2(angle * 2.0, vWorldPositionRoll.y * 0.1);
+                    
+                    // Capas de ruido combinadas para vetas naturales y grano de papel
+                    float noiseLarge = perlinF(cylindricalUv * vec2(1.5, 4.0));
+                    float noiseDetail = perlinF(cylindricalUv * vec2(8.0, 25.0));
+                    float pNoise = noiseLarge * 0.7 + noiseDetail * 0.3;
+                    
+                // Paleta de tonos pergamino cálido (evitamos grises de hueso)
+                    vec3 colorClean = vec3(0.88, 0.82, 0.70); // Marfil cálido
+                    vec3 colorDark = vec3(0.72, 0.63, 0.50);  // Tostado suave (menos contraste)
+                    vec3 parchmentColor = mix(colorDark, colorClean, pNoise);
+
+                    // Viñeta sutil en los extremos del rollo (más difusa)
+                    float edgeFactor = smoothstep(0.0, 0.4, vUvRoll.y) * smoothstep(1.0, 0.6, vUvRoll.y);
+                    edgeFactor = mix(0.7, 1.0, edgeFactor); // Menos agresivo el oscurecimiento
+                    
+                    parchmentColor *= edgeFactor;
+
+                    // Fusionamos con el color base
+                    diffuseColor.rgb *= parchmentColor;
+                    `
+                );
+            };
+            // -------------------------------------------------------------------
+
             this.leftRoll = new THREE.Mesh(rollGeo, rollMat);
-            this.rightRoll = new THREE.Mesh(rollGeo, rollMat);
+                        this.rightRoll = new THREE.Mesh(rollGeo, rollMat);
+            
+// --- APAGAMOS LAS SOMBRAS NATIVAS PARA USAR SOLO EL SHADER ---
+            this.leftRoll.castShadow = false; 
+            this.leftRoll.receiveShadow = true; // Que la reciba por si querés que algo le haga sombra al rollo
+            this.rightRoll.castShadow = false;
+            this.rightRoll.receiveShadow = true;
             
             // Los ubicamos con Z en 2 para que queden apoyados sobre el mapa
             this.leftRoll.position.z = 2;
@@ -183,9 +283,9 @@ const mapGroup = new THREE.Group();
     onLoad(callback) {
         this.onLoadCallback = callback;
     }
+
 updateUnfurl(progress) {
         const mapHalfWidth = 50.1;
-        // Si progress es 0, arranca cerrado en el centro (0.1). Si es 1, llega al borde (mapHalfWidth).
         const currentX = THREE.MathUtils.lerp(0.1, mapHalfWidth, progress);
         
         if (this.leftRoll && this.rightRoll) {
@@ -194,6 +294,21 @@ updateUnfurl(progress) {
             
             this.clipLeft.constant = currentX;
             this.clipRight.constant = currentX;
+
+            // --- ACTUALIZAMOS LA POSICIÓN DE LA SOMBRA EN EL TERRENO ---
+            if (this.material && this.material.userData && this.material.userData.uRollX) {
+                this.material.userData.uRollX.value = currentX;
+            }
+        }
+    }
+
+    update(time) {
+        // Actualizamos el tiempo de los shaders de los rollos para que respiren orgánicamente
+        if (this.leftRoll && this.leftRoll.material.userData.shaderUniforms) {
+            this.leftRoll.material.userData.shaderUniforms.uTime.value = time;
+        }
+        if (this.rightRoll && this.rightRoll.material.userData.shaderUniforms) {
+            this.rightRoll.material.userData.shaderUniforms.uTime.value = time;
         }
     }
 }

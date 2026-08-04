@@ -95,10 +95,16 @@ const target = cameraController.controls.target;
             if (map.lakeMaterial) map.lakeMaterial.displacementScale = 3.5 * appState.currentIn3DAlpha;
         }
 
-        if (appState.isReady) {
+if (appState.isReady) {
             if (map.snowSystem) map.snowSystem.update(appState);
             if (map.oceanSystem) map.oceanSystem.update(appState);
             if (map.landSystem) map.landSystem.update(appState);
+            
+            // --- ACTUALIZACIÓN DE LOS ROLLOS ORGÁNICOS ---
+            if (typeof map.update === 'function') {
+                map.update(appState.time);
+            }
+            // ---------------------------------------------
         }
 
         sceneManager.render();

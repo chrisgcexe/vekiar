@@ -109,15 +109,17 @@ float luminance = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 gl_FragColor.rgb = mix(vec3(luminance), gl_FragColor.rgb, 1.18);
 gl_FragColor.rgb *= 1.05;
 
-// === SOMBRA DE CONTACTO DE LOS ROLLOS LATERALES ===
-float leftEdgeDist = smoothstep(0.0, 0.08, vGlobalPos.x);
-float rightEdgeDist = smoothstep(1.0, 0.92, vGlobalPos.x);
+// === SOMBRA DE CONTACTO DE LOS ROLLOS LATERALES (Más profunda y amplia) ===
+// Ampliamos el rango de 0.08 a 0.18 para que la sombra se adentre más en el mapa
+float leftEdgeDist = smoothstep(0.0, 0.18, vGlobalPos.x);
+float rightEdgeDist = smoothstep(1.0, 0.82, vGlobalPos.x);
 
 float rollShadow = (1.0 - leftEdgeDist) + (1.0 - rightEdgeDist);
 rollShadow = clamp(rollShadow, 0.0, 1.0);
 
-vec3 shadowTint = vec3(0.2, 0.25, 0.35);
-gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * shadowTint, rollShadow * 0.4);
+// Oscurecemos más la tintura (bajando los valores base) y subimos la intensidad de mezcla de 0.4 a 0.75
+vec3 shadowTint = vec3(0.08, 0.12, 0.18);
+gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * shadowTint, rollShadow * 0.75);
 
 // === NIEBLA SOLO EN LOS BORDES SUPERIOR E INFERIOR (Costados limpios) ===
 float edgeY = max(0.0, abs(vGlobalPos.y - 0.5) * 2.0 - 0.88) / 0.12;
