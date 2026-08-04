@@ -11,6 +11,7 @@ varying vec2 vUv;
 uniform float uTime;
 uniform vec3 uColor;
 uniform vec2 uTargetUv;
+uniform float uOpacity; // <-- Nuevo uniform
 
 // Función Random
 float random(vec2 st) {
@@ -62,7 +63,7 @@ void main() {
     // Difuminar suavemente los bordes absolutos del plano para que no se vea el corte cuadrado
     float edgeFade = 1.0 - smoothstep(0.4, 0.5, distance(vUv, vec2(0.5)));
     
-    // Aumentamos el multiplicador final (0.45) para que las nubes sean más notorias sin perder la niebla de guerra
-    gl_FragColor = vec4(uColor, alpha * fogOfWar * edgeFade * 0.45);
+    // Multiplicamos por uOpacity para controlar el fundido de entrada de forma interna
+    gl_FragColor = vec4(uColor, alpha * fogOfWar * edgeFade * 0.45 * uOpacity);
 }
 `;

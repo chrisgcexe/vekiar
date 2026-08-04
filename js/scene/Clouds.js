@@ -19,7 +19,8 @@ export class Clouds {
             uniforms: {
                 uTime: { value: 0.0 },
                 uColor: { value: new THREE.Color(0xffffff) },
-                uTargetUv: { value: new THREE.Vector2(0.5, 0.5) }
+                uTargetUv: { value: new THREE.Vector2(0.5, 0.5) },
+                uOpacity: { value: 0.0 }
             },
             transparent: true,
             depthWrite: false,

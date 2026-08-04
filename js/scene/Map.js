@@ -37,12 +37,48 @@ export class Map {
             const totalSize = 100;
             const chunkSize = totalSize / gridSize;
             
-            const mapGroup = new THREE.Group();
+const mapGroup = new THREE.Group();
             
+            // --- NUEVO: PLANOS DE CORTE Y CILINDROS ---
+            // El plano izquierdo corta lo que está a la izquierda (apunta a +X)
+            this.clipLeft = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+            // El plano derecho corta lo que está a la derecha (apunta a -X)
+            this.clipRight = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+            const clippingPlanes = [this.clipLeft, this.clipRight];
+
+// Cilindros base para hacer de bordes del papel
+// Compensamos exactamente la escala inversa que aplica el mapGroup
+            const mapWidth = 100;
+            const mapHeight = (mapWidth / this.aspect) * this.aspect; // O simplemente mapWidth, o ajustado por el aspect real
+            
+            // Si el mapa se aplana por (1 / this.aspect), el cilindro necesita estirarse multiplicándose por el aspect
+            const correctRollHeight = (100 / this.aspect) * (this.aspect * this.aspect); 
+            
+            // Dicho de forma directa y limpia para que ocupe todo el alto visual:
+            const finalRollHeight = (100 / this.aspect) * 1.78; // Probá este factor de escala directo en pantalla
+            
+            const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32);
+            const rollMat = new THREE.MeshStandardMaterial({ color: 0xd4c3a3, roughness: 0.9 });
+            this.leftRoll = new THREE.Mesh(rollGeo, rollMat);
+            this.rightRoll = new THREE.Mesh(rollGeo, rollMat);
+            
+            // Los ubicamos con Z en 2 para que queden apoyados sobre el mapa
+            this.leftRoll.position.z = 2;
+            this.rightRoll.position.z = 2;
+            
+            mapGroup.add(this.leftRoll);
+            mapGroup.add(this.rightRoll);
+
+            this.updateUnfurl(0.0);
+            // ------------------------------------------
+
             const mapMaterial = TerrainMaterial.create(assets);
+            mapMaterial.clippingPlanes = clippingPlanes; // <-- INYECTAMOS
+            mapMaterial.clipShadows = true; 
             this.material = mapMaterial; 
 
             const permafrostMistMaterial = PermafrostMistMaterial.create(assets, mapMaterial);
+            permafrostMistMaterial.clippingPlanes = clippingPlanes; // <-- INYECTAMOS (Para que la niebla también se corte)
             this.permafrostMistMaterial = permafrostMistMaterial;
 
             const canvas = document.createElement('canvas');
@@ -146,5 +182,18 @@ export class Map {
 
     onLoad(callback) {
         this.onLoadCallback = callback;
+    }
+updateUnfurl(progress) {
+        const mapHalfWidth = 50.1;
+        // Si progress es 0, arranca cerrado en el centro (0.1). Si es 1, llega al borde (mapHalfWidth).
+        const currentX = THREE.MathUtils.lerp(0.1, mapHalfWidth, progress);
+        
+        if (this.leftRoll && this.rightRoll) {
+            this.leftRoll.position.x = -currentX;
+            this.rightRoll.position.x = currentX;
+            
+            this.clipLeft.constant = currentX;
+            this.clipRight.constant = currentX;
+        }
     }
 }

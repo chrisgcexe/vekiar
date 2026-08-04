@@ -1,0 +1,86 @@
+#ui {
+    position: absolute;
+    top: 0px;
+    left:0px;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    pointer-events: none;
+    z-index: 10;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;     
+}
+
+/* Efecto Viñeta (Atmósfera) usando Modos de Fusión (Blend Modes) */
+#vignette {
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 5;
+
+    /* 1. Gradientes Lineales Puros (Luz arriba, Sombra abajo) */
+    background: 
+        linear-gradient(to bottom, rgba(160, 200, 255, 0.6) 0%, transparent 50%),
+        linear-gradient(to top, rgba(0, 5, 20, 0.9) 0%, transparent 50%);
+
+    /* 2. Clipping Mask Radial (Sugerencia del usuario)
+       Hace un agujero perfecto y súper difuminado en el centro del div,
+       asegurando que NADA de color toque la zona de juego central. */
+    -webkit-mask-image: radial-gradient(ellipse at center, transparent 25%, black 65%);
+    mask-image: radial-gradient(ellipse at center, transparent 25%, black 65%);
+}
+
+/* boton explora vekiar*/
+#idle-prompt {
+    position: fixed;
+    bottom: 40%; 
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 100;
+    
+    /* Arranca invisible */
+    opacity: 0; 
+    transition: opacity 0.5s ease-in-out;
+    pointer-events: none; /* El contenedor no bloquea el mapa */
+}
+
+#idle-prompt h2 {
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    font-size: 34px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 400;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+#btn-start {
+    pointer-events: auto; /* Reactivamos el clic solo para el botón */
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 24px;
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s ease;
+}
+
+#btn-start:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.show-idle {
+    opacity: 1 !important;
+}

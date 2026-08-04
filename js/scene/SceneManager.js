@@ -5,11 +5,13 @@ export class SceneManager {
     constructor() {
         // ... (Tu constructor original queda igual)[cite: 16]
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x3a5682);
-        this.scene.fog = new THREE.Fog(0x3a5682, 40, 85);
+        this.scene.background = new THREE.Color(0x171310);
+        this.scene.fog = new THREE.Fog(0x171310, 50, 95);
         this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.camera.position.set(0, 60, 0); 
         this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", alpha: false });
+        
+        this.renderer.localClippingEnabled = true;
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
         this.renderer.setClearColor(0x3a5682); 

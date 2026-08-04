@@ -109,11 +109,10 @@ float luminance = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 gl_FragColor.rgb = mix(vec3(luminance), gl_FragColor.rgb, 1.18);
 gl_FragColor.rgb *= 1.05;
 
-// === NIEBLA DE LOS BORDES ===
-float edgeX = max(0.0, abs(vGlobalPos.x - 0.5) * 2.0 - 0.88) / 0.12;
+// === NIEBLA SOLO EN LOS BORDES SUPERIOR E INFERIOR (Costados limpios) ===
 float edgeY = max(0.0, abs(vGlobalPos.y - 0.5) * 2.0 - 0.88) / 0.12;
 
-float edgeFactor = min(1.0, max(edgeX, edgeY));
+float edgeFactor = min(1.0, edgeY);
 edgeFactor = smoothstep(0.0, 1.0, edgeFactor);
 edgeFactor = smoothstep(0.0, 1.0, edgeFactor); 
 edgeFactor *= uZoomAlpha;
