@@ -109,6 +109,16 @@ float luminance = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 gl_FragColor.rgb = mix(vec3(luminance), gl_FragColor.rgb, 1.18);
 gl_FragColor.rgb *= 1.05;
 
+// === SOMBRA DE CONTACTO DE LOS ROLLOS LATERALES ===
+float leftEdgeDist = smoothstep(0.0, 0.08, vGlobalPos.x);
+float rightEdgeDist = smoothstep(1.0, 0.92, vGlobalPos.x);
+
+float rollShadow = (1.0 - leftEdgeDist) + (1.0 - rightEdgeDist);
+rollShadow = clamp(rollShadow, 0.0, 1.0);
+
+vec3 shadowTint = vec3(0.2, 0.25, 0.35);
+gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * shadowTint, rollShadow * 0.4);
+
 // === NIEBLA SOLO EN LOS BORDES SUPERIOR E INFERIOR (Costados limpios) ===
 float edgeY = max(0.0, abs(vGlobalPos.y - 0.5) * 2.0 - 0.88) / 0.12;
 
