@@ -53,17 +53,17 @@ export class Map {
             
             const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32, 64);
             const rollMat = new THREE.MeshStandardMaterial({ 
-                            color: 0xe3d4be,      // Un tono base más cálido y luminoso
-                            roughness: 0.98,      // Casi totalmente mate para eliminar el brillo plástico
+                            color: 0xffffff,      // Blanco puro para que el shader decida los tonos finales
+                            roughness: 1.0,      // Casi totalmente mate para eliminar el brillo plástico
                             metalness: 0.0,       // Cero metálico
-                            roughnessMap: noiseTexture,
-                            bumpMap: noiseTexture,
-                            bumpScale: 0.4        // Bajamos el bump para que no parezca piedra rugosa
+                            bumpMap: noiseTexture,  // Textura de ruido para simular el relieve del papel
+                            bumpScale: 1.2,        // Escala de la textura de relieve
                         });
             
 // --- INYECCIÓN DE DEFORMACIÓN Y TEXTURIZADO ORGÁNICO EN EL SHADER ---
             rollMat.onBeforeCompile = (shader) => {
                 shader.uniforms.uTime = { value: 0.0 };
+                shader.uniforms.uZoom = { value: 1.0 };
                 rollMat.userData.shaderUniforms = shader.uniforms;
 
                 shader.vertexShader = `
@@ -103,6 +103,7 @@ export class Map {
                 );
 
                 shader.fragmentShader = `
+                    uniform float uZoom;
                     varying vec3 vWorldPositionRoll;
                     varying vec2 vUvRoll;
                     
@@ -135,10 +136,21 @@ export class Map {
                     float noiseDetail = perlinF(cylindricalUv * vec2(8.0, 25.0));
                     float pNoise = noiseLarge * 0.7 + noiseDetail * 0.3;
                     
-                // Paleta de tonos pergamino cálido (evitamos grises de hueso)
-                    vec3 colorClean = vec3(0.88, 0.82, 0.70); // Marfil cálido
-                    vec3 colorDark = vec3(0.72, 0.63, 0.50);  // Tostado suave (menos contraste)
-                    vec3 parchmentColor = mix(colorDark, colorClean, pNoise);
+                    // Base de la textura del papel
+                    vec3 vetaClara = vec3(0.88, 0.82, 0.70); 
+                    vec3 vetaOscura = vec3(0.72, 0.63, 0.50);  
+                    vec3 texturaPapel = mix(vetaOscura, vetaClara, pNoise);
+
+                    // --- SISTEMA DE COLOR DINÁMICO POR ZOOM ---
+                    vec3 color2D = vec3(0.89, 0.83, 0.74); // El 0xe3d4be que pediste para vista lejana
+                    vec3 color3D = vec3(0.10, 0.13, 0.05); // Un toque más claro que el 0x352a22
+                    
+                    // Suavizamos la transición para que no sea abrupta
+                    float zoomFactor = smoothstep(0.2, 0.8, uZoom);
+                    vec3 colorBasePorZoom = mix(color2D, color3D, zoomFactor);
+
+                    // Multiplicamos las vetas por la tintura actual de la cámara
+                    vec3 parchmentColor = texturaPapel * colorBasePorZoom;
 
                     // Viñeta sutil en los extremos del rollo (más difusa)
                     float edgeFactor = smoothstep(0.0, 0.4, vUvRoll.y) * smoothstep(1.0, 0.6, vUvRoll.y);
@@ -302,13 +314,21 @@ updateUnfurl(progress) {
         }
     }
 
-    update(time) {
-        // Actualizamos el tiempo de los shaders de los rollos para que respiren orgánicamente
+update(time) {
+        // Robamos el valor de zoom actual directo del material del terreno
+        let currentZoom = 1.0;
+        if (this.material && this.material.userData && this.material.userData.uZoomAlpha) {
+            currentZoom = this.material.userData.uZoomAlpha.value;
+        }
+
+        // Actualizamos el tiempo y el zoom de los shaders en cada frame
         if (this.leftRoll && this.leftRoll.material.userData.shaderUniforms) {
             this.leftRoll.material.userData.shaderUniforms.uTime.value = time;
+            this.leftRoll.material.userData.shaderUniforms.uZoom.value = currentZoom;
         }
         if (this.rightRoll && this.rightRoll.material.userData.shaderUniforms) {
             this.rightRoll.material.userData.shaderUniforms.uTime.value = time;
+            this.rightRoll.material.userData.shaderUniforms.uZoom.value = currentZoom;
         }
     }
 }
