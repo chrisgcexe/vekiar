@@ -8,13 +8,20 @@ export class CameraController {
         this.controls = new OrbitControls(camera, domElement);
         this.controls.enableRotate = false; 
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.1;   // Mucho más responsivo, elimina la sensación de 'retardo' o lag
-        this.controls.zoomSpeed = 1.2;       // Zoom más rápido y dinámico
-        this.controls.panSpeed = 1.0;        // Velocidad normal de arrastre
+        this.controls.dampingFactor = 0.1;   
+        this.controls.zoomSpeed = 1.2;       
+        this.controls.panSpeed = 1.0;        
         this.controls.screenSpacePanning = false; 
         this.controls.minDistance = 25;  
-        this.controls.maxDistance = 60; 
         this.controls.target.set(0, 0, 0);
+
+        // --- SETUP CINEMÁTICO ---
+        this.controls.maxDistance = 200; 
+        this.camera.position.set(0, 80, 0.1); // Antes estaba en 150 
+        
+        // Separamos el estado en dos banderas para blindar la secuencia
+        this.startCinematicDrop = false; 
+        this.cinematicDone = false;     
 
         this.controls.mouseButtons = {
             LEFT: THREE.MOUSE.PAN,
@@ -27,12 +34,9 @@ export class CameraController {
             TWO: THREE.TOUCH.DOLLY_PAN  
         };
 
-        // Soporte para hacer zoom con flechas del teclado (Fallback si se rompe la rueda del mouse)
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                // Simulamos exactamente un evento de la rueda del mouse. 
-                // Así OrbitControls respeta los límites, el damping y la velocidad.
                 const wheelEvent = new WheelEvent('wheel', {
                     deltaY: e.key === 'ArrowUp' ? -100 : 100,
                     deltaMode: 0,
@@ -42,6 +46,11 @@ export class CameraController {
                 domElement.dispatchEvent(wheelEvent);
             }
         });
+    }
+
+    playIntro() {
+        // Disparamos la caída real
+        this.startCinematicDrop = true;
     }
 
     updateConstraints(mapAspect) {
@@ -54,33 +63,65 @@ export class CameraController {
         const maxDistZ = mapHalfH / Math.tan(fovRad);
         const maxDistX = mapHalfW / (Math.tan(fovRad) * this.camera.aspect);
         
-        this.controls.maxDistance = Math.min(maxDistZ, maxDistX) * 0.99;
+        this.calculatedMaxDistance = Math.min(maxDistZ, maxDistX) * 0.99;
+        
+        // ¡CLAVE! Si la cinemática no terminó, mantenemos el límite falso en 200 
+        // para que OrbitControls no nos baje la cámara de golpe.
+        if (this.cinematicDone) {
+            this.controls.maxDistance = this.calculatedMaxDistance;
+        } else {
+            this.controls.maxDistance = 200;
+        }
+        
         this.controls.update();
     }
 
     update(mapAspect) {
+
+        // --- 1. RESOLVEMOS LA CAÍDA FÍSICA ---
+        if (!this.cinematicDone && this.startCinematicDrop) {
+            const targetDist = this.calculatedMaxDistance || 60;
+            const currentDist = this.controls.getDistance();
+
+            // Apagamos la fricción nativa de OrbitControls para que no pelee con la cinemática
+            this.controls.enableDamping = false;
+
+            // Achicamos el umbral de 0.5 a 0.05 para que no haya un "salto" visible al cortar
+            if (currentDist > targetDist + 0.05) {
+                const targetPos = new THREE.Vector3(0, targetDist, 0.1);
+                this.camera.position.lerp(targetPos, 0.08); 
+            } else {
+                // Llegamos al piso con precisión milimétrica.
+                this.cinematicDone = true;
+                this.controls.maxDistance = targetDist; 
+                // Restauramos el damping para que el usuario pueda interactuar normal
+                this.controls.enableDamping = true; 
+            }
+        }
+
+        // --- 2. CÁLCULO DE ZOOM (t) PROTEGIDO ---
         const dist = this.controls.getDistance();
-        let t = (dist - this.controls.minDistance) / (this.controls.maxDistance - this.controls.minDistance);
-        t = THREE.MathUtils.clamp(t, 0, 1);
+        let t;
+        
+        // Si estamos cayendo, forzamos t=1 (2D) para que AppState no flashee luces
+        if (!this.cinematicDone) {
+            t = 1.0;
+        } else {
+            t = (dist - this.controls.minDistance) / (this.controls.maxDistance - this.controls.minDistance);
+            t = THREE.MathUtils.clamp(t, 0, 1);
+        }
         
         this.zoomAlpha = t;
 
+        // --- 3. RESTO DEL UPDATE NORMAL ---
         this.controls.enablePan = (t < 0.9);
 
-        // Curva Sinusoidal suave (Ease In Out Sine)
-        // Esto hace que la cámara empiece a rotar suavemente desde el principio,
-        // alcance su máxima velocidad de giro en el medio del zoom, y frene suavemente al final.
-        // Elimina por completo los movimientos toscos o abruptos.
         const easeT = -(Math.cos(Math.PI * t) - 1) / 2; 
         const targetAngle = THREE.MathUtils.lerp(Math.PI / 4.5, 0.01, easeT); 
         
         this.controls.minPolarAngle = targetAngle;
         this.controls.maxPolarAngle = targetAngle;
 
-        // 3. Restricciones de Paneo Elásticas (Rubber-banding)
-        // Usamos una curva extrema (potencia 8) para que la "libertad" de movimiento se mantenga al 100% 
-        // durante casi todo el zoom. El efecto "imán" hacia el centro (0, 0, 0) solo se activará
-        // agresivamente en el último 10% del zoom out, logrando un centrado perfecto progresivo sin el bug inicial.
         const freedom = 1.0 - Math.pow(t, 8.0); 
         const maxRadiusX = 60 * freedom;
         const maxRadiusZ = (50 / mapAspect) * freedom;
@@ -97,8 +138,6 @@ export class CameraController {
             centerDeltaZ = newZ - this.controls.target.z;
         }
 
-        // Si choca contra el borde, en lugar de bloquear en seco (pared de ladrillo),
-        // lo empujamos suavemente hacia adentro (efecto goma/elástico).
         if (Math.abs(centerDeltaX) > 0.0001 || Math.abs(centerDeltaZ) > 0.0001) {
             this.controls.target.x += centerDeltaX * 0.15;
             this.controls.target.z += centerDeltaZ * 0.15;

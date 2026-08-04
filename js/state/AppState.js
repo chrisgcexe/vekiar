@@ -1,11 +1,20 @@
 export class AppState {
     constructor() {
         this.time = 0;
-        this.currentIn3DAlpha = 1.0;
+        this.currentIn3DAlpha = 0.0;
+        this.isReady = false;
+    }
+
+
+    setTerrainReady() {
+        this.isReady = true; // Liberamos el bloqueo
     }
 
     // Le agregamos mapInstance y camera como parámetros (asegurate de enviarlos desde main.js)
     update(timeMs, cameraController, mapInstance, camera) {
+
+        if (!this.isReady) return; // AGREGAR ESTO: Si no estamos listos, no calculamos nada
+
         const safeTimeMs = timeMs || performance.now();
         this.time = safeTimeMs / 1000.0;
         

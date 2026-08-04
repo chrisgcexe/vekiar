@@ -7,10 +7,9 @@ self.onmessage = function(e) {
     const chunks = [];
     const transferables = [];
 
-    // Ahora guardamos un set de índices compartido por cada nivel de LOD (0: Alta, 1: Media, 2: Baja)
     let sharedIndicesLOD = []; 
-    // Resoluciones: 1 (64 seg), 2 (32 seg), 4 (16 seg)
     const lodDivisors = [1, 2, 4]; 
+    const totalChunks = gridSize * gridSize;
 
     for (let cy = 0; cy < gridSize; cy++) {
         for (let cx = 0; cx < gridSize; cx++) {
@@ -46,7 +45,6 @@ self.onmessage = function(e) {
                     const vertexIndex = i / 2; 
                     vertices[vertexIndex * 3 + 2] = heightValue; 
                     
-                    // IMPORTANTE: Adaptar el delta a los segmentos actuales
                     const deltaU = 1.0 / (gridSize * currentSegments);
                     const deltaV = 1.0 / (gridSize * currentSegments);
                     const deltaWorld = chunkSize / currentSegments;
@@ -72,7 +70,6 @@ self.onmessage = function(e) {
                 const newUvs = chunkGeometry.attributes.uv.array;
                 const normals = chunkGeometry.attributes.normal.array;
                 
-                // Si es el primer chunk, extraemos los índices para este nivel de LOD
                 if (cx === 0 && cy === 0) {
                     sharedIndicesLOD[lodIndex] = chunkGeometry.index.array;
                     transferables.push(sharedIndicesLOD[lodIndex].buffer);
@@ -90,13 +87,23 @@ self.onmessage = function(e) {
             chunks.push({
                 cx, 
                 cy,
-                lods: chunkLODs // Mandamos el array de resoluciones en vez de geometría plana
+                lods: chunkLODs
+            });
+
+            // --- AVISO DE PROGRESO AL HILO PRINCIPAL ---
+            const procesados = (cy * gridSize) + cx + 1;
+            self.postMessage({
+                type: 'progress',
+                procesados: procesados,
+                total: totalChunks
             });
         }
     }
     
+    // --- ENVÍO FINAL Y CÓDIGO DE ÉXITO ---
     self.postMessage({
-        sharedIndices: sharedIndicesLOD, // Enviamos el array de índices
+        type: 'done', // ¡Clave! Esto lo ataja Map.js para armar la geometría
+        sharedIndices: sharedIndicesLOD, 
         chunks
     }, transferables);
 };

@@ -1,0 +1,66 @@
+#loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* ACÁ VA LA TRANSICIÓN */
+    opacity: 1; 
+    transition: opacity 0.8s ease-in-out; 
+}
+
+.fade-out {
+    opacity: 0 !important; 
+    pointer-events: none; 
+}
+
+/* Modificamos tu clase actual para inyectarle la animación */
+.loader-content {
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+
+
+/* Definimos la inercia con un desplazamiento sutil en Y */
+@keyframes fadeContentIn {
+    0% {
+        opacity: 0;
+        transform: translateY(15px); /* Entra desde un poco más abajo */
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0); /* Se asienta en su posición final */
+    }
+}
+
+
+
+/* El fondo estático de la barra */
+.loader-bar {
+    width: 300px;
+    height: 6px;
+    background-color: #222; 
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* La barra dinámica que se llena con el JS */
+.loader-progress {
+    width: 0%; /* Ancho inicial */
+    height: 100%;
+    background-color: #fff;
+    transition: width 0.1s linear; /* Interpola los saltos de porcentaje */
+}
+
