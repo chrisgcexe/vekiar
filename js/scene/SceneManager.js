@@ -79,6 +79,8 @@ export class SceneManager {
                 appState.setTerrainReady();
             }
 
+            return assets; // <-- AGREGAR ESTO ACÁ ANTES DEL CATCH
+        
         } catch (error) {
             console.error("Hubo un error cargando los assets de Vékiar:", error);
         }

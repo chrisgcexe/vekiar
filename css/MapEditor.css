@@ -1,0 +1,61 @@
+/* Estilos para el Panel Flotante del Editor de Mapas */
+#map-editor-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    background: rgba(23, 19, 16, 0.85);
+    border: 1px solid #795548;
+    padding: 15px;
+    border-radius: 8px;
+    color: #d7ccc8;
+    font-family: sans-serif;
+    display: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    width: 220px;
+}
+
+#map-editor-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #ffca28;
+    text-align: center;
+}
+
+#map-editor-panel .editor-field {
+    margin-bottom: 10px;
+}
+
+#map-editor-panel label {
+    font-size: 12px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+#map-editor-panel select {
+    width: 100%;
+    padding: 5px;
+    background: #3e2723;
+    color: #fff;
+    border: 1px solid #795548;
+    border-radius: 4px;
+}
+
+#map-editor-panel .editor-actions {
+    display: flex;
+    gap: 6px;
+    flex-direction: column;
+}
+
+#map-editor-panel button {
+    padding: 6px;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+#editor-btn-undo { background: #d32f2f; }
+#editor-btn-clear { background: #b71c1c; }
+#editor-btn-export { background: #2e7d32; font-weight: bold; }

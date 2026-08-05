@@ -16,6 +16,7 @@ export class AssetLoader {
         const noisePromise = textureLoader.loadAsync('./assets/images/water_noise_distortion.jpg');
         const colorPromise = ktx2Loader.loadAsync('./assets/images/base_color_map.ktx2');  
         //const   colorPromise = textureLoader.loadAsync('./assets/images/source_assets/base_color_map.jpg');
+        const referenceTexturePromise = textureLoader.loadAsync('./assets/images/mapa_referencia.jpg'); // Ajustá la ruta si es distinta
   
 
         // 2. Cargar Assets de Datos (Crudos en PNG para no perder matemática)
@@ -31,17 +32,20 @@ export class AssetLoader {
             noiseTexture, 
             mapDataPackedTexture, 
             packedMasksTexture, 
-            flowmapTexture
+            flowmapTexture,
+            referenceTexture
         ] = await Promise.all([
             colorPromise, 
             noisePromise, 
             mapDataPromise, 
             packedMasksPromise, 
-            flowmapPromise
+            flowmapPromise,
+            referenceTexturePromise
         ]);
 
         // Seteamos el color space para que no se vea lavado
         colorTexture.colorSpace = THREE.SRGBColorSpace;
+        referenceTexture.colorSpace = THREE.SRGBColorSpace; // <-- Importante para que los colores no se laven
         
         // Configuramos el wrap para el ruido del agua
         noiseTexture.wrapS = THREE.RepeatWrapping;
@@ -55,7 +59,8 @@ export class AssetLoader {
             noiseTexture,
             mapDataPackedTexture,
             packedMasksTexture,
-            flowmapTexture
+            flowmapTexture,
+            referenceTexture
         };
     }
 }

@@ -1,0 +1,815 @@
+{
+  "version": "1.0.0",
+  "map": "Vekiar",
+  "totalMarkers": 56,
+  "markers": [
+    {
+      "id": "marker_1785892950832",
+      "name": "EL FOSO DE SKOR",
+      "x": 31.686263463945092,
+      "y": -5.319918594837225,
+      "z": 1.9150949616186073,
+      "u": 0.8168626346394507,
+      "v": 0.44680081405162775,
+      "shape": "circle",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785892970705",
+      "name": "FATUOEL",
+      "x": 32.41369031231595,
+      "y": 4.704042992684984,
+      "z": 1.963919829507191,
+      "u": 0.8241369031231595,
+      "v": 0.5470404299268499,
+      "shape": "circle",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893351072",
+      "name": "NUEVA DIREO",
+      "x": 19.594697271952363,
+      "y": -6.178084554207468,
+      "z": 1.7580011695696778,
+      "u": 0.6959469727195235,
+      "v": 0.4382191544579253,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893391195",
+      "name": "TAUHAWILLE",
+      "x": 27.490885832152525,
+      "y": 1.7322513830614248,
+      "z": 1.7956314022301216,
+      "u": 0.7749088583215252,
+      "v": 0.5173225138306143,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893568236",
+      "name": "EIWA",
+      "x": 37.737347167827686,
+      "y": 9.737935348525161,
+      "z": 2.137284700587145,
+      "u": 0.8773734716782768,
+      "v": 0.5973793534852516,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893584957",
+      "name": "TAUTAN",
+      "x": 31.790753421918023,
+      "y": -15.07567448930636,
+      "z": 2.1313493801707497,
+      "u": 0.8179075342191802,
+      "v": 0.3492432551069364,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893609968",
+      "name": "PIEDAD",
+      "x": 26.185769492129122,
+      "y": -5.421213549691021,
+      "z": 2.0283447571910074,
+      "u": 0.7618576949212911,
+      "v": 0.4457878645030898,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785893620654",
+      "name": "FRATEGUIA",
+      "x": 20.69135458360244,
+      "y": -10.638759302339635,
+      "z": 1.9772977516270065,
+      "u": 0.7069135458360244,
+      "v": 0.39361240697660366,
+      "shape": "square",
+      "region": "APYIT"
+    },
+    {
+      "id": "marker_1785894409337",
+      "name": "PRADOS DE SANGRE",
+      "shape": "circle",
+      "position": {
+        "x": 2.747,
+        "y": -7.914,
+        "z": 2.279
+      },
+      "uv": {
+        "u": 0.5275,
+        "v": 0.4209
+      },
+      "region": "NIMERIA"
+    },
+    {
+      "id": "marker_1785894424978",
+      "name": "MONTAÑA HUECA",
+      "shape": "circle",
+      "position": {
+        "x": -1.659,
+        "y": -5.439,
+        "z": 2.502
+      },
+      "uv": {
+        "u": 0.4834,
+        "v": 0.4456
+      },
+      "region": "NIMERIA"
+    },
+    {
+      "id": "marker_1785894947154",
+      "name": "CIENFUEGOS",
+      "shape": "square",
+      "position": {
+        "x": 8.661,
+        "y": -15.478,
+        "z": 2.106
+      },
+      "uv": {
+        "u": 0.5866,
+        "v": 0.3452
+      },
+      "region": "HISBACIA"
+    },
+    {
+      "id": "marker_1785896138790",
+      "name": "SAYKHIT",
+      "region": "NIMERIA",
+      "shape": "square",
+      "position": {
+        "x": 5.972,
+        "y": -2.137,
+        "z": 2.424
+      },
+      "uv": {
+        "u": 0.5597,
+        "v": 0.4786
+      }
+    },
+    {
+      "id": "marker_1785896328078",
+      "name": "AJEOZ",
+      "region": "HISBACIA",
+      "shape": "triangle",
+      "position": {
+        "x": 5.394,
+        "y": -18.995,
+        "z": 2.279
+      },
+      "uv": {
+        "u": 0.5539,
+        "v": 0.31
+      }
+    },
+    {
+      "id": "marker_1785896348903",
+      "name": "DIREO",
+      "region": "HISBACIA",
+      "shape": "diamond",
+      "position": {
+        "x": 1.823,
+        "y": -27.743,
+        "z": 1.984
+      },
+      "uv": {
+        "u": 0.5182,
+        "v": 0.2226
+      }
+    },
+    {
+      "id": "marker_1785896371713",
+      "name": "CARTANDOR",
+      "region": "HISBACIA",
+      "shape": "square",
+      "position": {
+        "x": 3.783,
+        "y": -35.728,
+        "z": 2.455
+      },
+      "uv": {
+        "u": 0.5378,
+        "v": 0.1427
+      }
+    },
+    {
+      "id": "marker_1785896497926",
+      "name": "ULIXCO",
+      "region": "APYIT",
+      "shape": "triangle",
+      "position": {
+        "x": 37.713,
+        "y": -10.808,
+        "z": 2.194
+      },
+      "uv": {
+        "u": 0.8771,
+        "v": 0.3919
+      }
+    },
+    {
+      "id": "marker_1785896643632",
+      "name": "DESPERIDA",
+      "region": "TARIA",
+      "shape": "circle",
+      "position": {
+        "x": -9.241,
+        "y": -40.138,
+        "z": 2.505
+      },
+      "uv": {
+        "u": 0.4076,
+        "v": 0.0986
+      }
+    },
+    {
+      "id": "marker_1785896666182",
+      "name": "LANTIAN",
+      "region": "TARIA",
+      "shape": "square",
+      "position": {
+        "x": -7.982,
+        "y": -26.97,
+        "z": 2.346
+      },
+      "uv": {
+        "u": 0.4202,
+        "v": 0.2303
+      }
+    },
+    {
+      "id": "marker_1785896682414",
+      "name": "MUCANT",
+      "region": "TARIA",
+      "shape": "diamond",
+      "position": {
+        "x": -14.813,
+        "y": -27.469,
+        "z": 2.276
+      },
+      "uv": {
+        "u": 0.3519,
+        "v": 0.2253
+      }
+    },
+    {
+      "id": "marker_1785896756786",
+      "name": "ONAXA",
+      "region": "RAUN",
+      "shape": "square",
+      "position": {
+        "x": -6.33,
+        "y": -8.718,
+        "z": 2.334
+      },
+      "uv": {
+        "u": 0.4367,
+        "v": 0.4128
+      }
+    },
+    {
+      "id": "marker_1785896769098",
+      "name": "ALBOREA",
+      "region": "RAUN",
+      "shape": "square",
+      "position": {
+        "x": -11.701,
+        "y": -10.018,
+        "z": 2.315
+      },
+      "uv": {
+        "u": 0.383,
+        "v": 0.3998
+      }
+    },
+    {
+      "id": "marker_1785896843125",
+      "name": "ÁDUKOR",
+      "region": "RAUN",
+      "shape": "square",
+      "position": {
+        "x": -11.11,
+        "y": -18.879,
+        "z": 2.231
+      },
+      "uv": {
+        "u": 0.3889,
+        "v": 0.3112
+      }
+    },
+    {
+      "id": "marker_1785896856031",
+      "name": "GANZA",
+      "region": "RAUN",
+      "shape": "square",
+      "position": {
+        "x": -3.066,
+        "y": -21.82,
+        "z": 2.197
+      },
+      "uv": {
+        "u": 0.4693,
+        "v": 0.2818
+      }
+    },
+    {
+      "id": "marker_1785897244167",
+      "name": "PAHÓN",
+      "region": "GENERAL",
+      "shape": "square",
+      "position": {
+        "x": -3.741,
+        "y": -33.638,
+        "z": 2.433
+      },
+      "uv": {
+        "u": 0.4626,
+        "v": 0.1636
+      }
+    },
+    {
+      "id": "marker_1785897262936",
+      "name": "BIRNOR",
+      "region": "BIRN",
+      "shape": "square",
+      "position": {
+        "x": -18.819,
+        "y": -21.527,
+        "z": 2.498
+      },
+      "uv": {
+        "u": 0.3118,
+        "v": 0.2847
+      }
+    },
+    {
+      "id": "marker_1785897293186",
+      "name": "ADAMRRA",
+      "region": "PRIGOS",
+      "shape": "square",
+      "position": {
+        "x": -27.852,
+        "y": -36.166,
+        "z": 2.531
+      },
+      "uv": {
+        "u": 0.2215,
+        "v": 0.1383
+      }
+    },
+    {
+      "id": "marker_1785897305586",
+      "name": "VURIACOS",
+      "region": "PRIGOS",
+      "shape": "square",
+      "position": {
+        "x": -32.297,
+        "y": -28.71,
+        "z": 2.471
+      },
+      "uv": {
+        "u": 0.177,
+        "v": 0.2129
+      }
+    },
+    {
+      "id": "marker_1785897313138",
+      "name": "NEA",
+      "region": "PRIGOS",
+      "shape": "square",
+      "position": {
+        "x": -25.668,
+        "y": -24.726,
+        "z": 2.465
+      },
+      "uv": {
+        "u": 0.2433,
+        "v": 0.2527
+      }
+    },
+    {
+      "id": "marker_1785897331355",
+      "name": "BROLOS",
+      "region": "PRIGOS",
+      "shape": "diamond",
+      "position": {
+        "x": -34.958,
+        "y": -19.89,
+        "z": 2.388
+      },
+      "uv": {
+        "u": 0.1504,
+        "v": 0.3011
+      }
+    },
+    {
+      "id": "marker_1785897342508",
+      "name": "LORBA",
+      "region": "PRIGOS",
+      "shape": "diamond",
+      "position": {
+        "x": -22.861,
+        "y": -10.796,
+        "z": 2.382
+      },
+      "uv": {
+        "u": 0.2714,
+        "v": 0.392
+      }
+    },
+    {
+      "id": "marker_1785897357549",
+      "name": "EL OJO DE ETRA",
+      "region": "PRIGOS",
+      "shape": "circle",
+      "position": {
+        "x": -33.568,
+        "y": -12.065,
+        "z": 2.334
+      },
+      "uv": {
+        "u": 0.1643,
+        "v": 0.3794
+      }
+    },
+    {
+      "id": "marker_1785897377141",
+      "name": "LA MORDIDA",
+      "region": "ITRAMA",
+      "shape": "circle",
+      "position": {
+        "x": -25.704,
+        "y": -5.19,
+        "z": 2.258
+      },
+      "uv": {
+        "u": 0.243,
+        "v": 0.4481
+      }
+    },
+    {
+      "id": "marker_1785897403270",
+      "name": "LARIVA",
+      "region": "DRIVA",
+      "shape": "circle",
+      "position": {
+        "x": -33.457,
+        "y": -2.194,
+        "z": 2.481
+      },
+      "uv": {
+        "u": 0.1654,
+        "v": 0.4781
+      }
+    },
+    {
+      "id": "marker_1785897441272",
+      "name": "ZALHIRSAN",
+      "region": "DRIVA",
+      "shape": "diamond",
+      "position": {
+        "x": -36.883,
+        "y": 6.756,
+        "z": 2.319
+      },
+      "uv": {
+        "u": 0.1312,
+        "v": 0.5676
+      }
+    },
+    {
+      "id": "marker_1785897454913",
+      "name": "IRRIS",
+      "region": "GENERAL",
+      "shape": "square",
+      "position": {
+        "x": -25.859,
+        "y": 10.117,
+        "z": 2.001
+      },
+      "uv": {
+        "u": 0.2414,
+        "v": 0.6012
+      }
+    },
+    {
+      "id": "marker_1785897684939",
+      "name": "PIAWAN",
+      "region": "GENERAL",
+      "shape": "square",
+      "position": {
+        "x": -4.36,
+        "y": 3.84,
+        "z": 2.383
+      },
+      "uv": {
+        "u": 0.4564,
+        "v": 0.5384
+      }
+    },
+    {
+      "id": "marker_1785897696635",
+      "name": "NAMARSTIE",
+      "region": "GENERAL",
+      "shape": "square",
+      "position": {
+        "x": -15.341,
+        "y": 5.761,
+        "z": 2.284
+      },
+      "uv": {
+        "u": 0.3466,
+        "v": 0.5576
+      }
+    },
+    {
+      "id": "marker_1785897801175",
+      "name": "GÓLIAM",
+      "region": "ELDION",
+      "shape": "square",
+      "position": {
+        "x": -2.774,
+        "y": 12.249,
+        "z": 2.454
+      },
+      "uv": {
+        "u": 0.4723,
+        "v": 0.6225
+      }
+    },
+    {
+      "id": "marker_1785897815641",
+      "name": "JAULA ROJA",
+      "region": "ELDION",
+      "shape": "circle",
+      "position": {
+        "x": -10.111,
+        "y": 10.223,
+        "z": 2.254
+      },
+      "uv": {
+        "u": 0.3989,
+        "v": 0.6022
+      }
+    },
+    {
+      "id": "marker_1785897827353",
+      "name": "TULES",
+      "region": "ELDION",
+      "shape": "square",
+      "position": {
+        "x": -17.396,
+        "y": 21.666,
+        "z": 2.428
+      },
+      "uv": {
+        "u": 0.326,
+        "v": 0.7167
+      }
+    },
+    {
+      "id": "marker_1785897834337",
+      "name": "WICIN",
+      "region": "ELDION",
+      "shape": "square",
+      "position": {
+        "x": -14.005,
+        "y": 24.246,
+        "z": 2.339
+      },
+      "uv": {
+        "u": 0.3599,
+        "v": 0.7425
+      }
+    },
+    {
+      "id": "marker_1785897859762",
+      "name": "HOLUNDIN",
+      "region": "ELDION",
+      "shape": "diamond",
+      "position": {
+        "x": -12.605,
+        "y": 28.591,
+        "z": 2.437
+      },
+      "uv": {
+        "u": 0.3739,
+        "v": 0.7859
+      }
+    },
+    {
+      "id": "marker_1785897881420",
+      "name": "BRAFT",
+      "region": "ELDION",
+      "shape": "square",
+      "position": {
+        "x": -9.705,
+        "y": 18.569,
+        "z": 2.093
+      },
+      "uv": {
+        "u": 0.403,
+        "v": 0.6857
+      }
+    },
+    {
+      "id": "marker_1785897916365",
+      "name": "PUERTA SOLAR",
+      "region": "DÉSGUR",
+      "shape": "triangle",
+      "position": {
+        "x": -27.657,
+        "y": 19.262,
+        "z": 2.389
+      },
+      "uv": {
+        "u": 0.2234,
+        "v": 0.6926
+      }
+    },
+    {
+      "id": "marker_1785897930838",
+      "name": "IKIZAK",
+      "region": "DÉSGUR",
+      "shape": "square",
+      "position": {
+        "x": -27.692,
+        "y": 26.345,
+        "z": 2.366
+      },
+      "uv": {
+        "u": 0.2231,
+        "v": 0.7635
+      }
+    },
+    {
+      "id": "marker_1785897972064",
+      "name": "NIIBO LATS ",
+      "region": "DÉSGUR",
+      "shape": "square",
+      "position": {
+        "x": -25.051,
+        "y": 31.02,
+        "z": 2.324
+      },
+      "uv": {
+        "u": 0.2495,
+        "v": 0.8102
+      }
+    },
+    {
+      "id": "marker_1785898013777",
+      "name": "VIGILIA",
+      "region": "IREVE",
+      "shape": "square",
+      "position": {
+        "x": 18.123,
+        "y": 34.405,
+        "z": 2.404
+      },
+      "uv": {
+        "u": 0.6812,
+        "v": 0.844
+      }
+    },
+    {
+      "id": "marker_1785898028186",
+      "name": "GUO ROU",
+      "region": "IREVIE",
+      "shape": "circle",
+      "position": {
+        "x": 27.199,
+        "y": 31.974,
+        "z": 2.482
+      },
+      "uv": {
+        "u": 0.772,
+        "v": 0.8197
+      }
+    },
+    {
+      "id": "marker_1785898042843",
+      "name": "VAUN-SAE",
+      "region": "IREVIE",
+      "shape": "diamond",
+      "position": {
+        "x": 22.117,
+        "y": 23.45,
+        "z": 2.405
+      },
+      "uv": {
+        "u": 0.7212,
+        "v": 0.7345
+      }
+    },
+    {
+      "id": "marker_1785898062804",
+      "name": "SHUZENG",
+      "region": "IREVIE",
+      "shape": "triangle",
+      "position": {
+        "x": 16.998,
+        "y": 18.368,
+        "z": 2.241
+      },
+      "uv": {
+        "u": 0.67,
+        "v": 0.6837
+      }
+    },
+    {
+      "id": "marker_1785898073955",
+      "name": "CHUYETIEP",
+      "region": "IREVIE",
+      "shape": "triangle",
+      "position": {
+        "x": 12.775,
+        "y": 16.584,
+        "z": 2.378
+      },
+      "uv": {
+        "u": 0.6278,
+        "v": 0.6658
+      }
+    },
+    {
+      "id": "marker_1785898083468",
+      "name": "YEMLALU",
+      "region": "IREVIE",
+      "shape": "triangle",
+      "position": {
+        "x": 9.467,
+        "y": 24.224,
+        "z": 2.34
+      },
+      "uv": {
+        "u": 0.5947,
+        "v": 0.7422
+      }
+    },
+    {
+      "id": "marker_1785898106198",
+      "name": "FILO DE RI",
+      "region": "IREVIE",
+      "shape": "circle",
+      "position": {
+        "x": 8.649,
+        "y": 30.095,
+        "z": 2.362
+      },
+      "uv": {
+        "u": 0.5865,
+        "v": 0.801
+      }
+    },
+    {
+      "id": "marker_1785898165240",
+      "name": "INGDAO",
+      "region": "IREVIE",
+      "shape": "circle",
+      "position": {
+        "x": 14.104,
+        "y": 28.154,
+        "z": 2.575
+      },
+      "uv": {
+        "u": 0.641,
+        "v": 0.7815
+      }
+    },
+    {
+      "id": "marker_1785898178769",
+      "name": "ERENTU",
+      "region": "IREVIE",
+      "shape": "circle",
+      "position": {
+        "x": 1.569,
+        "y": 30.65,
+        "z": 2.291
+      },
+      "uv": {
+        "u": 0.5157,
+        "v": 0.8065
+      }
+    },
+    {
+      "id": "marker_1785898309262",
+      "name": "GLAIYUR",
+      "region": "DRIVA",
+      "shape": "square",
+      "position": {
+        "x": -38.169,
+        "y": -5.74,
+        "z": 2.416
+      },
+      "uv": {
+        "u": 0.1183,
+        "v": 0.4426
+      }
+    }
+  ]
+}
