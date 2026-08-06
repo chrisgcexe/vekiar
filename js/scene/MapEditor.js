@@ -117,15 +117,49 @@ export class MapEditor {
         }
     }
 
-    initStorage() {
+    async initStorage() {
         const saved = localStorage.getItem('vekiar_custom_markers');
         if (saved) {
             try {
                 this.markers = JSON.parse(saved);
-                this.markers.forEach(m => { if (!m.type) m.type = 'otro'; });
+                this.markers.forEach(m => {
+                    if (!m.type) m.type = 'otro';
+                    if (m.position === undefined) {
+                        m.position = { x: m.x, y: m.y, z: m.z };
+                    }
+                });
+                this.initLoadedMarkers();
             } catch (e) {
-                this.markers = [];
+                console.error("Error al parsear marcadores locales:", e);
+                await this.loadDefaultMarkers();
             }
+        } else {
+            await this.loadDefaultMarkers();
+        }
+    }
+
+    async loadDefaultMarkers() {
+        try {
+            console.log("%c[EDITOR] Cargando marcadores por defecto desde JSON...", "color: #b0bec5; font-style: italic;");
+            const response = await fetch('./js/vekiar_markers.json');
+            if (response.ok) {
+                const data = await response.json();
+                this.markers = data.markers || [];
+                // Unificar coordenadas viejas (x, y, z) a objeto position para compatibilidad
+                this.markers.forEach(m => {
+                    if (!m.type) m.type = 'otro';
+                    if (m.position === undefined) {
+                        m.position = { x: m.x, y: m.y, z: m.z };
+                    }
+                });
+                this.saveToLocalStorage();
+                this.initLoadedMarkers();
+                console.log(`%c[EDITOR] ${this.markers.length} marcadores predeterminados cargados.`, "color: #81c784; font-weight: bold;");
+            } else {
+                console.warn("No se pudo obtener el archivo vekiar_markers.json.");
+            }
+        } catch (e) {
+            console.error("Error cargando marcadores por defecto:", e);
         }
     }
 
@@ -139,7 +173,8 @@ export class MapEditor {
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
         
-        const markerIntersects = this.raycaster.intersectObjects(this.mapPlaneGroup.children, true);
+        // 1. Raycast optimizado contra los meshes 3D de marcadores únicamente
+        const markerIntersects = this.raycaster.intersectObjects(this.markerManager.markersGroup.children, true);
         const hitMarker = markerIntersects.find(hit => hit.object.userData && hit.object.userData.id);
 
         if (hitMarker) {
@@ -147,11 +182,23 @@ export class MapEditor {
             return;
         }
 
-        if (markerIntersects.length > 0) {
-            const hit = markerIntersects[0];
-            const localPoint = hit.point.clone();
+        // 2. Si no clickeamos un marcador, raycast contra la superficie del mapa para ubicar uno nuevo
+        const mapIntersects = this.raycaster.intersectObjects(this.mapPlaneGroup.children, true);
+        const hitTerrain = mapIntersects.find(hit => {
+            let parent = hit.object;
+            while (parent) {
+                if (parent === this.markerManager.markersGroup || (parent.userData && parent.userData.id)) {
+                    return false;
+                }
+                parent = parent.parent;
+            }
+            return true;
+        });
+
+        if (hitTerrain) {
+            const localPoint = hitTerrain.point.clone();
             this.mapPlaneGroup.worldToLocal(localPoint);
-            const uv = hit.uv;
+            const uv = hitTerrain.uv;
 
             if (uv) {
                 this.openMarkerDialog(localPoint, uv);

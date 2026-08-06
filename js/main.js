@@ -40,7 +40,6 @@ async function startApp() {
         assets.referenceTexture, // La textura con nombres plana
         assets.colorTexture      // La textura 3D normal
     );
-    mapEditor.initLoadedMarkers();
 
     // Click en una región → dolly de cámara hacia ella
     window.addEventListener('marker:region-click', (e) => {

@@ -26,6 +26,12 @@ export class MarkerManager {
         this._labelRoot = new THREE.Group();
         if (this.scene) this.scene.add(this._labelRoot);
 
+        // Grupo dedicado para los meshes 3D de los marcadores (dentro del mapPlaneGroup)
+        // para optimizar raycasting y limpieza.
+        this.markersGroup = new THREE.Group();
+        this.markersGroup.name = "markersGroup";
+        if (this.mapPlaneGroup) this.mapPlaneGroup.add(this.markersGroup);
+
         // Registro de todos los items activos para el sistema LOD de visibilidad.
         this._items = [];
 
@@ -74,7 +80,7 @@ export class MarkerManager {
             mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(posX, posY, posZ + 0.2);
             mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
-            this.mapPlaneGroup.add(mesh);
+            this.markersGroup.add(mesh);
         }
 
         // --- Label CSS2D ---
@@ -174,19 +180,18 @@ export class MarkerManager {
     }
 
     clearSceneMarkers() {
-        // Limpiar meshes 3D del grupo del mapa
-        const toRemove = [];
-        this.mapPlaneGroup.traverse((child) => {
-            if (child.userData && child.userData.id) toRemove.push(child);
-        });
-        toRemove.forEach(obj => {
-            this.mapPlaneGroup.remove(obj);
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) {
-                if (obj.material.map) obj.material.map.dispose();
-                obj.material.dispose();
-            }
-        });
+        // Limpiar meshes 3D de markersGroup de forma directa sin traverse recursivo
+        if (this.markersGroup) {
+            const toRemove = [...this.markersGroup.children];
+            toRemove.forEach(obj => {
+                this.markersGroup.remove(obj);
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) {
+                    if (obj.material.map) obj.material.map.dispose();
+                    obj.material.dispose();
+                }
+            });
+        }
 
         // Limpiar labels CSS2D
         const labelsToRemove = [...this._labelRoot.children];

@@ -1,5 +1,5 @@
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-import { KTX2Loader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/KTX2Loader.js';
+import * as THREE from 'three';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
 export class AssetLoader {
     static async loadVekiarAssets(renderer) {
@@ -24,8 +24,6 @@ export class AssetLoader {
         const packedMasksPromise = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
         const flowmapPromise = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
 
-        // --- AGREGAMOS LA MÁSCARA DE MONTAÑAS AQUÍ ---
-        const mountainMaskPromise = textureLoader.loadAsync('./assets/images/vekiar_n_mountains_mask.jpg');
         // Esperamos a que baje todo en paralelo
         const [
             colorTexture, 
