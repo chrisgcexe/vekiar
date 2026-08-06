@@ -26,8 +26,17 @@ export class AppState {
         // --- UPDATE DE LODs ---
         // Chequeamos si el mapa y los LODs ya están construidos
         if (mapInstance && mapInstance.chunksLOD && camera) {
-            for (let i = 0; i < mapInstance.chunksLOD.length; i++) {
-                mapInstance.chunksLOD[i].update(camera);
+            // Solo actualizar LOD si la cámara se movió más de ~0.3 unidades.
+            // Evita 64 operaciones sqrt por frame cuando la cámara está quieta.
+            const cpx = camera.position.x, cpy = camera.position.y, cpz = camera.position.z;
+            const dx = cpx - (this._prevCpx ?? (cpx + 1));
+            const dy = cpy - (this._prevCpy ?? (cpy + 1));
+            const dz = cpz - (this._prevCpz ?? (cpz + 1));
+            if (dx*dx + dy*dy + dz*dz > 0.09) {
+                this._prevCpx = cpx; this._prevCpy = cpy; this._prevCpz = cpz;
+                for (let i = 0; i < mapInstance.chunksLOD.length; i++) {
+                    mapInstance.chunksLOD[i].update(camera);
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { AssetLoader } from '../utils/AssetLoader.js'; 
+import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
+import { AssetLoader } from '../utils/AssetLoader.js';
 
 export class SceneManager {
     constructor() {
@@ -13,12 +14,24 @@ export class SceneManager {
         
         this.renderer.localClippingEnabled = true;
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
-        this.renderer.setClearColor(0x3a5682); 
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setClearColor(0x3a5682);
+
+        // Renderer CSS2D: capa DOM encima del canvas WebGL
+        this.css2dRenderer = new CSS2DRenderer();
+        this.css2dRenderer.setSize(window.innerWidth, window.innerHeight);
+        this.css2dRenderer.domElement.style.position = 'absolute';
+        this.css2dRenderer.domElement.style.top = '0';
+        this.css2dRenderer.domElement.style.left = '0';
+        this.css2dRenderer.domElement.style.pointerEvents = 'none'; // No bloquea clicks al mapa
+        document.body.appendChild(this.css2dRenderer.domElement);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(this.renderer.domElement);
         this._setupLights();
+        // Cache del elemento vignette (evita getElementById cada frame)
+        this._vignetteEl = null;
+        this._lastVignetteAlpha = -1;
     }
 
     _setupLights() {
@@ -87,25 +100,31 @@ export class SceneManager {
     }
 
     update(appState) {
-        // ... (Tu update original queda igual)[cite: 16]
-        if (this.sunLight) {
-            this.sunLight.intensity = 0.8 + appState.currentIn3DAlpha * 0.7;
-        }
-        const vignetteElement = document.getElementById('vignette');
-        if (vignetteElement) {
-            vignetteElement.style.opacity = appState.currentIn3DAlpha;
+        const alpha = appState.currentIn3DAlpha;
+        // Solo actualizar cuando alpha cambió en más del 0.2%:
+        // evita escritura DOM (style.opacity) y cambio de intensidad cada frame.
+        if (Math.abs(alpha - this._lastVignetteAlpha) > 0.002) {
+            this._lastVignetteAlpha = alpha;
+            if (this.sunLight) {
+                this.sunLight.intensity = 0.8 + alpha * 0.7;
+            }
+            if (!this._vignetteEl) this._vignetteEl = document.getElementById('vignette');
+            if (this._vignetteEl) {
+                this._vignetteEl.style.opacity = alpha;
+            }
         }
     }
 
     handleResize(aspect, width, height) {
-        // ... (Tu handleResize original queda igual)[cite: 16]
         this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
+        this.css2dRenderer.setSize(width, height);
     }
 
     render() {
         this.renderer.render(this.scene, this.camera);
+        this.css2dRenderer.render(this.scene, this.camera);
     }
 
     getDomElement() {

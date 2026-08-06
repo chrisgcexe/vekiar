@@ -14,12 +14,12 @@ export class MapEditor {
         this.enabled = false;
         this.isReferenceView = false;
         this.currentShape = 'circle'; 
+        this.currentType = 'otro'; 
         this.markers = [];
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        // Instanciamos el manejador visual separado
-        this.markerManager = new MarkerManager(this.mapPlaneGroup);
+        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene);
 
         this.initStorage();
         this.createUI();
@@ -43,44 +43,78 @@ export class MapEditor {
     }
 
     createUI() {
-        const panel = document.createElement('div');
-        panel.id = 'map-editor-panel';
-        panel.innerHTML = `
-            <h3>PANEL DE EDICIÓN</h3>
-            <div class="editor-field">
-                <label>Forma:</label>
-                <select id="editor-shape-select">
-                    <option value="circle">Círculo</option>
-                    <option value="square">Cuadrado</option>
-                    <option value="triangle">Triángulo</option>
-                    <option value="diamond">Rombo</option>
-                </select>
-            </div>
-            <div class="editor-actions">
-                <button id="editor-btn-undo">Borrar Último</button>
-                <button id="editor-btn-clear">Limpiar Todos</button>
-                <button id="editor-btn-export">Exportar JSON</button>
-            </div>
-        `;
-        document.body.appendChild(panel);
+        let panel = document.getElementById('map-editor-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'map-editor-panel';
+            panel.style.cssText = `
+                position: fixed; top: 20px; right: 20px; z-index: 10000;
+                background: rgba(23, 19, 16, 0.9); border: 1px solid #795548;
+                padding: 15px; border-radius: 8px; color: #d7ccc8; font-family: sans-serif;
+                display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 220px;
+            `;
+            panel.innerHTML = `
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ffca28; text-align: center;">PANEL DE EDICIÓN</h3>
+                <div class="editor-field" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Forma:</label>
+                    <select id="editor-shape-select" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                        <option value="circle">Círculo</option>
+                        <option value="square">Cuadrado</option>
+                        <option value="triangle">Triángulo</option>
+                        <option value="diamond">Rombo</option>
+                        <option value="text">Solo Texto</option>
+                    </select>
+                </div>
+                <div class="editor-field" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo (Categoría):</label>
+                    <select id="editor-type-select" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                        <option value="otro">Otro</option>
+                        <option value="region">Región</option>
+                        <option value="isla">Isla</option>
+                        <option value="lago">Lago</option>
+                    </select>
+                </div>
+                <div class="editor-actions" style="display: flex; gap: 6px; flex-direction: column;">
+                    <button id="editor-btn-undo" style="padding: 6px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Borrar Último</button>
+                    <button id="editor-btn-clear" style="padding: 6px; background: #b71c1c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Limpiar Todos</button>
+                    <button id="editor-btn-export" style="padding: 6px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Exportar JSON</button>
+                </div>
+            `;
+            document.body.appendChild(panel);
+        }
 
-        document.getElementById('editor-shape-select').addEventListener('change', (e) => {
-            this.currentShape = e.target.value;
-        });
+        const shapeSelect = document.getElementById('editor-shape-select');
+        if (shapeSelect) {
+            shapeSelect.addEventListener('change', (e) => {
+                this.currentShape = e.target.value;
+            });
+        }
 
-        document.getElementById('editor-btn-undo').addEventListener('click', () => {
-            this.removeLastMarker();
-        });
+        const typeSelect = document.getElementById('editor-type-select');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', (e) => {
+                this.currentType = e.target.value;
+            });
+        }
 
-        document.getElementById('editor-btn-clear').addEventListener('click', () => {
-            if (confirm("¿Estás seguro de borrar todos los marcadores?")) {
-                this.clearAllMarkers();
-            }
-        });
+        const btnUndo = document.getElementById('editor-btn-undo');
+        if (btnUndo) {
+            btnUndo.addEventListener('click', () => this.removeLastMarker());
+        }
 
-        document.getElementById('editor-btn-export').addEventListener('click', () => {
-            this.exportToJsonFile();
-        });
+        const btnClear = document.getElementById('editor-btn-clear');
+        if (btnClear) {
+            btnClear.addEventListener('click', () => {
+                if (confirm("¿Estás seguro de borrar todos los marcadores?")) {
+                    this.clearAllMarkers();
+                }
+            });
+        }
+
+        const btnExport = document.getElementById('editor-btn-export');
+        if (btnExport) {
+            btnExport.addEventListener('click', () => this.exportToJsonFile());
+        }
     }
 
     initStorage() {
@@ -88,6 +122,7 @@ export class MapEditor {
         if (saved) {
             try {
                 this.markers = JSON.parse(saved);
+                this.markers.forEach(m => { if (!m.type) m.type = 'otro'; });
             } catch (e) {
                 this.markers = [];
             }
@@ -129,12 +164,14 @@ export class MapEditor {
         if (!name) return;
 
         const region = prompt("Región a la que pertenece:", "General") || "General";
+        const type = this.currentType || 'otro';
 
         const id = 'marker_' + Date.now();
         const markerData = {
             id,
             name,
             region,
+            type,
             shape: this.currentShape,
             position: {
                 x: Number(localPoint.x.toFixed(3)),
@@ -162,12 +199,21 @@ export class MapEditor {
         const newRegion = prompt("Editar región:", markerData.region || "General");
         if (newRegion === null) return;
 
+        const currentType = markerData.type || 'otro';
+        const newTypeInput = prompt(`Editar tipo (region, isla, lago, otro):`, currentType);
+        if (newTypeInput === null) return;
+
+        const validTypes = ['region', 'isla', 'lago', 'otro'];
+        const normalizedType = newTypeInput.trim().toLowerCase();
+        const finalType = validTypes.includes(normalizedType) ? normalizedType : 'otro';
+
         markerData.name = newName !== "" ? newName : markerData.name;
         markerData.region = newRegion !== "" ? newRegion : "General";
+        markerData.type = finalType;
 
         this.saveToLocalStorage();
         this.markerManager.renderAll(this.markers);
-        console.log(`%c[EDITOR] Marcador "${markerData.name}" actualizado.`, "color: #4fc3f7; font-weight: bold;");
+        console.log(`%c[EDITOR] Marcador "${markerData.name}" actualizado (Tipo: ${markerData.type}).`, "color: #4fc3f7; font-weight: bold;");
     }
 
     removeLastMarker() {

@@ -16,6 +16,17 @@ export class CameraController {
         this.controls.minDistance = 25;  
         this.controls.target.set(0, 0, 0);
 
+        // Variables para el estado FLY_TO
+        this._flyProgress    = 0;
+        this._flyStartTarget = new THREE.Vector3();
+        this._flyEndTarget   = new THREE.Vector3();
+        // Esféricos para tween sin snap: polar, azimutal y distancia se interpolan juntos
+        this._flyStartPhi    = 0;
+        this._flyEndPhi      = 0;
+        this._flyAzimuthal   = 0;
+        this._flyStartDist   = 0;
+        this._flyEndDist     = 28;
+
         // --- MÁQUINA DE ESTADOS CINEMÁTICA ---
         this.state = 'INIT'; // Fases: INIT, DROP_1, WAIT_INPUT, DROP_2, PLAYING
         
@@ -96,6 +107,7 @@ export class CameraController {
     }
 
     update(mapAspect) {
+        this.mapAspect = mapAspect; // Guardar para calcular límites en flyTo
         const playableDist = this.calculatedMaxDistance || 60;
         const idleDist = playableDist + 15; 
 
@@ -153,50 +165,166 @@ if (this.state === 'DROP_1') {
                 const compassUI = document.getElementById('compass');
                 if (compassUI) compassUI.classList.add('show-compass');
             }
+
+        } else if (this.state === 'FLY_TO') {
+            this._flyProgress = Math.min(1.0, this._flyProgress + 0.025);
+
+            // Ease-in-out cúbico
+            const p = this._flyProgress;
+            const ease = p < 0.5
+                ? 4 * p * p * p
+                : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+            // Pan: interpolar target
+            this.controls.target.lerpVectors(this._flyStartTarget, this._flyEndTarget, ease);
+
+            // Tilt + Zoom: interpolar en esférico
+            const phi  = THREE.MathUtils.lerp(this._flyStartPhi,  this._flyEndPhi,  ease);
+            const dist = THREE.MathUtils.lerp(this._flyStartDist, this._flyEndDist, ease);
+
+            // Reconstruir posición (azimutal fijo → cero rotación horizontal)
+            this.camera.position.set(
+                this.controls.target.x + dist * Math.sin(phi) * Math.sin(this._flyAzimuthal),
+                this.controls.target.y + dist * Math.cos(phi),
+                this.controls.target.z + dist * Math.sin(phi) * Math.cos(this._flyAzimuthal)
+            );
+
+            // CLAVE: abrir el constraint de ángulo polar durante el vuelo.
+            // Si no se hace, controls.update() aplica el minPolarAngle/maxPolarAngle
+            // del último frame de PLAYING (el ángulo PRE-vuelo) y resetea la cámara
+            // → fight a 60fps → jitter y teleportación.
+            this.controls.minPolarAngle = 0;
+            this.controls.maxPolarAngle = Math.PI;
+
+            // Sincronizar estado interno de OrbitControls (input desactivado = sync puro).
+            this.controls.update();
+
+            if (this._flyProgress >= 1.0) {
+                this.controls.enableDamping = true;
+                this.controls.enabled = true;
+                this.controls.maxDistance = this.calculatedMaxDistance;
+                this.state = 'PLAYING';
+                // El constraint (minPolarAngle = maxPolarAngle = endPhi) se retoma
+                // en el próximo frame de PLAYING. Como la cámara ya está en endPhi,
+                // OrbitControls no tiene nada que corregir → cero snap.
+            }
         }
 
         // --- ZOOM & RESTRICCIONES ---
         const dist = this.controls.getDistance();
-        let t = 1.0; 
-        
-        if (this.state === 'PLAYING') {
-            t = (dist - 25) / (this.controls.maxDistance - 25);
+        let t = 1.0;
+
+        // Calculamos zoomAlpha también durante FLY_TO para que los sistemas de marcadores
+        // y ecosistemas respondan en tiempo real mientras la cámara vuela.
+        if (this.state === 'PLAYING' || this.state === 'FLY_TO') {
+            const maxDist = this.calculatedMaxDistance || this.controls.maxDistance;
+            t = (dist - 25) / (maxDist - 25);
             t = THREE.MathUtils.clamp(t, 0, 1);
         }
-        
+
         this.zoomAlpha = t;
         this.controls.enablePan = (this.state === 'PLAYING' && t < 0.9);
 
         // --- LÓGICA DE ÁNGULO Y BORDES ---
-        const easeT = -(Math.cos(Math.PI * t) - 1) / 2; 
-        const targetAngle = THREE.MathUtils.lerp(Math.PI / 4.5, 0.01, easeT); 
-        
-        this.controls.minPolarAngle = targetAngle;
-        this.controls.maxPolarAngle = targetAngle;
-
-        const freedom = 1.0 - Math.pow(t, 8.0); 
-        const maxRadiusX = 60 * freedom;
-        const maxRadiusZ = (50 / mapAspect) * freedom;
-
-        let centerDeltaX = 0;
-        let centerDeltaZ = 0;
-
-        if (Math.abs(this.controls.target.x) > maxRadiusX) {
-            const newX = Math.sign(this.controls.target.x) * maxRadiusX;
-            centerDeltaX = newX - this.controls.target.x;
-        }
-        if (Math.abs(this.controls.target.z) > maxRadiusZ) {
-            const newZ = Math.sign(this.controls.target.z) * maxRadiusZ;
-            centerDeltaZ = newZ - this.controls.target.z;
+        // Durante FLY_TO se omite el lock de ángulo polar: la cámara mantiene
+        // la dirección capturada en flyTo() y OrbitControls no debe interferir.
+        // Al volver a PLAYING el lock se retoma naturalmente en el siguiente frame.
+        if (this.state !== 'FLY_TO') {
+            const easeT = -(Math.cos(Math.PI * t) - 1) / 2; 
+            const targetAngle = THREE.MathUtils.lerp(Math.PI / 4.5, 0.01, easeT); 
+            
+            this.controls.minPolarAngle = targetAngle;
+            this.controls.maxPolarAngle = targetAngle;
         }
 
-        if (Math.abs(centerDeltaX) > 0.0001 || Math.abs(centerDeltaZ) > 0.0001) {
-            this.controls.target.x += centerDeltaX * 0.15;
-            this.controls.target.z += centerDeltaZ * 0.15;
-            this.camera.position.x += centerDeltaX * 0.15;
-            this.camera.position.z += centerDeltaZ * 0.15;
+        // Restricción de bordes: se omite durante FLY_TO para no pelear con la animación.
+        if (this.state !== 'FLY_TO') {
+            const freedom = 1.0 - Math.pow(t, 8.0); 
+            const maxRadiusX = 72 * freedom; // Límite extendido para permitir centrar regiones del borde
+            const maxRadiusZ = (56 / mapAspect) * freedom;
+
+            let centerDeltaX = 0;
+            let centerDeltaZ = 0;
+
+            if (Math.abs(this.controls.target.x) > maxRadiusX) {
+                const newX = Math.sign(this.controls.target.x) * maxRadiusX;
+                centerDeltaX = newX - this.controls.target.x;
+            }
+            if (Math.abs(this.controls.target.z) > maxRadiusZ) {
+                const newZ = Math.sign(this.controls.target.z) * maxRadiusZ;
+                centerDeltaZ = newZ - this.controls.target.z;
+            }
+
+            if (Math.abs(centerDeltaX) > 0.0001 || Math.abs(centerDeltaZ) > 0.0001) {
+                this.controls.target.x += centerDeltaX * 0.15;
+                this.controls.target.z += centerDeltaZ * 0.15;
+                this.camera.position.x += centerDeltaX * 0.15;
+                this.camera.position.z += centerDeltaZ * 0.15;
+            }
         }
 
+        // FLY_TO: NO llamar controls.update() aquí.
+        // Durante el vuelo, la cámara se posiciona mediante tween manual.
+        // Si controls.update() corre, sobreescribe camera.position con el estado
+        // esférico interno de OrbitControls → teleportación y fight.
+        // Solo se llama cuando la animación termina (dentro del bloque FLY_TO arriba).
+        if (this.state !== 'FLY_TO') {
+            this.controls.update();
+        }
+    }
+
+    /**
+     * Anima la cámara hacia la posición mundo de una región (dolly cinematográfico).
+     * Solo funciona desde el estado PLAYING.
+     * @param {THREE.Vector3} worldPos - Posición mundo del marcador (output de localToWorld)
+     */
+    flyTo(worldPos) {
+        if (this.state !== 'PLAYING') return;
+
+        // --- Esféricos actuales de la cámara ---
+        const offset    = this.camera.position.clone().sub(this.controls.target);
+        const startDist = offset.length();
+        // Ángulo polar (0 = top-down, PI/2 = horizontal)
+        const startPhi  = Math.acos(THREE.MathUtils.clamp(offset.y / startDist, -1, 1));
+        // Ángulo azimutal: no cambiará durante el vuelo → sin rotación horizontal
+        const theta     = Math.atan2(offset.x, offset.z);
+
+        // --- Ángulo polar objetivo ---
+        // Precalculamos el ángulo que el constraint de PLAYING aplicará al llegar a endDist.
+        // Al terminar el vuelo la cámara ya estará en ese ángulo → CERO snap.
+        const endDist  = 28;
+        const maxDist  = this.calculatedMaxDistance || 55;
+        const tEnd     = THREE.MathUtils.clamp((endDist - 25) / (maxDist - 25), 0, 1);
+        const easeTEnd = -(Math.cos(Math.PI * tEnd) - 1) / 2;
+        const endPhi   = THREE.MathUtils.lerp(Math.PI / 4.5, 0.01, easeTEnd);
+
+        // --- Pre-restringir target final de la cámara ---
+        // Limita el target en el plano Y=0 según los límites extendidos que se aplicarán en PLAYING.
+        const aspect = this.mapAspect || 1.0;
+        const freedom = 1.0 - Math.pow(tEnd, 8.0);
+        const maxRadiusX = 72 * freedom;
+        const maxRadiusZ = (56 / aspect) * freedom;
+
+        const clampedTargetX = THREE.MathUtils.clamp(worldPos.x, -maxRadiusX, maxRadiusX);
+        const clampedTargetZ = THREE.MathUtils.clamp(worldPos.z, -maxRadiusZ, maxRadiusZ);
+
+        // Guardar para el tween
+        this._flyStartTarget.copy(this.controls.target);
+        this._flyEndTarget.set(clampedTargetX, 0, clampedTargetZ);
+        this._flyStartPhi  = startPhi;
+        this._flyEndPhi    = endPhi;
+        this._flyAzimuthal = theta;
+        this._flyStartDist = startDist;
+        this._flyEndDist   = endDist;
+        this._flyProgress  = 0;
+
+        // Flush de deltas pendientes de OrbitControls antes del vuelo:
+        // damping off + update() = aplica y zeroa cualquier delta acumulado.
+        this.controls.enableDamping = false;
         this.controls.update();
+        // Desactivar eventos de input durante el vuelo.
+        // controls.update() sigue funcionando para sincronizar estado interno.
+        this.controls.enabled = false;
+        this.state = 'FLY_TO';
     }
 }

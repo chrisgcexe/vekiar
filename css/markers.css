@@ -1,0 +1,72 @@
+/* =================================================
+   Estilos de etiquetas de marcadores del mapa
+   Renderizadas por CSS2DRenderer de Three.js
+   ================================================= */
+
+.marker-label {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+
+    /* GPU compositing: elimina el jitter de sub-pixel que causa el temblor */
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+
+    /* Transición suave de aparición/desaparición según el zoom (sistema LOD) */
+    transition: opacity 0.4s ease;
+    opacity: 1;
+
+    /* Sombra de texto para legibilidad sobre el terreno */
+    text-shadow:
+        -1px -1px 0 rgba(0, 0, 0, 0.6),
+         1px -1px 0 rgba(0, 0, 0, 0.6),
+        -1px  1px 0 rgba(0, 0, 0, 0.6),
+         1px  1px 0 rgba(0, 0, 0, 0.6),
+         0px  2px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Regiones: nombre grande, estilo cartografía antigua */
+.marker-region {
+    font-size: 15px;
+    color: #c8e6c9;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.92;
+    /* pointer-events se setea via JS solo cuando la región es visible */
+}
+
+.marker-region:hover {
+    color: #ffffff;
+    text-shadow:
+        0 0 12px rgba(200, 230, 201, 0.8),
+        -1px -1px 0 rgba(0, 0, 0, 0.7),
+         1px  1px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* Islas */
+.marker-isla {
+    font-size: 11px;
+    color: #ffccbc;
+    letter-spacing: 0.06em;
+    font-style: italic;
+}
+
+/* Lagos */
+.marker-lago {
+    font-size: 11px;
+    color: #b3e5fc;
+    letter-spacing: 0.06em;
+    font-style: italic;
+}
+
+/* Otros (ciudades, puntos de interés, etc.) */
+.marker-otro {
+    font-size: 10px;
+    color: #f5f5f5;
+    letter-spacing: 0.04em;
+}

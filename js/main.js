@@ -41,6 +41,11 @@ async function startApp() {
         assets.colorTexture      // La textura 3D normal
     );
     mapEditor.initLoadedMarkers();
+
+    // Click en una región → dolly de cámara hacia ella
+    window.addEventListener('marker:region-click', (e) => {
+        cameraController.flyTo(e.detail.worldPos);
+    });
     // ---------------------------------------------
 
     // 3. Conexión de Eventos
@@ -53,6 +58,9 @@ async function startApp() {
     cameraController.updateConstraints(map.aspect); 
 
     // 4. Arrancamos el Bucle Principal
+    // Cache de referencias a uniforms (evita lookup por string key en userData cada frame)
+    let _uZoomAlpha = null, _uTime = null, _lastDispAlpha = -1;
+
     function animate(timeMs) {
         requestAnimationFrame(animate);
         
@@ -75,23 +83,32 @@ async function startApp() {
         }
 
         if (clouds.material && clouds.material.uniforms.uOpacity.value > 0.001) {
-            clouds.update(target);
+            clouds.update(target, appState.time);
         }
         
-        raycasterBounds.update(aspect);
+        if (cameraController.state !== 'FLY_TO') {
+            raycasterBounds.update(aspect);
+        }
         compass.update();
         sceneManager.update(appState);
 
         if (appState.isReady && map.material) {
-            if (map.material.userData.uZoomAlpha) {
-                map.material.userData.uZoomAlpha.value = appState.currentIn3DAlpha;
+            // Inicializar cache de uniforms la primera vez que el material está listo
+            if (!_uZoomAlpha) {
+                _uZoomAlpha = map.material.userData.uZoomAlpha || null;
+                _uTime     = map.material.userData.uTime     || null;
             }
-            if (map.material.userData.uTime) {
-                map.material.userData.uTime.value = appState.time;
+            if (_uZoomAlpha) _uZoomAlpha.value = appState.currentIn3DAlpha;
+            if (_uTime)      _uTime.value      = appState.time;
+
+            // Escribir displacementScale solo cuando cambió más del 0.2%
+            if (Math.abs(appState.currentIn3DAlpha - _lastDispAlpha) > 0.002) {
+                _lastDispAlpha = appState.currentIn3DAlpha;
+                const disp = 3.5 * _lastDispAlpha;
+                map.material.displacementScale = disp;
+                if (map.riverMaterial) map.riverMaterial.displacementScale = disp;
+                if (map.lakeMaterial)  map.lakeMaterial.displacementScale  = disp;
             }
-            map.material.displacementScale = 3.5 * appState.currentIn3DAlpha;
-            if (map.riverMaterial) map.riverMaterial.displacementScale = 3.5 * appState.currentIn3DAlpha;
-            if (map.lakeMaterial) map.lakeMaterial.displacementScale = 3.5 * appState.currentIn3DAlpha;
         }
 
         if (appState.isReady) {
@@ -102,6 +119,11 @@ async function startApp() {
             if (typeof map.update === 'function') {
                 map.update(appState.time);
             }
+        }
+
+        // Actualizar visibilidad de marcadores según el zoom actual (sistema LOD) y el estado de la cámara
+        if (appState.isReady) {
+            mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state);
         }
 
         sceneManager.render();

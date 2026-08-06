@@ -46,12 +46,12 @@ export class Map {
             this.clipRight = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
             const clippingPlanes = [this.clipLeft, this.clipRight];
 
-// Cilindros base para hacer de bordes del papel
+            // Cilindros base para hacer de bordes del papel
             const mapWidth = 100;
             const mapHeight = (mapWidth / this.aspect) * this.aspect; 
-            const finalRollHeight = (100 / this.aspect) * 1.78; 
+            const finalRollHeight = 103.5; // Ajustado a 103.5 para coincidir físicamente y cubrir todo el terreno sin dejar pedazos libres
             
-            const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32, 64);
+            const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32, 64, true); // true = openEnded (sin tapas duras)
             const rollMat = new THREE.MeshStandardMaterial({ 
                             color: 0xffffff,      // Blanco puro para que el shader decida los tonos finales
                             roughness: 1.0,      // Casi totalmente mate para eliminar el brillo plástico
@@ -65,7 +65,7 @@ export class Map {
                 shader.uniforms.uTime = { value: 0.0 };
                 shader.uniforms.uZoom = { value: 1.0 };
                 rollMat.userData.shaderUniforms = shader.uniforms;
-
+ 
                 shader.vertexShader = `
                     uniform float uTime;
                     varying vec3 vWorldPositionRoll;
@@ -85,7 +85,7 @@ export class Map {
                                    mix(hashRoll(i + vec2(0.0, 1.0)), hashRoll(i + vec2(1.0, 1.0)), f.x), f.y);
                     }
                 ` + shader.vertexShader;
-
+ 
                 shader.vertexShader = shader.vertexShader.replace(
                     '#include <begin_vertex>',
                     `
@@ -101,7 +101,7 @@ export class Map {
                     transformed.z += transformed.z * noiseWave;
                     `
                 );
-
+ 
                 shader.fragmentShader = `
                     uniform float uZoom;
                     varying vec3 vWorldPositionRoll;
@@ -121,7 +121,7 @@ export class Map {
                                    mix(hashF(i + vec2(0.0, 1.0)), hashF(i + vec2(1.0, 1.0)), f.x), f.y);
                     }
                 ` + shader.fragmentShader;
-
+ 
                 shader.fragmentShader = shader.fragmentShader.replace(
                     '#include <color_fragment>',
                     `
@@ -136,30 +136,39 @@ export class Map {
                     float noiseDetail = perlinF(cylindricalUv * vec2(8.0, 25.0));
                     float pNoise = noiseLarge * 0.7 + noiseDetail * 0.3;
                     
-                    // Base de la textura del papel
-                    vec3 vetaClara = vec3(0.88, 0.82, 0.70); 
-                    vec3 vetaOscura = vec3(0.72, 0.63, 0.50);  
+                    // Base de la textura del papel (más oscura y envejecida)
+                    vec3 vetaClara = vec3(0.72, 0.65, 0.52); 
+                    vec3 vetaOscura = vec3(0.52, 0.42, 0.32);  
                     vec3 texturaPapel = mix(vetaOscura, vetaClara, pNoise);
-
+  
                     // --- SISTEMA DE COLOR DINÁMICO POR ZOOM ---
-                    vec3 color2D = vec3(0.89, 0.83, 0.74); // El 0xe3d4be que pediste para vista lejana
-                    vec3 color3D = vec3(0.10, 0.13, 0.05); // Un toque más claro que el 0x352a22
+                    vec3 color2D = vec3(0.72, 0.62, 0.48); // Tono pergamino envejecido oscuro para vista lejana
+                    vec3 color3D = vec3(0.04, 0.035, 0.03); // Tono marrón quemado ceniza súper oscuro para integrarse al fondo
                     
                     // Suavizamos la transición para que no sea abrupta
                     float zoomFactor = smoothstep(0.2, 0.8, uZoom);
                     vec3 colorBasePorZoom = mix(color2D, color3D, zoomFactor);
-
                     // Multiplicamos las vetas por la tintura actual de la cámara
                     vec3 parchmentColor = texturaPapel * colorBasePorZoom;
-
-                    // Viñeta sutil en los extremos del rollo (más difusa)
-                    float edgeFactor = smoothstep(0.0, 0.4, vUvRoll.y) * smoothstep(1.0, 0.6, vUvRoll.y);
-                    edgeFactor = mix(0.7, 1.0, edgeFactor); // Menos agresivo el oscurecimiento
-                    
-                    parchmentColor *= edgeFactor;
-
-                    // Fusionamos con el color base
+  
+                    // Fusionamos con el color base de la textura
                     diffuseColor.rgb *= parchmentColor;
+                    `
+                );
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <dithering_fragment>',
+                    `
+                    #include <dithering_fragment>
+                    
+                    // Viñeta difusa en los extremos del rollo: se mezcla suavemente hacia el color
+                    // de fondo (0x171310) en las puntas superior e inferior en el último paso del shader.
+                    // Esto anula cualquier iluminación especular que exponga la cara recortada del cilindro.
+                    float edgeFactor = smoothstep(0.0, 0.16, vUvRoll.y) * smoothstep(1.0, 0.84, vUvRoll.y);
+                    edgeFactor = pow(edgeFactor, 1.5);
+                    
+                    vec3 fogColor = vec3(0.09, 0.075, 0.063); // Equivalente a 0x171310
+                    gl_FragColor.rgb = mix(fogColor, gl_FragColor.rgb, edgeFactor);
                     `
                 );
             };

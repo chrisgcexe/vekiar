@@ -5,7 +5,6 @@ export class Clouds {
     constructor(scene) {
         this.scene = scene;
         this.material = null;
-        this.clock = new THREE.Clock();
 
         this._initClouds();
     }
@@ -34,9 +33,9 @@ export class Clouds {
         this.scene.add(mesh);
     }
 
-    update(target) {
+    update(target, time) {
         if (this.material) {
-            this.material.uniforms.uTime.value = this.clock.getElapsedTime();
+            this.material.uniforms.uTime.value = time;
             if (target) {
                 // El plano de nubes mide 150x150, centrado en (0,0)
                 let targetU = target.x / 150.0 + 0.5;

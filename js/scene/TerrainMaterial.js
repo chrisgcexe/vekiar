@@ -62,23 +62,32 @@ material.onBeforeCompile = (shader) => {
             // Inyectamos la sombra en el ÚLTIMO paso del shader (después de que el océano ya se pintó)
             shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', mapDitheringFragment + `
                 
-                // Mapeamos la posición del rollo
+                // --- DIFUMINADO PERIMETRAL EN LOS 4 BORDES (X e Y) ---
+                // 1. Límites del despliegue lateral (eje X)
                 float uvRollLeft = 0.5 - (uRollX / 100.0);
                 float uvRollRight = 0.5 + (uRollX / 100.0);
-                
-                // Calculamos distancia a los bordes usando tu variable vGlobalPos.x
                 float distLeft = vGlobalPos.x - uvRollLeft;
                 float distRight = uvRollRight - vGlobalPos.x;
-                float distToEdge = min(distLeft, distRight);
+                float distToEdgeX = min(distLeft, distRight);
                 
-                // Generamos la sombra (0.1 de ancho UV)
-                float dynamicRollShadow = smoothstep(0.0, 0.1, distToEdge);
-                
-                // Intensidad de la oclusión
-                dynamicRollShadow = mix(0.15, 1.0, dynamicRollShadow); 
-                
-                // Modificamos el pixel final ya renderizado (tierra + luces + OCÉANO)
-                gl_FragColor.rgb *= dynamicRollShadow;
+                // 2. Límites superior e inferior (eje Y)
+                float distToEdgeY = min(vGlobalPos.y, 1.0 - vGlobalPos.y);
+
+                // 3. Calculamos la atenuación de bordes (0.08 para los laterales, 0.12 para arriba/abajo)
+                float edgeShadowX = smoothstep(0.0, 0.08, distToEdgeX);
+                float edgeShadowY = smoothstep(0.0, 0.12, distToEdgeY);
+                float borderFade = edgeShadowX * edgeShadowY;
+                borderFade = pow(borderFade, 1.5); // Atenuación exponencial ultra-suave
+
+                // 4. Sombra clásica del rollo en X para dar profundidad 3D
+                float rollDepthShadow = smoothstep(0.0, 0.1, distToEdgeX);
+                rollDepthShadow = mix(0.15, 1.0, rollDepthShadow);
+
+                // Color exacto del fondo de la escena (0x171310)
+                vec3 fogColor = vec3(0.09, 0.075, 0.063);
+
+                // Mezclamos el mapa completo con el fondo del canvas en todo su contorno
+                gl_FragColor.rgb = mix(fogColor, gl_FragColor.rgb * rollDepthShadow, borderFade);
             `);
         };
 
