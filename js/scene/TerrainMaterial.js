@@ -35,6 +35,8 @@ export class TerrainMaterial {
         
         // --- UNIFORM: Sigue la posición actual de los rollos ---
         material.userData.uRollX = { value: 50.1 }; 
+        material.userData.tRegionText = { value: null };
+        material.userData.uRegionOpacity = { value: 0.0 };
 
 material.onBeforeCompile = (shader) => {
             shader.uniforms.uZoomAlpha = material.userData.uZoomAlpha;
@@ -45,9 +47,11 @@ material.onBeforeCompile = (shader) => {
             shader.uniforms.tFlowMap = material.userData.tFlowMap;
             shader.uniforms.uMountainCenter = material.userData.uMountainCenter;
             shader.uniforms.uRollX = material.userData.uRollX;
+            shader.uniforms.tRegionText = material.userData.tRegionText;
+            shader.uniforms.uRegionOpacity = material.userData.uRegionOpacity;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRollX;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform float uRegionOpacity;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

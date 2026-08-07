@@ -16,9 +16,10 @@ export class MarkerManager {
      * @param {THREE.Group}  mapPlaneGroup - Grupo rotado del mapa (meshes 3D de iconos)
      * @param {THREE.Scene}  scene         - Escena raiz (labels CSS2D, sin rotación)
      */
-    constructor(mapPlaneGroup, scene) {
+    constructor(mapPlaneGroup, scene, mapMaterial) {
         this.mapPlaneGroup = mapPlaneGroup;
         this.scene = scene;
+        this.mapMaterial = mapMaterial;
 
         // Grupo plano sin rotación en la escena raíz.
         // Los CSS2DObjects deben vivir aquí y NO en mapPlaneGroup (que tiene rotation.x = -PI/2
@@ -51,8 +52,8 @@ export class MarkerManager {
         const posY = data.position ? data.position.y : data.y;
         const posZ = data.position ? data.position.z : data.z;
 
-        // --- Icono 3D (solo si no es marcador puramente de texto) ---
-        if (shape !== 'text') {
+        // --- Icono 3D (solo si no es marcador puramente de texto ni de región) ---
+        if (shape !== 'text' && markerType !== 'region') {
             if (shape === 'square') {
                 geometry = new THREE.BoxGeometry(1.2, 1.2, 0.3);
             } else if (shape === 'triangle') {
@@ -79,6 +80,14 @@ export class MarkerManager {
             const material = new THREE.MeshBasicMaterial({ color: 0xff5252 });
             mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(posX, posY, posZ + 0.2);
+            mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+            this.markersGroup.add(mesh);
+        } else if (markerType === 'region') {
+            // Generar un hitbox invisible para el Raycaster del Editor
+            geometry = new THREE.PlaneGeometry(6, 2); // Área amplia aproximada
+            const material = new THREE.MeshBasicMaterial({ visible: false });
+            mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(posX, posY, posZ + 0.1);
             mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
             this.markersGroup.add(mesh);
         }
@@ -125,19 +134,35 @@ export class MarkerManager {
 
         if (type === 'region') {
             // Las regiones capturan clicks para el dolly de cámara.
-            // pointer-events: auto en el hijo funciona aunque el contenedor CSS2DRenderer
-            // tenga pointer-events: none.
             div.style.pointerEvents = 'auto';
             div.style.cursor = 'pointer';
 
-            div.addEventListener('click', () => {
-                // Buscar la worldPos pre-calculada del item correspondiente
+            div.addEventListener('click', (e) => {
+                // Verificar si el editor está activo. Si es así, no movemos la cámara, abrimos el inspector.
+                const editorPanel = document.getElementById('map-editor-panel');
+                if (editorPanel && editorPanel.style.display !== 'none') {
+                    e.stopPropagation();
+                    window.dispatchEvent(new CustomEvent('editor:open-inspector', { detail: { id } }));
+                    return;
+                }
+
                 const item = this._items.find(i => i.data && i.data.id === id);
                 if (item) {
                     window.dispatchEvent(new CustomEvent('marker:region-click', {
                         detail: { worldPos: item.worldPos.clone(), name: message }
                     }));
                 }
+            });
+
+            // Hover tracking para la textura dinámica
+            div.addEventListener('mouseenter', () => {
+                this._hoveredRegionId = id;
+                this._updateRegionTexture(this._items.map(i => i.data));
+            });
+            
+            div.addEventListener('mouseleave', () => {
+                this._hoveredRegionId = null;
+                this._updateRegionTexture(this._items.map(i => i.data));
             });
         }
 
@@ -153,7 +178,18 @@ export class MarkerManager {
     update(zoomAlpha, cameraState) {
         const isCameraReady = (cameraState === 'PLAYING' || cameraState === 'FLY_TO');
 
-        // Solo actualizar si el zoom o el estado de preparación de la cámara cambiaron.
+        // Manejar la opacidad global de la textura dinámica de regiones en el shader
+        if (this.mapMaterial && this.mapMaterial.userData.uRegionOpacity) {
+            const targetOpacity = isCameraReady ? 1.0 : 0.0;
+            // Lerp para suavizar la transición (fade in/out) similar a CSS transition
+            this.mapMaterial.userData.uRegionOpacity.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uRegionOpacity.value, 
+                targetOpacity, 
+                0.05
+            );
+        }
+
+        // Solo actualizar el resto del DOM si el zoom o el estado de preparación de la cámara cambiaron.
         if (Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady) return;
         this._lastZoomAlpha = zoomAlpha;
         this._lastCameraReady = isCameraReady;
@@ -209,5 +245,65 @@ export class MarkerManager {
     renderAll(markersList) {
         this.clearSceneMarkers();
         markersList.forEach(data => this.spawnVisualMarker(data));
+        this._updateRegionTexture(markersList);
+    }
+
+    _updateRegionTexture(markersList) {
+        if (!this.mapMaterial) return;
+
+        if (!this.regionCanvas) {
+            this.regionCanvas = document.createElement('canvas');
+            // Alta resolución para textos nítidos
+            this.regionCanvas.width = 4096;
+            this.regionCanvas.height = 4096;
+            this.regionCtx = this.regionCanvas.getContext('2d');
+            this.regionTexture = new THREE.CanvasTexture(this.regionCanvas);
+            this.regionTexture.anisotropy = 4;
+            this.regionTexture.minFilter = THREE.LinearMipmapLinearFilter;
+            // Asignar textura al material del terreno
+            if (this.mapMaterial.userData.tRegionText) {
+                this.mapMaterial.userData.tRegionText.value = this.regionTexture;
+            }
+        }
+
+        const ctx = this.regionCtx;
+        const w = this.regionCanvas.width;
+        const h = this.regionCanvas.height;
+
+        // Limpiar canvas
+        ctx.clearRect(0, 0, w, h);
+
+        // Estilos base compartidos
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Dibujar solo los marcadores de tipo región
+        markersList.forEach(data => {
+            if (data.type === 'region') {
+                const u = data.uv ? data.uv.u : data.u;
+                const v = data.uv ? data.uv.v : data.v;
+                
+                if (u !== undefined && v !== undefined) {
+                    // Determinar tamaño de letra y espaciado proporcional
+                    const fSize = data.fontSize || 80;
+                    ctx.font = `bold ${fSize}px "Georgia", serif`;
+                    if ('letterSpacing' in ctx) {
+                        const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
+                        ctx.letterSpacing = spacing + 'px';
+                    }
+                    // Hover check
+                    if (data.id === this._hoveredRegionId) {
+                        ctx.fillStyle = 'rgba(255, 230, 150, 1.0)'; // Dorado claro al hacer hover
+                    } else {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)'; // Negro (tinta por defecto)
+                    }
+
+                    // En Three.js la coordenada V del UV está invertida respecto al canvas 2D
+                    ctx.fillText(data.name.toUpperCase(), u * w, (1.0 - v) * h);
+                }
+            }
+        });
+
+        this.regionTexture.needsUpdate = true;
     }
 }

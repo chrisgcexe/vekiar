@@ -30,22 +30,19 @@
          0px  2px 6px rgba(0, 0, 0, 0.8);
 }
 
-/* Regiones: nombre grande, estilo cartografía antigua */
+/* Regiones: nombre grande proyectado en textura. Esto es un hitbox invisible */
 .marker-region {
-    font-size: 15px;
-    color: #c8e6c9;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    opacity: 0.92;
+    font-size: 40px; /* Tamaño grande para asegurar que cubra el texto proyectado */
+    color: transparent !important;
+    text-shadow: none !important;
+    padding: 30px 60px; /* Hitbox amplio */
+    opacity: 1 !important;
     /* pointer-events se setea via JS solo cuando la región es visible */
 }
 
 .marker-region:hover {
-    color: #ffffff;
-    text-shadow:
-        0 0 12px rgba(200, 230, 201, 0.8),
-        -1px -1px 0 rgba(0, 0, 0, 0.7),
-         1px  1px 0 rgba(0, 0, 0, 0.7);
+    color: transparent !important;
+    text-shadow: none !important;
 }
 
 /* Islas */

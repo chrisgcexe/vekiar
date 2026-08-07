@@ -94,4 +94,10 @@ export const mapDitheringFragment = `
 #include <dithering_fragment>
 ${waterFragmentChunk}
 ${landColorAdjustmentChunk}
+
+// --- TEXTOS DE REGION PROYECTADOS ---
+vec4 regionText = texture2D(tRegionText, vGlobalPos);
+// Mezclar el texto usando su propio color (para permitir hover de otros colores)
+// Respetamos la opacidad global controlada por el estado del mapa
+gl_FragColor.rgb = mix(gl_FragColor.rgb, regionText.rgb, regionText.a * 0.85 * uRegionOpacity);
 `;

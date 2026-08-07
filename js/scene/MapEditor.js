@@ -19,12 +19,13 @@ export class MapEditor {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene);
+        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial);
 
         this.initStorage();
         this.createUI();
 
-        this.domElement.addEventListener('click', (e) => this.onClick(e));
+        this.domElement.addEventListener('click', (e) => this.onLeftClick(e));
+        this.domElement.addEventListener('contextmenu', (e) => this.onRightClick(e));
         
         window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'e') {
@@ -38,6 +39,12 @@ export class MapEditor {
                 this.isReferenceView = !this.isReferenceView;
                 this.mapMaterial.map = this.isReferenceView ? this.referenceTexture : this.normalTexture;
                 this.mapMaterial.needsUpdate = true;
+            }
+        });
+
+        window.addEventListener('editor:open-inspector', (e) => {
+            if (this.enabled && e.detail && e.detail.id) {
+                this.openInspector(e.detail.id);
             }
         });
     }
@@ -115,6 +122,101 @@ export class MapEditor {
         if (btnExport) {
             btnExport.addEventListener('click', () => this.exportToJsonFile());
         }
+
+        this.createInspectorUI();
+    }
+
+    createInspectorUI() {
+        let inspector = document.getElementById('map-inspector-panel');
+        if (!inspector) {
+            inspector = document.createElement('div');
+            inspector.id = 'map-inspector-panel';
+            inspector.style.cssText = `
+                position: fixed; top: 20px; left: 20px; z-index: 10000;
+                background: rgba(23, 19, 16, 0.9); border: 1px solid #795548;
+                padding: 15px; border-radius: 8px; color: #d7ccc8; font-family: sans-serif;
+                display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 250px;
+            `;
+            inspector.innerHTML = `
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ffca28; text-align: center;">INSPECTOR</h3>
+                <input type="hidden" id="insp-id">
+                
+                <div class="editor-field" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Nombre:</label>
+                    <input type="text" id="insp-name" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                </div>
+                
+                <div class="editor-field" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Región Padre:</label>
+                    <input type="text" id="insp-region" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                </div>
+                
+                <div class="editor-field" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo:</label>
+                    <select id="insp-type" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                        <option value="otro">Otro</option>
+                        <option value="region">Región</option>
+                        <option value="isla">Isla</option>
+                        <option value="lago">Lago</option>
+                    </select>
+                </div>
+                
+                <div class="editor-field" id="insp-fontsize-container" style="margin-bottom: 15px; display: none; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tamaño (px):</label>
+                        <input type="number" id="insp-fontsize" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Espaciado:</label>
+                        <input type="number" id="insp-letterspacing" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="Auto">
+                    </div>
+                </div>
+                
+                <div class="editor-field" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste X (U):</label>
+                        <input type="number" step="0.001" id="insp-u" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste Y (V):</label>
+                        <input type="number" step="0.001" id="insp-v" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <div class="editor-actions" style="display: flex; gap: 6px; flex-direction: column;">
+                    <button id="insp-btn-save" style="padding: 6px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Guardar y Cerrar</button>
+                    <button id="insp-btn-delete" style="padding: 6px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Eliminar</button>
+                    <button id="insp-btn-close" style="padding: 6px; background: #5d4037; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Cerrar Inspector</button>
+                </div>
+            `;
+            document.body.appendChild(inspector);
+            
+            // Eventos del inspector
+            document.getElementById('insp-type').addEventListener('change', (e) => {
+                const fsContainer = document.getElementById('insp-fontsize-container');
+                fsContainer.style.display = e.target.value === 'region' ? 'flex' : 'none';
+            });
+            
+            // Auto-aplicar al salir de foco (blur) o presionar Enter
+            const inputs = ['insp-name', 'insp-region', 'insp-type', 'insp-fontsize', 'insp-letterspacing', 'insp-u', 'insp-v'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                el.addEventListener('blur', () => this.applyInspectorChanges(false));
+                el.addEventListener('keydown', (e) => { 
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        el.blur();
+                    }
+                });
+            });
+
+            document.getElementById('insp-btn-save').addEventListener('click', () => {
+                this.applyInspectorChanges(false);
+                this.closeInspector();
+            });
+            document.getElementById('insp-btn-delete').addEventListener('click', () => this.deleteInspectorMarker());
+            document.getElementById('insp-btn-close').addEventListener('click', () => this.closeInspector());
+        }
     }
 
     async initStorage() {
@@ -126,6 +228,9 @@ export class MapEditor {
                     if (!m.type) m.type = 'otro';
                     if (m.position === undefined) {
                         m.position = { x: m.x, y: m.y, z: m.z };
+                    }
+                    if (m.u !== undefined && m.v !== undefined && m.uv === undefined) {
+                        m.uv = { u: m.u, v: m.v };
                     }
                 });
                 this.initLoadedMarkers();
@@ -151,6 +256,9 @@ export class MapEditor {
                     if (m.position === undefined) {
                         m.position = { x: m.x, y: m.y, z: m.z };
                     }
+                    if (m.u !== undefined && m.v !== undefined && m.uv === undefined) {
+                        m.uv = { u: m.u, v: m.v };
+                    }
                 });
                 this.saveToLocalStorage();
                 this.initLoadedMarkers();
@@ -163,9 +271,9 @@ export class MapEditor {
         }
     }
 
-    onClick(event) {
+    onLeftClick(event) {
         if (!this.enabled) return;
-        if (event.target.closest('#map-editor-panel')) return;
+        if (event.target.closest('#map-editor-panel') || event.target.closest('#map-inspector-panel')) return;
 
         const rect = this.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -173,16 +281,28 @@ export class MapEditor {
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
         
-        // 1. Raycast optimizado contra los meshes 3D de marcadores únicamente
         const markerIntersects = this.raycaster.intersectObjects(this.markerManager.markersGroup.children, true);
         const hitMarker = markerIntersects.find(hit => hit.object.userData && hit.object.userData.id);
 
         if (hitMarker) {
-            this.editMarker(hitMarker.object.userData.id);
-            return;
+            this.openInspector(hitMarker.object.userData.id);
+        } else {
+            this.closeInspector();
         }
+    }
 
-        // 2. Si no clickeamos un marcador, raycast contra la superficie del mapa para ubicar uno nuevo
+    onRightClick(event) {
+        if (!this.enabled) return;
+        if (event.target.closest('#map-editor-panel') || event.target.closest('#map-inspector-panel')) return;
+        
+        event.preventDefault(); // Prevenir el menú nativo del navegador
+
+        const rect = this.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
         const mapIntersects = this.raycaster.intersectObjects(this.mapPlaneGroup.children, true);
         const hitTerrain = mapIntersects.find(hit => {
             let parent = hit.object;
@@ -201,24 +321,19 @@ export class MapEditor {
             const uv = hitTerrain.uv;
 
             if (uv) {
-                this.openMarkerDialog(localPoint, uv);
+                const newId = this.createNewMarker(localPoint, uv);
+                this.openInspector(newId);
             }
         }
     }
 
-    openMarkerDialog(localPoint, uv) {
-        const name = prompt("Nombre de la locación:");
-        if (!name) return;
-
-        const region = prompt("Región a la que pertenece:", "General") || "General";
-        const type = this.currentType || 'otro';
-
+    createNewMarker(localPoint, uv) {
         const id = 'marker_' + Date.now();
         const markerData = {
             id,
-            name,
-            region,
-            type,
+            name: "Nuevo",
+            region: "General",
+            type: this.currentType || 'otro',
             shape: this.currentShape,
             position: {
                 x: Number(localPoint.x.toFixed(3)),
@@ -228,39 +343,98 @@ export class MapEditor {
             uv: {
                 u: Number(uv.x.toFixed(4)),
                 v: Number(uv.y.toFixed(4))
-            }
+            },
+            fontSize: 80
         };
 
         this.markers.push(markerData);
         this.saveToLocalStorage();
-        this.markerManager.spawnVisualMarker(markerData);
+        this.markerManager.renderAll(this.markers);
+        return id;
     }
 
-    editMarker(id) {
+    openInspector(id) {
         const markerData = this.markers.find(m => m.id === id);
         if (!markerData) return;
 
-        const newName = prompt("Editar nombre de la locación:", markerData.name);
-        if (newName === null) return;
+        document.getElementById('insp-id').value = markerData.id;
+        document.getElementById('insp-name').value = markerData.name || '';
+        document.getElementById('insp-region').value = markerData.region || 'General';
+        document.getElementById('insp-type').value = markerData.type || 'otro';
+        document.getElementById('insp-fontsize').value = markerData.fontSize || 80;
+        document.getElementById('insp-letterspacing').value = markerData.letterSpacing !== undefined ? markerData.letterSpacing : '';
+        
+        if (markerData.uv) {
+            document.getElementById('insp-u').value = markerData.uv.u.toFixed(4);
+            document.getElementById('insp-v').value = markerData.uv.v.toFixed(4);
+        } else {
+            document.getElementById('insp-u').value = 0.5;
+            document.getElementById('insp-v').value = 0.5;
+        }
 
-        const newRegion = prompt("Editar región:", markerData.region || "General");
-        if (newRegion === null) return;
+        const fsContainer = document.getElementById('insp-fontsize-container');
+        fsContainer.style.display = markerData.type === 'region' ? 'flex' : 'none';
 
-        const currentType = markerData.type || 'otro';
-        const newTypeInput = prompt(`Editar tipo (region, isla, lago, otro):`, currentType);
-        if (newTypeInput === null) return;
+        const inspector = document.getElementById('map-inspector-panel');
+        if (inspector) inspector.style.display = 'block';
+    }
 
-        const validTypes = ['region', 'isla', 'lago', 'otro'];
-        const normalizedType = newTypeInput.trim().toLowerCase();
-        const finalType = validTypes.includes(normalizedType) ? normalizedType : 'otro';
+    applyInspectorChanges(forceRender) {
+        const id = document.getElementById('insp-id').value;
+        const markerData = this.markers.find(m => m.id === id);
+        if (!markerData) return;
 
-        markerData.name = newName !== "" ? newName : markerData.name;
-        markerData.region = newRegion !== "" ? newRegion : "General";
-        markerData.type = finalType;
+        const newName = document.getElementById('insp-name').value.trim();
+        const newRegion = document.getElementById('insp-region').value.trim() || 'General';
+        const newType = document.getElementById('insp-type').value;
+        const newFontSize = parseInt(document.getElementById('insp-fontsize').value) || 80;
+        const letterSpacingRaw = document.getElementById('insp-letterspacing').value;
+        const newLetterSpacing = letterSpacingRaw !== '' ? parseInt(letterSpacingRaw) : undefined;
 
-        this.saveToLocalStorage();
-        this.markerManager.renderAll(this.markers);
-        console.log(`%c[EDITOR] Marcador "${markerData.name}" actualizado (Tipo: ${markerData.type}).`, "color: #4fc3f7; font-weight: bold;");
+        const newU = parseFloat(document.getElementById('insp-u').value) || 0;
+        const newV = parseFloat(document.getElementById('insp-v').value) || 0;
+
+        let hasChanges = false;
+        if (markerData.name !== newName) { markerData.name = newName; hasChanges = true; }
+        if (markerData.region !== newRegion) { markerData.region = newRegion; hasChanges = true; }
+        if (markerData.type !== newType) { markerData.type = newType; hasChanges = true; }
+        if (markerData.fontSize !== newFontSize) { markerData.fontSize = newFontSize; hasChanges = true; }
+        if (markerData.letterSpacing !== newLetterSpacing) { markerData.letterSpacing = newLetterSpacing; hasChanges = true; }
+        
+        if (markerData.uv && (Math.abs(markerData.uv.u - newU) > 0.0001 || Math.abs(markerData.uv.v - newV) > 0.0001)) {
+            const du = newU - markerData.uv.u;
+            const dv = newV - markerData.uv.v;
+            markerData.uv.u = newU;
+            markerData.uv.v = newV;
+            
+            // Aproximación del desplazamiento 3D (asumiendo plano de ~60x40)
+            if (markerData.position) {
+                markerData.position.x += (du * 60);
+                markerData.position.y += (dv * 40);
+            }
+            hasChanges = true;
+        }
+
+        if (hasChanges || forceRender) {
+            this.saveToLocalStorage();
+            this.markerManager.renderAll(this.markers);
+            console.log(`%c[EDITOR] Marcador "${markerData.name}" guardado.`, "color: #4fc3f7; font-weight: bold;");
+        }
+    }
+
+    deleteInspectorMarker() {
+        const id = document.getElementById('insp-id').value;
+        if (confirm("¿Eliminar este marcador?")) {
+            this.markers = this.markers.filter(m => m.id !== id);
+            this.saveToLocalStorage();
+            this.markerManager.renderAll(this.markers);
+            this.closeInspector();
+        }
+    }
+
+    closeInspector() {
+        const inspector = document.getElementById('map-inspector-panel');
+        if (inspector) inspector.style.display = 'none';
     }
 
     removeLastMarker() {
