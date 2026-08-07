@@ -262,19 +262,21 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785894947154",
       "name": "CIENFUEGOS",
       "shape": "square",
       "position": {
-        "x": 8.661,
+        "x": 8.300999999999998,
         "y": -15.478,
         "z": 2.106
       },
       "uv": {
-        "u": 0.5866,
+        "u": 0.5806,
         "v": 0.3452
       },
       "region": "HISBACIA",
@@ -284,7 +286,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785896138790",
@@ -424,13 +428,13 @@
       "region": "TARIA",
       "shape": "square",
       "position": {
-        "x": -7.982,
-        "y": -26.97,
+        "x": -8.102,
+        "y": -27.009999999999998,
         "z": 2.346
       },
       "uv": {
-        "u": 0.4202,
-        "v": 0.2303
+        "u": 0.4182,
+        "v": 0.2293
       },
       "type": "otro",
       "scale": {
@@ -438,7 +442,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785896682414",
@@ -490,13 +496,13 @@
       "region": "RAUN",
       "shape": "square",
       "position": {
-        "x": -11.701,
-        "y": -10.018,
+        "x": -11.821000000000002,
+        "y": -10.218000000000002,
         "z": 2.315
       },
       "uv": {
-        "u": 0.383,
-        "v": 0.3998
+        "u": 0.381,
+        "v": 0.3948
       },
       "type": "otro",
       "scale": {
@@ -504,7 +510,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785896843125",
@@ -534,12 +542,12 @@
       "region": "RAUN",
       "shape": "square",
       "position": {
-        "x": -3.066,
+        "x": -3.366,
         "y": -21.82,
         "z": 2.197
       },
       "uv": {
-        "u": 0.4693,
+        "u": 0.4643,
         "v": 0.2818
       },
       "type": "otro",
@@ -548,7 +556,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897244167",
@@ -556,13 +566,13 @@
       "region": "GENERAL",
       "shape": "square",
       "position": {
-        "x": -3.741,
-        "y": -33.638,
+        "x": -3.501,
+        "y": -33.757999999999996,
         "z": 2.433
       },
       "uv": {
-        "u": 0.4626,
-        "v": 0.1636
+        "u": 0.4666,
+        "v": 0.1606
       },
       "type": "otro",
       "scale": {
@@ -570,7 +580,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897262936",
@@ -644,13 +656,13 @@
       "region": "PRIGOS",
       "shape": "square",
       "position": {
-        "x": -25.668,
-        "y": -24.726,
+        "x": -25.968,
+        "y": -24.806,
         "z": 2.465
       },
       "uv": {
-        "u": 0.2433,
-        "v": 0.2527
+        "u": 0.2383,
+        "v": 0.2507
       },
       "type": "otro",
       "scale": {
@@ -658,7 +670,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897331355",
@@ -776,12 +790,12 @@
       "region": "DRIVA",
       "shape": "diamond",
       "position": {
-        "x": -36.883,
+        "x": -36.52300000000001,
         "y": 6.756,
         "z": 2.319
       },
       "uv": {
-        "u": 0.1312,
+        "u": 0.1372,
         "v": 0.5676
       },
       "type": "otro",
@@ -790,7 +804,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897454913",
@@ -798,13 +814,13 @@
       "region": "GENERAL",
       "shape": "square",
       "position": {
-        "x": -25.859,
-        "y": 10.117,
+        "x": -26.063000000000006,
+        "y": 9.389000000000001,
         "z": 2.001
       },
       "uv": {
-        "u": 0.2414,
-        "v": 0.6012
+        "u": 0.238,
+        "v": 0.583
       },
       "type": "otro",
       "scale": {
@@ -812,7 +828,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897684939",
@@ -842,12 +860,12 @@
       "region": "GENERAL",
       "shape": "square",
       "position": {
-        "x": -15.341,
+        "x": -15.220999999999998,
         "y": 5.761,
         "z": 2.284
       },
       "uv": {
-        "u": 0.3466,
+        "u": 0.3486,
         "v": 0.5576
       },
       "type": "otro",
@@ -856,7 +874,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897801175",
@@ -864,13 +884,13 @@
       "region": "ELDION",
       "shape": "square",
       "position": {
-        "x": -2.774,
-        "y": 12.249,
+        "x": -2.894,
+        "y": 12.169,
         "z": 2.454
       },
       "uv": {
-        "u": 0.4723,
-        "v": 0.6225
+        "u": 0.4703,
+        "v": 0.6205
       },
       "type": "otro",
       "scale": {
@@ -878,7 +898,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897815641",
@@ -1260,12 +1282,12 @@
       "region": "DRIVA",
       "shape": "square",
       "position": {
-        "x": -38.169,
+        "x": -37.947,
         "y": -5.74,
         "z": 2.416
       },
       "uv": {
-        "u": 0.1183,
+        "u": 0.122,
         "v": 0.4426
       },
       "type": "otro",
@@ -1274,7 +1296,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785901114477",
