@@ -46,22 +46,7 @@ async function startApp() {
         cameraController.flyTo(e.detail.worldPos);
     });
     
-    // Toggle de visibilidad de marcadores
-    const btnToggleMarkers = document.getElementById('btn-toggle-markers');
-    if (btnToggleMarkers) {
-        btnToggleMarkers.addEventListener('click', () => {
-            window._showVisualMarkers = !(window._showVisualMarkers !== false);
-            btnToggleMarkers.textContent = window._showVisualMarkers ? "Ocultar Marcadores" : "Mostrar Marcadores";
-        });
-        
-        const btnStart = document.getElementById('btn-start');
-        if (btnStart) {
-            btnStart.addEventListener('click', () => {
-                setTimeout(() => { btnToggleMarkers.style.display = 'block'; }, 1000);
-            });
-        }
-    }
-    // ---------------------------------------------
+
 
     // 3. Conexión de Eventos
     responsiveManager.subscribe((state) => {

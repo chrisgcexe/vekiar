@@ -19,7 +19,7 @@ export class MapEditor {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial);
+        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial, this.camera, this.domElement);
 
         this.initStorage();
         this.createUI();

@@ -16,10 +16,24 @@ export class MarkerManager {
      * @param {THREE.Group}  mapPlaneGroup - Grupo rotado del mapa (meshes 3D de iconos)
      * @param {THREE.Scene}  scene         - Escena raiz (labels CSS2D, sin rotación)
      */
-    constructor(mapPlaneGroup, scene, mapMaterial) {
+    constructor(mapPlaneGroup, scene, mapMaterial, camera, domElement) {
         this.mapPlaneGroup = mapPlaneGroup;
         this.scene = scene;
         this.mapMaterial = mapMaterial;
+        this.camera = camera;
+        this.domElement = domElement;
+
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2(-1, -1);
+        this.hoveredMeshId = null;
+
+        if (this.domElement) {
+            this.domElement.addEventListener('mousemove', (e) => {
+                const rect = this.domElement.getBoundingClientRect();
+                this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            });
+        }
 
         // Grupo plano sin rotación en la escena raíz.
         // Los CSS2DObjects deben vivir aquí y NO en mapPlaneGroup (que tiene rotation.x = -PI/2
@@ -40,6 +54,66 @@ export class MarkerManager {
         // cuando el zoom no cambió significativamente (ahorro de layout/paint).
         this._lastZoomAlpha = -1;
         this._lastCameraReady = null;
+        this._areShapesVisible = false;
+
+        this._shapeTextures = {
+            'circle': this._createShapeTexture('circle'),
+            'square': this._createShapeTexture('square'),
+            'triangle': this._createShapeTexture('triangle'),
+            'diamond': this._createShapeTexture('diamond'),
+            'star': this._createShapeTexture('star')
+        };
+    }
+
+    _createShapeTexture(shape) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        const size = 22;
+        const cx = 32;
+        const cy = 32;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; // Negro sólido
+        ctx.strokeStyle = 'rgba(240, 215, 140, 1.0)'; // Borde pergamino
+        ctx.lineWidth = 4;
+
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        if (shape === 'square') {
+            ctx.rect(-size, -size, size * 2, size * 2);
+        } else if (shape === 'triangle') {
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size, size);
+            ctx.lineTo(-size, size);
+            ctx.closePath();
+        } else if (shape === 'diamond') {
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size, 0);
+            ctx.lineTo(0, size);
+            ctx.lineTo(-size, 0);
+            ctx.closePath();
+        } else if (shape === 'star') {
+            const spikes = 5;
+            const outer = size;
+            const inner = size / 2.5;
+            for (let i = 0; i < spikes * 2; i++) {
+                const r = (i % 2 === 0) ? outer : inner;
+                const angle = (i * Math.PI) / spikes - (Math.PI / 2);
+                if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+            ctx.closePath();
+        } else {
+            ctx.arc(0, 0, size, 0, Math.PI * 2);
+        }
+        
+        ctx.fill();
+        ctx.stroke();
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        return tex;
     }
 
     spawnVisualMarker(data) {
@@ -56,12 +130,32 @@ export class MarkerManager {
         const isTextSurface = ['region', 'mar', 'oceano'].includes(markerType);
 
         if (!isTextSurface && shape !== 'text') {
-            // Reemplazamos los meshes 3D por hitboxes interactivos planos, ya que la forma se dibuja en el canvas 2D
-            geometry = new THREE.PlaneGeometry(2.5, 2.5);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0, depthWrite: false });
+            // Reemplazamos los meshes 3D genéricos por planos texturizados con la figura elegida
+            const sizeInWorld = 1.2; // Escala base en unidades del mundo
+            geometry = new THREE.PlaneGeometry(sizeInWorld, sizeInWorld);
+            const tex = this._shapeTextures[shape] || this._shapeTextures['circle'];
+            const material = new THREE.MeshBasicMaterial({ 
+                map: tex, 
+                transparent: true, 
+                depthWrite: false, 
+                depthTest: false // Para evitar que se oculte debajo del terreno en relieves
+            });
+            
             mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(posX, posY, posZ + 0.1);
-            mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+            
+            // Si el marcador tiene rotación, se la aplicamos (sobre Z local porque es un plano XY)
+            if (data.rotation) {
+                mesh.rotation.z = -data.rotation * Math.PI / 180;
+            }
+
+            // Escala por defecto
+            mesh.scale.set(1, 1, 1);
+            // Guardar escala objetivo para el lerp de animación
+            mesh.userData = { 
+                id: data.id, name: data.name, region: data.region, type: markerType, 
+                targetScale: 1.0, currentScale: 1.0 
+            };
             this.markersGroup.add(mesh);
         } else if (isTextSurface) {
             // Generar un hitbox interactivo ajustado al texto
@@ -163,18 +257,18 @@ export class MarkerManager {
                     }));
                 }
             });
-
-            // Hover tracking para la textura dinámica
-            div.addEventListener('mouseenter', () => {
-                this._hoveredRegionId = id;
-                this._updateRegionTexture(this._items.map(i => i.data));
-            });
-            
-            div.addEventListener('mouseleave', () => {
-                this._hoveredRegionId = null;
-                this._updateRegionTexture(this._items.map(i => i.data));
-            });
         }
+
+        // Hover tracking para la textura dinámica (para todos los marcadores interactivos)
+        div.addEventListener('mouseenter', () => {
+            this._hoveredRegionId = id;
+            this._updateRegionTexture(this._items.map(i => i.data));
+        });
+        
+        div.addEventListener('mouseleave', () => {
+            this._hoveredRegionId = null;
+            this._updateRegionTexture(this._items.map(i => i.data));
+        });
 
         return new CSS2DObject(div);
     }
@@ -200,9 +294,53 @@ export class MarkerManager {
         }
 
         const currentShowVisual = window._showVisualMarkers !== false;
+        
+        const areShapesVisible = isCameraReady && (zoomAlpha <= 0.30);
+        let needsRedraw = false;
+        if (this._areShapesVisible !== areShapesVisible) {
+            this._areShapesVisible = areShapesVisible;
+            needsRedraw = true;
+        }
+
+        // Determinar qué figura 3D está bajo el cursor con Raycaster
+        this.hoveredMeshId = null;
+        if (this.camera && this._areShapesVisible) {
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
+            for (let i = 0; i < intersects.length; i++) {
+                const obj = intersects[i].object;
+                if (obj.visible && obj.userData && obj.userData.id) {
+                    this.hoveredMeshId = obj.userData.id;
+                    break;
+                }
+            }
+        }
+
+        // Determinar qué marcadores interactivos están hovered
+        for (const item of this._items) {
+            if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {
+                // Si el item tiene un label, está hovereado si coincide con _hoveredRegionId o hoveredMeshId
+                const isHovered = (item.data.id === this._hoveredRegionId || item.data.id === this.hoveredMeshId);
+                item.mesh.userData.targetScale = isHovered ? 1.5 : 1.0;
+                
+                // Forzar agrandar la fuente en el DOM si el raycaster intersecta el Mesh
+                if (item.label && item.type === 'otro') {
+                    if (isHovered) {
+                        item.label.element.style.setProperty('font-size', '14px', 'important');
+                    } else {
+                        item.label.element.style.removeProperty('font-size'); // Vuelve al comportamiento default CSS
+                    }
+                }
+
+                // Lerp suave del scale
+                const us = item.mesh.userData;
+                us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, 0.15);
+                item.mesh.scale.set(us.currentScale, us.currentScale, 1.0);
+            }
+        }
 
         // Solo actualizar el resto del DOM si el zoom, el estado de cámara o el toggle cambiaron.
-        if (Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady && currentShowVisual === this._lastShowVisualMarkers) return;
+        if (!needsRedraw && Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady && currentShowVisual === this._lastShowVisualMarkers) return;
         this._lastZoomAlpha = zoomAlpha;
         this._lastCameraReady = isCameraReady;
         this._lastShowVisualMarkers = currentShowVisual;
@@ -216,11 +354,11 @@ export class MarkerManager {
 
             if (item.isVisible !== visible || (item.mesh && item.mesh.visible !== shouldMeshBeVisible)) {
                 item.isVisible = visible;
-                // La transición de opacidad es suave gracias a la regla CSS transition en markers.css
-                if (item.label) item.label.element.style.opacity = visible ? '1' : '0';
-
-                // pointer-events: solo en regiones visibles para no bloquear el mapa
-                if (item.type === 'region' && item.label) {
+                
+                if (item.label) {
+                    // La transición de opacidad es suave gracias a la regla CSS transition en markers.css
+                    item.label.element.style.opacity = visible ? '1' : '0';
+                    // Habilitar pointer-events solo si es visible, para todas las etiquetas
                     item.label.element.style.pointerEvents = visible ? 'auto' : 'none';
                 }
 
@@ -229,6 +367,10 @@ export class MarkerManager {
                     item.mesh.visible = shouldMeshBeVisible;
                 }
             }
+        }
+        
+        if (needsRedraw) {
+            this._updateRegionTexture(this._items.map(i => i.data));
         }
     }
 
@@ -387,54 +529,6 @@ export class MarkerManager {
                         ctx.fillText(message, 0, 0);
                     }
                     
-                    ctx.restore();
-                } else if (shape !== 'text') {
-                    // DIBUJAR LAS FIGURAS GEOMÉTRICAS PLANAS PROYECTADAS EN EL MAPA
-                    const size = 12; // Tamaño fijo en píxeles (radio) para los iconos
-
-                    ctx.save();
-                    ctx.translate(cx, cy);
-                    
-                    if (data.rotation) {
-                        ctx.rotate(-data.rotation * Math.PI / 180);
-                    }
-
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; // Negro plano
-                    ctx.strokeStyle = 'rgba(240, 215, 140, 1.0)'; // Borde color pergamino / amarillo
-                    ctx.lineWidth = 3.5; // Línea más gruesa
-
-                    ctx.beginPath();
-                    if (shape === 'square') {
-                        ctx.rect(-size, -size, size * 2, size * 2);
-                    } else if (shape === 'triangle') {
-                        ctx.moveTo(0, -size);
-                        ctx.lineTo(size, size);
-                        ctx.lineTo(-size, size);
-                        ctx.closePath();
-                    } else if (shape === 'diamond') {
-                        ctx.moveTo(0, -size);
-                        ctx.lineTo(size, 0);
-                        ctx.lineTo(0, size);
-                        ctx.lineTo(-size, 0);
-                        ctx.closePath();
-                    } else if (shape === 'star') {
-                        const spikes = 5;
-                        const outer = size;
-                        const inner = size / 2.5;
-                        for (let i = 0; i < spikes * 2; i++) {
-                            const r = (i % 2 === 0) ? outer : inner;
-                            const angle = (i * Math.PI) / spikes - (Math.PI / 2);
-                            if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
-                            else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
-                        }
-                        ctx.closePath();
-                    } else {
-                        // shape === 'circle'
-                        ctx.arc(0, 0, size, 0, Math.PI * 2);
-                    }
-
-                    ctx.fill();
-                    ctx.stroke();
                     ctx.restore();
                 }
             }
