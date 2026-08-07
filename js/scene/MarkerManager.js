@@ -56,32 +56,11 @@ export class MarkerManager {
         const isTextSurface = ['region', 'mar', 'oceano'].includes(markerType);
 
         if (!isTextSurface && shape !== 'text') {
-            if (shape === 'square') {
-                geometry = new THREE.BoxGeometry(1.2, 1.2, 0.3);
-            } else if (shape === 'triangle') {
-                const triShape = new THREE.Shape();
-                triShape.moveTo(0, 0.8);
-                triShape.lineTo(-0.8, -0.6);
-                triShape.lineTo(0.8, -0.6);
-                triShape.closePath();
-                geometry = new THREE.ExtrudeGeometry(triShape, { depth: 0.3, bevelEnabled: false });
-                geometry.center();
-            } else if (shape === 'diamond') {
-                const diamShape = new THREE.Shape();
-                diamShape.moveTo(0, 0.9);
-                diamShape.lineTo(-0.7, 0);
-                diamShape.lineTo(0, -0.9);
-                diamShape.lineTo(0.7, 0);
-                diamShape.closePath();
-                geometry = new THREE.ExtrudeGeometry(diamShape, { depth: 0.3, bevelEnabled: false });
-                geometry.center();
-            } else {
-                geometry = new THREE.SphereGeometry(0.8, 16, 16);
-            }
-
-            const material = new THREE.MeshBasicMaterial({ color: 0xff5252 });
+            // Reemplazamos los meshes 3D por hitboxes interactivos planos, ya que la forma se dibuja en el canvas 2D
+            geometry = new THREE.PlaneGeometry(2.5, 2.5);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0, depthWrite: false });
             mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(posX, posY, posZ + 0.2);
+            mesh.position.set(posX, posY, posZ + 0.1);
             mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
             this.markersGroup.add(mesh);
         } else if (isTextSurface) {
@@ -315,18 +294,29 @@ export class MarkerManager {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Dibujar solo los marcadores de texto (región, mar, océano)
         markersList.forEach(data => {
             const mType = String(data.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
             const isTextSurface = ['region', 'mar', 'oceano'].includes(mType);
-            if (isTextSurface) {
-                const u = data.uv ? data.uv.u : data.u;
-                const v = data.uv ? data.uv.v : data.v;
-                
-                if (u !== undefined && v !== undefined) {
-                    const cx = u * w;
-                    const cy = (1.0 - v) * h;
+            const shape = data.shape || 'circle';
 
+            // Intentar recuperar (u,v), si no existe calcular aproximación usando x, y
+            let u = data.uv ? data.uv.u : data.u;
+            let v = data.uv ? data.uv.v : data.v;
+            
+            if (u === undefined || v === undefined) {
+                const posX = data.position ? data.position.x : data.x;
+                const posY = data.position ? data.position.y : data.y;
+                if (posX !== undefined && posY !== undefined) {
+                    u = (posX + 30) / 60;
+                    v = 1.0 - ((posY + 20) / 40);
+                }
+            }
+            
+            if (u !== undefined && v !== undefined) {
+                const cx = u * w;
+                const cy = (1.0 - v) * h;
+
+                if (isTextSurface) {
                     const fSize = data.fontSize || 80;
                     ctx.font = `bold ${fSize}px "Georgia", serif`;
                     const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
@@ -341,7 +331,7 @@ export class MarkerManager {
                             // Celeste suave y semitransparente para que se fusione con el mar
                             ctx.fillStyle = 'rgba(118, 175, 215, 0.26)'; 
                         } else {
-                            ctx.fillStyle = 'rgba(32, 17, 17, 0.78)'; // Negro para regiones terrestres
+                            ctx.fillStyle = 'rgba(32, 30, 17, 0.78)'; // Negro para regiones terrestres
                         }
                     }
 
@@ -397,6 +387,54 @@ export class MarkerManager {
                         ctx.fillText(message, 0, 0);
                     }
                     
+                    ctx.restore();
+                } else if (shape !== 'text') {
+                    // DIBUJAR LAS FIGURAS GEOMÉTRICAS PLANAS PROYECTADAS EN EL MAPA
+                    const size = 12; // Tamaño fijo en píxeles (radio) para los iconos
+
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    
+                    if (data.rotation) {
+                        ctx.rotate(-data.rotation * Math.PI / 180);
+                    }
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; // Negro plano
+                    ctx.strokeStyle = 'rgba(240, 215, 140, 1.0)'; // Borde color pergamino / amarillo
+                    ctx.lineWidth = 3.5; // Línea más gruesa
+
+                    ctx.beginPath();
+                    if (shape === 'square') {
+                        ctx.rect(-size, -size, size * 2, size * 2);
+                    } else if (shape === 'triangle') {
+                        ctx.moveTo(0, -size);
+                        ctx.lineTo(size, size);
+                        ctx.lineTo(-size, size);
+                        ctx.closePath();
+                    } else if (shape === 'diamond') {
+                        ctx.moveTo(0, -size);
+                        ctx.lineTo(size, 0);
+                        ctx.lineTo(0, size);
+                        ctx.lineTo(-size, 0);
+                        ctx.closePath();
+                    } else if (shape === 'star') {
+                        const spikes = 5;
+                        const outer = size;
+                        const inner = size / 2.5;
+                        for (let i = 0; i < spikes * 2; i++) {
+                            const r = (i % 2 === 0) ? outer : inner;
+                            const angle = (i * Math.PI) / spikes - (Math.PI / 2);
+                            if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                            else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                        }
+                        ctx.closePath();
+                    } else {
+                        // shape === 'circle'
+                        ctx.arc(0, 0, size, 0, Math.PI * 2);
+                    }
+
+                    ctx.fill();
+                    ctx.stroke();
                     ctx.restore();
                 }
             }
