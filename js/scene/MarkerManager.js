@@ -337,7 +337,12 @@ export class MarkerManager {
                     if (data.id === this._hoveredRegionId) {
                         ctx.fillStyle = 'rgba(255, 230, 150, 1.0)'; // Dorado claro al hacer hover
                     } else {
-                        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)'; // Negro (tinta por defecto)
+                        if (['mar', 'oceano'].includes(mType)) {
+                            // Celeste suave y semitransparente para que se fusione con el mar
+                            ctx.fillStyle = 'rgba(118, 175, 215, 0.26)'; 
+                        } else {
+                            ctx.fillStyle = 'rgba(32, 17, 17, 0.78)'; // Negro para regiones terrestres
+                        }
                     }
 
                     ctx.save();
