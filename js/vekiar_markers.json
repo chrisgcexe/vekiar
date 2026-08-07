@@ -1414,47 +1414,52 @@
     },
     {
       "id": "marker_1785901505087",
-      "name": "OCEANO MAGNO",
+      "name": "OCÉANO MAGNO",
       "region": "General",
-      "type": "otro",
+      "type": "oceano",
       "shape": "text",
       "position": {
-        "x": -41.801,
-        "y": -17.079,
+        "x": -41.92100000000001,
+        "y": -21.447,
         "z": 1.525
       },
       "uv": {
-        "u": 0.082,
-        "v": 0.3292
+        "u": 0.08,
+        "v": 0.22
       },
       "scale": {
         "x": 50,
         "y": 25
       },
-      "rotation": 90,
-      "curve": 0
+      "rotation": -90,
+      "curve": 0,
+      "fontSize": 100,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785901541528",
       "name": "MAR AUREO",
       "region": "General",
-      "type": "otro",
+      "type": "mar",
       "shape": "text",
       "position": {
-        "x": -23.761,
-        "y": -30.83,
+        "x": -24.144999999999996,
+        "y": -31.697999999999997,
         "z": 1.664
       },
       "uv": {
-        "u": 0.2624,
-        "v": 0.1917
+        "u": 0.256,
+        "v": 0.17
       },
       "scale": {
         "x": 50,
         "y": 25
       },
-      "rotation": 90,
-      "curve": 0
+      "rotation": -85,
+      "curve": 0,
+      "fontSize": 70,
+      "curveRadius": 2000,
+      "letterSpacing": 30
     },
     {
       "id": "marker_1785901584722",
@@ -1544,23 +1549,26 @@
       "id": "marker_1785901697177",
       "name": "MAR DE LOS ESCLAVOS",
       "region": "General",
-      "type": "otro",
+      "type": "mar",
       "shape": "text",
       "position": {
-        "x": 10.099,
-        "y": 6.721,
+        "x": 12.439,
+        "y": 2.032999999999999,
         "z": 1.197
       },
       "uv": {
-        "u": 0.601,
-        "v": 0.5672
+        "u": 0.64,
+        "v": 0.45
       },
       "scale": {
         "x": 50,
         "y": 25
       },
-      "rotation": 90,
-      "curve": 0
+      "rotation": 80,
+      "curve": 0,
+      "fontSize": 100,
+      "curveRadius": 2000,
+      "letterSpacing": 30
     },
     {
       "id": "marker_1785901747441",
@@ -1615,23 +1623,25 @@
       "id": "marker_1785902280449",
       "name": "OCÉANO LONICO",
       "region": "General",
-      "type": "otro",
+      "type": "oceano",
       "shape": "text",
       "position": {
         "x": 43.653,
-        "y": -1.398,
+        "y": -0.8379999999999994,
         "z": 1.66
       },
       "uv": {
         "u": 0.9365,
-        "v": 0.486
+        "v": 0.5
       },
       "scale": {
         "x": 50,
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 100,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785902356700",
@@ -1658,14 +1668,16 @@
       "shape": "text",
       "position": {
         "x": -18.965,
-        "y": -20.344,
+        "y": -20.424,
         "z": 2.567
       },
       "uv": {
         "u": 0.311,
-        "v": 0.2966
+        "v": 0.2946
       },
-      "fontSize": 25
+      "fontSize": 25,
+      "rotation": 0,
+      "curveRadius": 0
     }
   ]
 }

@@ -46,14 +46,16 @@ export class MarkerManager {
         let mesh = null;
         let geometry = null;
         const shape = data.shape || 'circle';
-        const markerType = data.type || 'otro';
+        const markerType = String(data.type || 'otro').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
         const posX = data.position ? data.position.x : data.x;
         const posY = data.position ? data.position.y : data.y;
         const posZ = data.position ? data.position.z : data.z;
 
-        // --- Icono 3D (solo si no es marcador puramente de texto ni de región) ---
-        if (shape !== 'text' && markerType !== 'region') {
+        // --- Icono 3D ---
+        const isTextSurface = ['region', 'mar', 'oceano'].includes(markerType);
+
+        if (!isTextSurface && shape !== 'text') {
             if (shape === 'square') {
                 geometry = new THREE.BoxGeometry(1.2, 1.2, 0.3);
             } else if (shape === 'triangle') {
@@ -82,42 +84,71 @@ export class MarkerManager {
             mesh.position.set(posX, posY, posZ + 0.2);
             mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
             this.markersGroup.add(mesh);
-        } else if (markerType === 'region') {
-            // Generar un hitbox invisible para el Raycaster del Editor
-            geometry = new THREE.PlaneGeometry(6, 2); // Área amplia aproximada
-            const material = new THREE.MeshBasicMaterial({ visible: false });
+        } else if (isTextSurface) {
+            // Generar un hitbox interactivo ajustado al texto
+            const fSize = data.fontSize || 80;
+            const textLen = data.name ? data.name.length : 10;
+            const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
+            
+            // Aproximación de tamaño en píxeles
+            const pixelWidth = textLen * (fSize * 0.65 + spacing);
+            const pixelHeight = fSize * 2.0; // margen vertical
+            
+            // Convertir píxeles a unidades 3D (mapa de 60x40, textura de 4096x4096)
+            let boxWidth = pixelWidth * (60 / 4096);
+            let boxHeight = pixelHeight * (40 / 4096);
+            
+            // Si hay curvatura, hacemos el hitbox más alto para abarcar el arco
+            if (data.curveRadius && Math.abs(data.curveRadius) > 0) {
+                boxHeight += Math.min(Math.abs(data.curveRadius) * (40 / 4096) * 0.5, 10);
+            }
+
+            // Hitbox transparente (invisible pero clickeable)
+            geometry = new THREE.PlaneGeometry(boxWidth, boxHeight);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, depthWrite: false });
             mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(posX, posY, posZ + 0.1);
+            
+            // Aplicar rotación (Three.js Z es antihorario, Canvas es horario, por eso el signo negativo)
+            if (data.rotation) {
+                mesh.rotation.z = -data.rotation * Math.PI / 180;
+            }
+            
             mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
             this.markersGroup.add(mesh);
         }
 
         // --- Label CSS2D ---
         if (data.name) {
-            const label = this._createTextLabel(data.name, markerType, data.id);
+            if (['mar', 'oceano'].includes(markerType)) {
+                // Mares y océanos no tienen etiqueta interactiva CSS2D, solo textura de canvas
+                this._items.push({ label: null, mesh, type: markerType, data, worldPos: new THREE.Vector3(posX, posY, posZ), isVisible: null });
+            } else {
+                const label = this._createTextLabel(data.name, markerType, data.id);
 
-            // Convertir posición local del mapPlaneGroup a coordenadas del mundo.
-            // mapPlaneGroup tiene rotation.x = -PI/2 y scale no uniforme, por eso usamos localToWorld.
-            const localPos = new THREE.Vector3(
-                posX,
-                shape === 'text' ? posY : posY - 1.2,
-                posZ + 0.4
-            );
-            // Forzar actualización de la matriz del grupo antes de la conversión
-            this.mapPlaneGroup.updateWorldMatrix(true, false);
-            const worldPos = localPos.clone();
-            this.mapPlaneGroup.localToWorld(worldPos);
+                // Convertir posición local del mapPlaneGroup a coordenadas del mundo.
+                // mapPlaneGroup tiene rotation.x = -PI/2 y scale no uniforme, por eso usamos localToWorld.
+                const localPos = new THREE.Vector3(
+                    posX,
+                    shape === 'text' ? posY : posY - 1.2,
+                    posZ + 0.4
+                );
+                // Forzar actualización de la matriz del grupo antes de la conversión
+                this.mapPlaneGroup.updateWorldMatrix(true, false);
+                const worldPos = localPos.clone();
+                this.mapPlaneGroup.localToWorld(worldPos);
 
-            label.position.copy(worldPos);
+                label.position.copy(worldPos);
 
-            if (shape === 'text') {
-                label.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+                if (shape === 'text') {
+                    label.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+                }
+
+                this._labelRoot.add(label);
+
+                // Registrar en el sistema LOD (guardamos isVisible como null inicialmente)
+                this._items.push({ label, mesh, type: markerType, data, worldPos: worldPos.clone(), isVisible: null });
             }
-
-            this._labelRoot.add(label);
-
-            // Registrar en el sistema LOD (guardamos isVisible como null inicialmente)
-            this._items.push({ label, mesh, type: markerType, data, worldPos: worldPos.clone(), isVisible: null });
         }
     }
 
@@ -189,28 +220,35 @@ export class MarkerManager {
             );
         }
 
-        // Solo actualizar el resto del DOM si el zoom o el estado de preparación de la cámara cambiaron.
-        if (Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady) return;
+        const currentShowVisual = window._showVisualMarkers !== false;
+
+        // Solo actualizar el resto del DOM si el zoom, el estado de cámara o el toggle cambiaron.
+        if (Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady && currentShowVisual === this._lastShowVisualMarkers) return;
         this._lastZoomAlpha = zoomAlpha;
         this._lastCameraReady = isCameraReady;
+        this._lastShowVisualMarkers = currentShowVisual;
 
         for (const item of this._items) {
             const threshold = ZOOM_THRESHOLD[item.type] ?? 0.30;
             // Solo hacer visibles los marcadores si la cámara ya terminó de explorar e inició el juego
             const visible = isCameraReady && (zoomAlpha <= threshold);
 
-            if (item.isVisible !== visible) {
+            const shouldMeshBeVisible = visible && currentShowVisual && item.type !== 'region';
+
+            if (item.isVisible !== visible || (item.mesh && item.mesh.visible !== shouldMeshBeVisible)) {
                 item.isVisible = visible;
                 // La transición de opacidad es suave gracias a la regla CSS transition en markers.css
-                item.label.element.style.opacity = visible ? '1' : '0';
+                if (item.label) item.label.element.style.opacity = visible ? '1' : '0';
 
                 // pointer-events: solo en regiones visibles para no bloquear el mapa
-                if (item.type === 'region') {
+                if (item.type === 'region' && item.label) {
                     item.label.element.style.pointerEvents = visible ? 'auto' : 'none';
                 }
 
                 // Icono 3D: ocultar también para no generar ruido visual
-                if (item.mesh) item.mesh.visible = visible;
+                if (item.mesh && !['region', 'mar', 'oceano'].includes(item.type)) {
+                    item.mesh.visible = shouldMeshBeVisible;
+                }
             }
         }
     }
@@ -277,29 +315,84 @@ export class MarkerManager {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Dibujar solo los marcadores de tipo región
+        // Dibujar solo los marcadores de texto (región, mar, océano)
         markersList.forEach(data => {
-            if (data.type === 'region') {
+            const mType = String(data.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const isTextSurface = ['region', 'mar', 'oceano'].includes(mType);
+            if (isTextSurface) {
                 const u = data.uv ? data.uv.u : data.u;
                 const v = data.uv ? data.uv.v : data.v;
                 
                 if (u !== undefined && v !== undefined) {
-                    // Determinar tamaño de letra y espaciado proporcional
+                    const cx = u * w;
+                    const cy = (1.0 - v) * h;
+
                     const fSize = data.fontSize || 80;
                     ctx.font = `bold ${fSize}px "Georgia", serif`;
-                    if ('letterSpacing' in ctx) {
-                        const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
-                        ctx.letterSpacing = spacing + 'px';
-                    }
-                    // Hover check
+                    const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
+                    const message = (data.name || '').toUpperCase();
+                    const curveRadius = data.curveRadius || 0;
+                    const rotationDeg = data.rotation || 0;
+                    
                     if (data.id === this._hoveredRegionId) {
                         ctx.fillStyle = 'rgba(255, 230, 150, 1.0)'; // Dorado claro al hacer hover
                     } else {
                         ctx.fillStyle = 'rgba(0, 0, 0, 1.0)'; // Negro (tinta por defecto)
                     }
 
-                    // En Three.js la coordenada V del UV está invertida respecto al canvas 2D
-                    ctx.fillText(data.name.toUpperCase(), u * w, (1.0 - v) * h);
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    
+                    if (rotationDeg !== 0) {
+                        ctx.rotate(rotationDeg * Math.PI / 180);
+                    }
+
+                    if (curveRadius !== 0) {
+                        // Texto curvo (desactivar letterSpacing nativo porque se calcula manualmente)
+                        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+                        const radius = curveRadius;
+                        const sign = Math.sign(radius);
+                        const absRadius = Math.abs(radius);
+
+                        let totalAngle = 0;
+                        const charAngles = [];
+                        for (let i = 0; i < message.length; i++) {
+                            const charWidth = ctx.measureText(message[i]).width;
+                            const angle = (charWidth + spacing) / absRadius;
+                            charAngles.push(angle);
+                            totalAngle += angle;
+                        }
+                        totalAngle -= spacing / absRadius; // Quitar el último espaciado
+
+                        // Mover el pivote al centro del círculo para que el texto siga anclado en (cx, cy)
+                        ctx.translate(0, radius);
+
+                        ctx.rotate(-sign * (totalAngle / 2));
+
+                        for (let i = 0; i < message.length; i++) {
+                            const charAngle = charAngles[i];
+                            ctx.rotate(sign * (charAngle / 2));
+                            
+                            ctx.save();
+                            ctx.translate(0, -radius);
+                            if (sign < 0) {
+                                ctx.rotate(Math.PI); // Enderezar si la curva es invertida
+                            }
+                            ctx.fillText(message[i], 0, 0);
+                            ctx.restore();
+
+                            ctx.rotate(sign * (charAngle / 2));
+                        }
+                    } else {
+                        // Texto recto
+                        if ('letterSpacing' in ctx) {
+                            ctx.letterSpacing = spacing + 'px';
+                        }
+                        ctx.fillText(message, 0, 0);
+                    }
+                    
+                    ctx.restore();
                 }
             }
         });

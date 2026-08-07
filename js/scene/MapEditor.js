@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MarkerManager } from './MarkerManager.js';
+import { MarkerManager } from './MarkerManager.js?v=2';
 
 export class MapEditor {
     constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture) {
@@ -156,12 +156,14 @@ export class MapEditor {
                     <select id="insp-type" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                         <option value="otro">Otro</option>
                         <option value="region">Región</option>
+                        <option value="mar">Mar</option>
+                        <option value="oceano">Océano</option>
                         <option value="isla">Isla</option>
                         <option value="lago">Lago</option>
                     </select>
                 </div>
                 
-                <div class="editor-field" id="insp-fontsize-container" style="margin-bottom: 15px; display: none; gap: 10px;">
+                <div class="editor-field region-only" id="insp-fontsize-container" style="margin-bottom: 15px; display: none; gap: 10px;">
                     <div style="flex: 1;">
                         <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tamaño (px):</label>
                         <input type="number" id="insp-fontsize" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
@@ -169,6 +171,17 @@ export class MapEditor {
                     <div style="flex: 1;">
                         <label style="font-size: 12px; display: block; margin-bottom: 4px;">Espaciado:</label>
                         <input type="number" id="insp-letterspacing" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="Auto">
+                    </div>
+                </div>
+
+                <div class="editor-field region-only" id="insp-transform-container" style="margin-bottom: 15px; display: none; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Rotación (°):</label>
+                        <input type="number" id="insp-rotation" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="0">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Curvatura:</label>
+                        <input type="number" id="insp-curve" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="0 (Recto)">
                     </div>
                 </div>
                 
@@ -193,12 +206,13 @@ export class MapEditor {
             
             // Eventos del inspector
             document.getElementById('insp-type').addEventListener('change', (e) => {
-                const fsContainer = document.getElementById('insp-fontsize-container');
-                fsContainer.style.display = e.target.value === 'region' ? 'flex' : 'none';
+                const isTextSurface = ['region', 'mar', 'oceano'].includes(e.target.value);
+                const displays = document.querySelectorAll('.region-only');
+                displays.forEach(el => el.style.display = isTextSurface ? 'flex' : 'none');
             });
             
             // Auto-aplicar al salir de foco (blur) o presionar Enter
-            const inputs = ['insp-name', 'insp-region', 'insp-type', 'insp-fontsize', 'insp-letterspacing', 'insp-u', 'insp-v'];
+            const inputs = ['insp-name', 'insp-region', 'insp-type', 'insp-fontsize', 'insp-letterspacing', 'insp-rotation', 'insp-curve', 'insp-u', 'insp-v'];
             inputs.forEach(id => {
                 const el = document.getElementById(id);
                 el.addEventListener('blur', () => this.applyInspectorChanges(false));
@@ -220,6 +234,8 @@ export class MapEditor {
     }
 
     async initStorage() {
+        // FORZAR LA CARGA DESDE EL JSON BUSTEANDO LA CACHÉ LOCAL
+        localStorage.removeItem('vekiar_custom_markers');
         const saved = localStorage.getItem('vekiar_custom_markers');
         if (saved) {
             try {
@@ -246,7 +262,7 @@ export class MapEditor {
     async loadDefaultMarkers() {
         try {
             console.log("%c[EDITOR] Cargando marcadores por defecto desde JSON...", "color: #b0bec5; font-style: italic;");
-            const response = await fetch('./js/vekiar_markers.json');
+            const response = await fetch('js/vekiar_markers.json?t=' + new Date().getTime());
             if (response.ok) {
                 const data = await response.json();
                 this.markers = data.markers || [];
@@ -360,9 +376,11 @@ export class MapEditor {
         document.getElementById('insp-id').value = markerData.id;
         document.getElementById('insp-name').value = markerData.name || '';
         document.getElementById('insp-region').value = markerData.region || 'General';
-        document.getElementById('insp-type').value = markerData.type || 'otro';
+        document.getElementById('insp-type').value = String(markerData.type || 'otro').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         document.getElementById('insp-fontsize').value = markerData.fontSize || 80;
         document.getElementById('insp-letterspacing').value = markerData.letterSpacing !== undefined ? markerData.letterSpacing : '';
+        document.getElementById('insp-rotation').value = markerData.rotation || 0;
+        document.getElementById('insp-curve').value = markerData.curveRadius || 0;
         
         if (markerData.uv) {
             document.getElementById('insp-u').value = markerData.uv.u.toFixed(4);
@@ -372,8 +390,9 @@ export class MapEditor {
             document.getElementById('insp-v').value = 0.5;
         }
 
-        const fsContainer = document.getElementById('insp-fontsize-container');
-        fsContainer.style.display = markerData.type === 'region' ? 'flex' : 'none';
+        const isTextSurface = ['region', 'mar', 'oceano'].includes(String(markerData.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim());
+        const displays = document.querySelectorAll('.region-only');
+        displays.forEach(el => el.style.display = isTextSurface ? 'flex' : 'none');
 
         const inspector = document.getElementById('map-inspector-panel');
         if (inspector) inspector.style.display = 'block';
@@ -390,6 +409,12 @@ export class MapEditor {
         const newFontSize = parseInt(document.getElementById('insp-fontsize').value) || 80;
         const letterSpacingRaw = document.getElementById('insp-letterspacing').value;
         const newLetterSpacing = letterSpacingRaw !== '' ? parseInt(letterSpacingRaw) : undefined;
+        
+        const rotationRaw = document.getElementById('insp-rotation').value;
+        const newRotation = rotationRaw !== '' ? parseFloat(rotationRaw) : 0;
+
+        const curveRaw = document.getElementById('insp-curve').value;
+        const newCurveRadius = curveRaw !== '' ? parseFloat(curveRaw) : 0;
 
         const newU = parseFloat(document.getElementById('insp-u').value) || 0;
         const newV = parseFloat(document.getElementById('insp-v').value) || 0;
@@ -400,6 +425,8 @@ export class MapEditor {
         if (markerData.type !== newType) { markerData.type = newType; hasChanges = true; }
         if (markerData.fontSize !== newFontSize) { markerData.fontSize = newFontSize; hasChanges = true; }
         if (markerData.letterSpacing !== newLetterSpacing) { markerData.letterSpacing = newLetterSpacing; hasChanges = true; }
+        if (markerData.rotation !== newRotation) { markerData.rotation = newRotation; hasChanges = true; }
+        if (markerData.curveRadius !== newCurveRadius) { markerData.curveRadius = newCurveRadius; hasChanges = true; }
         
         if (markerData.uv && (Math.abs(markerData.uv.u - newU) > 0.0001 || Math.abs(markerData.uv.v - newV) > 0.0001)) {
             const du = newU - markerData.uv.u;

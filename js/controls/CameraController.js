@@ -290,9 +290,8 @@ if (this.state === 'DROP_1') {
         const theta     = Math.atan2(offset.x, offset.z);
 
         // --- Ángulo polar objetivo ---
-        // Precalculamos el ángulo que el constraint de PLAYING aplicará al llegar a endDist.
-        // Al terminar el vuelo la cámara ya estará en ese ángulo → CERO snap.
-        const endDist  = 28;
+        // Si ya estamos cerca (vista 3D), mantenemos la distancia actual. Si estamos lejos, bajamos al tope (28).
+        const endDist  = startDist <= 35 ? startDist : 28;
         const maxDist  = this.calculatedMaxDistance || 55;
         const tEnd     = THREE.MathUtils.clamp((endDist - 25) / (maxDist - 25), 0, 1);
         const easeTEnd = -(Math.cos(Math.PI * tEnd) - 1) / 2;

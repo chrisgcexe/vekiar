@@ -7,7 +7,7 @@ import { RaycasterBounds } from './controls/RaycasterBounds.js';
 import { Compass } from './ui/Compass.js';
 import { ResponsiveManager } from './ResponsiveManager.js';
 import { AppState } from './state/AppState.js';
-import { MapEditor } from './scene/MapEditor.js';
+import { MapEditor } from './scene/MapEditor.js?v=2';
 
 // 1. Instanciamos las clases base
 const appState = new AppState();
@@ -45,6 +45,22 @@ async function startApp() {
     window.addEventListener('marker:region-click', (e) => {
         cameraController.flyTo(e.detail.worldPos);
     });
+    
+    // Toggle de visibilidad de marcadores
+    const btnToggleMarkers = document.getElementById('btn-toggle-markers');
+    if (btnToggleMarkers) {
+        btnToggleMarkers.addEventListener('click', () => {
+            window._showVisualMarkers = !(window._showVisualMarkers !== false);
+            btnToggleMarkers.textContent = window._showVisualMarkers ? "Ocultar Marcadores" : "Mostrar Marcadores";
+        });
+        
+        const btnStart = document.getElementById('btn-start');
+        if (btnStart) {
+            btnStart.addEventListener('click', () => {
+                setTimeout(() => { btnToggleMarkers.style.display = 'block'; }, 1000);
+            });
+        }
+    }
     // ---------------------------------------------
 
     // 3. Conexión de Eventos
