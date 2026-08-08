@@ -25,7 +25,36 @@ export class MarkerManager {
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2(-1, -1);
+        this._lastRaycastMouse = new THREE.Vector2(-10, -10); // caché para no raycastear si no se mueve
         this.hoveredMeshId = null;
+        this._focusedRegionId = null; // Región seleccionada (focus)
+        
+        // Limpiar focus si se hace click en el canvas (fuera de las etiquetas HTML)
+        if (this.domElement) {
+            this.domElement.addEventListener('click', (e) => {
+                // Si estamos en modo editor, ignorar (el editor maneja sus propios clicks)
+                const editorPanel = document.getElementById('map-editor-panel');
+                if (editorPanel && editorPanel.style.display !== 'none') return;
+                
+                if (this.hoveredMeshId) {
+                    const item = this._items.find(i => i.data && i.data.id === this.hoveredMeshId);
+                    if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
+                        // Clickeamos una región 3D
+                        this.setFocusedRegion(item.data.id);
+                        window.dispatchEvent(new CustomEvent('marker:region-click', {
+                            detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                        }));
+                        return; // Consumimos el click
+                    }
+                }
+
+                // Si llegamos hasta acá, fue un click en el WebGL canvas vacío.
+                // Limpiamos el focus para volver al estado global.
+                if (this._focusedRegionId !== null) {
+                    this.setFocusedRegion(null);
+                }
+            });
+        }
 
         if (this.domElement) {
             this.domElement.addEventListener('mousemove', (e) => {
@@ -144,20 +173,19 @@ export class MarkerManager {
             mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(posX, posY, posZ + 0.1);
             
-            // Si el marcador tiene rotación, se la aplicamos (sobre Z local porque es un plano XY)
-            if (data.rotation) {
-                mesh.rotation.z = -data.rotation * Math.PI / 180;
-            }
+            // NOTA: Ignoramos data.rotation para las formas geométricas 3D para que su base 
+            // siempre se mantenga horizontal (paralela al texto CSS2D que las acompaña).
+            // La rotación solo se aplica a las etiquetas de texto dibujadas en el terreno.
 
             // Escala por defecto
             mesh.scale.set(1, 1, 1);
             // Guardar escala objetivo para el lerp de animación
             mesh.userData = { 
                 id: data.id, name: data.name, region: data.region, type: markerType, 
-                targetScale: 1.0, currentScale: 1.0 
+                targetScale: 1.0, currentScale: 1.0, wasHoveredDOM: false
             };
             this.markersGroup.add(mesh);
-        } else if (isTextSurface) {
+        } else if (markerType === 'region') {
             // Generar un hitbox interactivo ajustado al texto
             const fSize = data.fontSize || 80;
             const textLen = data.name ? data.name.length : 10;
@@ -211,66 +239,65 @@ export class MarkerManager {
                 const worldPos = localPos.clone();
                 this.mapPlaneGroup.localToWorld(worldPos);
 
-                label.position.copy(worldPos);
-
-                if (shape === 'text') {
-                    label.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+                if (label) {
+                    label.position.copy(worldPos);
+                    if (shape === 'text') {
+                        label.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+                    }
+                    this._labelRoot.add(label);
                 }
 
-                this._labelRoot.add(label);
-
-                // Registrar en el sistema LOD (guardamos isVisible como null inicialmente)
+                // Registrar en el sistema LOD
                 this._items.push({ label, mesh, type: markerType, data, worldPos: worldPos.clone(), isVisible: null });
             }
         }
     }
 
     /**
-     * Crea un <div> CSS2DObject para el label.
-     * Las regiones son clickeables: al hacer clic emiten 'marker:region-click'
-     * para que CameraController haga un flyTo hacia esa región.
+     * Crea un <div> CSS2DObject para el label de tipo 'otro', 'isla', 'lago'.
+     * Las regiones ya no usan DOM para click/hover (usan el hitbox 3D).
      */
     _createTextLabel(message, type, id) {
+        // Para regiones/mares ya no creamos etiqueta HTML, usamos solo textura
+        if (['region', 'mar', 'oceano'].includes(type)) {
+            return null; // El array push ignorará si es null o creará un item vacío
+        }
+
         const div = document.createElement('div');
         div.className = `marker-label marker-${type}`;
         div.textContent = message;
         if (id) div.dataset.markerId = id;
 
-        if (type === 'region') {
-            // Las regiones capturan clicks para el dolly de cámara.
-            div.style.pointerEvents = 'auto';
-            div.style.cursor = 'pointer';
-
-            div.addEventListener('click', (e) => {
-                // Verificar si el editor está activo. Si es así, no movemos la cámara, abrimos el inspector.
-                const editorPanel = document.getElementById('map-editor-panel');
-                if (editorPanel && editorPanel.style.display !== 'none') {
-                    e.stopPropagation();
-                    window.dispatchEvent(new CustomEvent('editor:open-inspector', { detail: { id } }));
-                    return;
-                }
-
-                const item = this._items.find(i => i.data && i.data.id === id);
-                if (item) {
-                    window.dispatchEvent(new CustomEvent('marker:region-click', {
-                        detail: { worldPos: item.worldPos.clone(), name: message }
-                    }));
-                }
-            });
-        }
-
         // Hover tracking para la textura dinámica (para todos los marcadores interactivos)
         div.addEventListener('mouseenter', () => {
-            this._hoveredRegionId = id;
-            this._updateRegionTexture(this._items.map(i => i.data));
+            this.setHoveredRegion(id);
         });
         
         div.addEventListener('mouseleave', () => {
-            this._hoveredRegionId = null;
-            this._updateRegionTexture(this._items.map(i => i.data));
+            this.setHoveredRegion(null);
         });
 
         return new CSS2DObject(div);
+    }
+
+    setHoveredRegion(regionId) {
+        if (this._hoveredRegionId !== regionId) {
+            this._hoveredRegionId = regionId;
+            this._updateRegionTexture(this._items.map(i => i.data));
+        }
+    }
+
+    setFocusedRegion(regionId) {
+        if (this._focusedRegionId !== regionId) {
+            this._focusedRegionId = regionId;
+            if (regionId) {
+                const r = this._items.find(i => i.data.id === regionId);
+                this._focusedRegionName = r ? r.data.name : null;
+            } else {
+                this._focusedRegionName = null;
+            }
+            this._updateRegionTexture(this._items.map(i => i.data));
+        }
     }
 
     /**
@@ -301,41 +328,90 @@ export class MarkerManager {
             this._areShapesVisible = areShapesVisible;
             needsRedraw = true;
         }
+        
+        // Forzar chequeo de LOD si el focus cambió
+        if (this._lastFocusedRegionId !== this._focusedRegionId) {
+            this._lastFocusedRegionId = this._focusedRegionId;
+            needsRedraw = true;
+        }
 
-        // Determinar qué figura 3D está bajo el cursor con Raycaster
-        this.hoveredMeshId = null;
-        if (this.camera && this._areShapesVisible) {
-            this.raycaster.setFromCamera(this.mouse, this.camera);
-            const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
-            for (let i = 0; i < intersects.length; i++) {
-                const obj = intersects[i].object;
-                if (obj.visible && obj.userData && obj.userData.id) {
-                    this.hoveredMeshId = obj.userData.id;
-                    break;
+        // Determinar qué figura 3D está bajo el cursor con Raycaster (optimizado)
+        if (this.camera && isCameraReady) { // Hacemos raycast siempre que estemos explorando
+            if (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y) {
+                this._lastRaycastMouse.copy(this.mouse);
+                
+                let newHoveredMeshId = null;
+                
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
+                for (let i = 0; i < intersects.length; i++) {
+                    const obj = intersects[i].object;
+                    if (obj.visible && obj.userData && obj.userData.id) {
+                        newHoveredMeshId = obj.userData.id;
+                        break;
+                    }
                 }
+                
+                if (this.hoveredMeshId !== newHoveredMeshId) {
+                    this.hoveredMeshId = newHoveredMeshId;
+                    
+                    if (this.domElement) {
+                        this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'default';
+                    }
+                    
+                    // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion para que se pinte en la textura
+                    const item = this._items.find(i => i.data && i.data.id === newHoveredMeshId);
+                    if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
+                        this.setHoveredRegion(newHoveredMeshId);
+                    } else if (!newHoveredMeshId || (item && !['region', 'mar', 'oceano'].includes(item.type))) {
+                        // Si dejamos de hoverear una region, limpiamos la textura
+                        if (this._hoveredRegionId !== null) {
+                            this.setHoveredRegion(null);
+                        }
+                    }
+                }
+            }
+        } else {
+            if (this.hoveredMeshId !== null) {
+                this.hoveredMeshId = null;
+                if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
             }
         }
 
-        // Determinar qué marcadores interactivos están hovered
+        // Determinar qué marcadores interactivos están hovered y enfocados
         for (const item of this._items) {
             if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {
-                // Si el item tiene un label, está hovereado si coincide con _hoveredRegionId o hoveredMeshId
+                const us = item.mesh.userData;
                 const isHovered = (item.data.id === this._hoveredRegionId || item.data.id === this.hoveredMeshId);
-                item.mesh.userData.targetScale = isHovered ? 1.5 : 1.0;
                 
-                // Forzar agrandar la fuente en el DOM si el raycaster intersecta el Mesh
+                // Lógica de Focus: si hay un foco activo, el targetScale de los ajenos va a 0
+                let isFocused = true;
+                if (this._focusedRegionName && item.type === 'otro') {
+                    isFocused = (item.data.region === this._focusedRegionName);
+                }
+
+                if (!isFocused) {
+                    us.targetScale = 0.0;
+                } else {
+                    us.targetScale = isHovered ? 1.5 : 1.0;
+                }
+
+                // Forzar agrandar la fuente en el DOM sin thrashing (solo al cambiar estado)
                 if (item.label && item.type === 'otro') {
-                    if (isHovered) {
+                    if (isHovered && !us.wasHoveredDOM && isFocused) {
                         item.label.element.style.setProperty('font-size', '14px', 'important');
-                    } else {
+                        us.wasHoveredDOM = true;
+                    } else if ((!isHovered || !isFocused) && us.wasHoveredDOM) {
                         item.label.element.style.removeProperty('font-size'); // Vuelve al comportamiento default CSS
+                        us.wasHoveredDOM = false;
                     }
                 }
 
-                // Lerp suave del scale
-                const us = item.mesh.userData;
-                us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, 0.15);
-                item.mesh.scale.set(us.currentScale, us.currentScale, 1.0);
+                // Lerp suave del scale solo si no ha alcanzado la meta
+                if (Math.abs(us.currentScale - us.targetScale) > 0.001) {
+                    us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, 0.15);
+                    item.mesh.scale.set(us.currentScale, us.currentScale, 1.0);
+                }
             }
         }
 
@@ -348,7 +424,14 @@ export class MarkerManager {
         for (const item of this._items) {
             const threshold = ZOOM_THRESHOLD[item.type] ?? 0.30;
             // Solo hacer visibles los marcadores si la cámara ya terminó de explorar e inició el juego
-            const visible = isCameraReady && (zoomAlpha <= threshold);
+            let visible = isCameraReady && (zoomAlpha <= threshold);
+            
+            // Si hay un focus activo y este es un marcador 'otro', ocultarlo si no pertenece a la región enfocada
+            if (visible && this._focusedRegionName && item.type === 'otro') {
+                if (item.data.region !== this._focusedRegionName) {
+                    visible = false;
+                }
+            }
 
             const shouldMeshBeVisible = visible && currentShowVisual && item.type !== 'region';
 
@@ -466,14 +549,20 @@ export class MarkerManager {
                     const curveRadius = data.curveRadius || 0;
                     const rotationDeg = data.rotation || 0;
                     
-                    if (data.id === this._hoveredRegionId) {
-                        ctx.fillStyle = 'rgba(255, 230, 150, 1.0)'; // Dorado claro al hacer hover
+                    if (data.id === this._hoveredRegionId || data.id === this._focusedRegionId) {
+                        ctx.fillStyle = 'rgba(255, 230, 150, 1.0)';
+                        ctx.shadowColor = 'rgba(255, 200, 50, 0.8)';
+                        ctx.shadowBlur = 15;
                     } else {
                         if (['mar', 'oceano'].includes(mType)) {
                             // Celeste suave y semitransparente para que se fusione con el mar
                             ctx.fillStyle = 'rgba(118, 175, 215, 0.26)'; 
+                            ctx.shadowColor = 'rgba(0,0,0,0)';
+                            ctx.shadowBlur = 0;
                         } else {
                             ctx.fillStyle = 'rgba(32, 30, 17, 0.78)'; // Negro para regiones terrestres
+                            ctx.shadowColor = 'rgba(0,0,0,0)';
+                            ctx.shadowBlur = 0;
                         }
                     }
 

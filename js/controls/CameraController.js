@@ -9,9 +9,9 @@ export class CameraController {
         this.controls = new OrbitControls(camera, domElement);
         this.controls.enableRotate = false; 
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.1;   
-        this.controls.zoomSpeed = 1.2;       
-        this.controls.panSpeed = 1.0;        
+        this.controls.dampingFactor = 0.05;  // Más bajo = más "peso" y fluidez al arrastrar (default era 0.1)
+        this.controls.zoomSpeed = 0.8;       // Rueda del ratón más suave
+        this.controls.panSpeed = 0.8;        // Paneo más orgánico
         this.controls.screenSpacePanning = false; 
         this.controls.minDistance = 25;  
         this.controls.target.set(0, 0, 0);
@@ -167,20 +167,24 @@ if (this.state === 'DROP_1') {
             }
 
         } else if (this.state === 'FLY_TO') {
-            this._flyProgress = Math.min(1.0, this._flyProgress + 0.025);
+            const now = performance.now();
+            let p = (now - this._flyStartTime) / this._flyDuration;
+            p = Math.min(1.0, p);
 
-            // Ease-in-out cúbico
-            const p = this._flyProgress;
-            const ease = p < 0.5
-                ? 4 * p * p * p
-                : 1 - Math.pow(-2 * p + 2, 3) / 2;
+            // Ease-in-out Sine (movimiento de péndulo, muy natural y sin aceleraciones agresivas)
+            const ease = -(Math.cos(Math.PI * p) - 1) / 2;
 
             // Pan: interpolar target
             this.controls.target.lerpVectors(this._flyStartTarget, this._flyEndTarget, ease);
 
-            // Tilt + Zoom: interpolar en esférico
-            const phi  = THREE.MathUtils.lerp(this._flyStartPhi,  this._flyEndPhi,  ease);
+            // Interpolación directa de distancia sin arco parabólico
             const dist = THREE.MathUtils.lerp(this._flyStartDist, this._flyEndDist, ease);
+
+            // Calcular dinámicamente el ángulo polar (phi) basado en la distancia
+            const maxDist = this.calculatedMaxDistance || 55;
+            const tPhi = THREE.MathUtils.clamp((dist - 25) / (maxDist - 25), 0, 1);
+            const easeTPhi = -(Math.cos(Math.PI * tPhi) - 1) / 2;
+            const phi = THREE.MathUtils.lerp(Math.PI / 4.5, 0.01, easeTPhi);
 
             // Reconstruir posición (azimutal fijo → cero rotación horizontal)
             this.camera.position.set(
@@ -199,14 +203,11 @@ if (this.state === 'DROP_1') {
             // Sincronizar estado interno de OrbitControls (input desactivado = sync puro).
             this.controls.update();
 
-            if (this._flyProgress >= 1.0) {
+            if (p >= 1.0) {
                 this.controls.enableDamping = true;
                 this.controls.enabled = true;
                 this.controls.maxDistance = this.calculatedMaxDistance;
                 this.state = 'PLAYING';
-                // El constraint (minPolarAngle = maxPolarAngle = endPhi) se retoma
-                // en el próximo frame de PLAYING. Como la cámara ya está en endPhi,
-                // OrbitControls no tiene nada que corregir → cero snap.
             }
         }
 
@@ -315,7 +316,11 @@ if (this.state === 'DROP_1') {
         this._flyAzimuthal = theta;
         this._flyStartDist = startDist;
         this._flyEndDist   = endDist;
-        this._flyProgress  = 0;
+        
+        // Animación basada en tiempo y dependiente de la distancia
+        this._flyStartTime = performance.now();
+        const travelDist = worldPos.distanceTo(this.controls.target);
+        this._flyDuration = Math.min(2000, 900 + travelDist * 12); // Base 0.9s, max 2.0s
 
         // Flush de deltas pendientes de OrbitControls antes del vuelo:
         // damping off + update() = aplica y zeroa cualquier delta acumulado.

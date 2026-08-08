@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "map": "Vekiar",
-  "totalMarkers": 85,
+  "totalMarkers": 78,
   "markers": [
     {
       "id": "marker_1785892950832",
@@ -86,7 +86,7 @@
     },
     {
       "id": "marker_1785893391195",
-      "name": "TAUHAWILE",
+      "name": "TAUHAWILLE",
       "x": 27.490885832152525,
       "y": 1.7322513830614248,
       "z": 1.7956314022301216,
@@ -109,13 +109,11 @@
       "uv": {
         "u": 0.7749088583215252,
         "v": 0.5173225138306143
-      },
-      "fontSize": 80,
-      "curveRadius": 0
+      }
     },
     {
       "id": "marker_1785893568236",
-      "name": "AIWARA",
+      "name": "EIWA",
       "x": 37.737347167827686,
       "y": 9.737935348525161,
       "z": 2.137284700587145,
@@ -138,9 +136,7 @@
       "uv": {
         "u": 0.8773734716782768,
         "v": 0.5973793534852516
-      },
-      "fontSize": 80,
-      "curveRadius": 0
+      }
     },
     {
       "id": "marker_1785893584957",
@@ -272,7 +268,7 @@
     },
     {
       "id": "marker_1785894947154",
-      "name": "BRASALVA",
+      "name": "CIENFUEGOS",
       "shape": "square",
       "position": {
         "x": 8.300999999999998,
@@ -407,7 +403,7 @@
     {
       "id": "marker_1785896643632",
       "name": "DESPERIDA",
-      "region": "OVARN",
+      "region": "TARIA",
       "shape": "circle",
       "position": {
         "x": -9.241,
@@ -424,14 +420,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785896666182",
       "name": "LANTIAN",
-      "region": "OVARN",
+      "region": "TARIA",
       "shape": "square",
       "position": {
         "x": -8.102,
@@ -455,7 +449,7 @@
     {
       "id": "marker_1785896682414",
       "name": "MUCANT",
-      "region": "OVARN",
+      "region": "TARIA",
       "shape": "diamond",
       "position": {
         "x": -14.813,
@@ -472,14 +466,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785896756786",
       "name": "ONAXA",
-      "region": "ITRAMA",
+      "region": "RAUN",
       "shape": "square",
       "position": {
         "x": -6.33,
@@ -496,14 +488,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785896769098",
       "name": "ALBOREA",
-      "region": "ITRAMA",
+      "region": "RAUN",
       "shape": "square",
       "position": {
         "x": -11.821000000000002,
@@ -572,7 +562,7 @@
     },
     {
       "id": "marker_1785897244167",
-      "name": "HAIZOR",
+      "name": "PAHÓN",
       "region": "GENERAL",
       "shape": "square",
       "position": {
@@ -891,7 +881,7 @@
     {
       "id": "marker_1785897801175",
       "name": "GÓLIAM",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "square",
       "position": {
         "x": -2.894,
@@ -915,7 +905,7 @@
     {
       "id": "marker_1785897815641",
       "name": "JAULA ROJA",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "circle",
       "position": {
         "x": -10.111,
@@ -932,14 +922,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785897827353",
       "name": "TULES",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "square",
       "position": {
         "x": -17.396,
@@ -956,14 +944,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785897834337",
       "name": "WICIN",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "square",
       "position": {
         "x": -14.005,
@@ -980,14 +966,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785897859762",
       "name": "HOLUNDIN",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "diamond",
       "position": {
         "x": -12.605,
@@ -1004,14 +988,12 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785897881420",
       "name": "BRAFT",
-      "region": "EFELDRA",
+      "region": "ELDION",
       "shape": "square",
       "position": {
         "x": -9.705,
@@ -1028,9 +1010,7 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785897916365",
@@ -1276,7 +1256,7 @@
     },
     {
       "id": "marker_1785898178769",
-      "name": "ERRENTU",
+      "name": "ERENTU",
       "region": "IREVIE",
       "shape": "circle",
       "position": {
@@ -1294,9 +1274,7 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0,
-      "fontSize": 80,
-      "curveRadius": 0
+      "curve": 0
     },
     {
       "id": "marker_1785898309262",
@@ -1371,9 +1349,7 @@
         "u": 0.3038,
         "v": 0.4796
       },
-      "fontSize": 130,
-      "rotation": 0,
-      "curveRadius": 0
+      "fontSize": 130
     },
     {
       "id": "marker_1785901385360",
@@ -1394,7 +1370,7 @@
     },
     {
       "id": "marker_1785901392354",
-      "name": "BISLOG",
+      "name": "DÉSGUR",
       "region": "General",
       "type": "region",
       "shape": "text",
@@ -1408,29 +1384,24 @@
         "v": 0.719
       },
       "fontSize": 70,
-      "letterSpacing": 1,
-      "rotation": 0,
-      "curveRadius": 0
+      "letterSpacing": 1
     },
     {
       "id": "marker_1785901413290",
-      "name": "EFELDRA",
+      "name": "ELDION",
       "region": "General",
       "type": "region",
       "shape": "text",
       "position": {
-        "x": -13.813,
+        "x": -13.753,
         "y": 16.26,
         "z": 2.216
       },
       "uv": {
-        "u": 0.3615,
+        "u": 0.3625,
         "v": 0.6626
       },
-      "fontSize": 55,
-      "rotation": 0,
-      "curveRadius": 0,
-      "letterSpacing": 5
+      "fontSize": 55
     },
     {
       "id": "marker_1785901431595",
@@ -1450,7 +1421,7 @@
     },
     {
       "id": "marker_1785901456660",
-      "name": "DRIVA",
+      "name": "DRIVIA",
       "region": "General",
       "type": "region",
       "shape": "text",
@@ -1463,9 +1434,7 @@
         "u": 0.1684,
         "v": 0.5196
       },
-      "fontSize": 50,
-      "rotation": 0,
-      "curveRadius": 0
+      "fontSize": 50
     },
     {
       "id": "marker_1785901505087",
@@ -1518,7 +1487,7 @@
     },
     {
       "id": "marker_1785901584722",
-      "name": "OVARN",
+      "name": "TARIA",
       "region": "General",
       "type": "region",
       "shape": "text",
@@ -1531,9 +1500,7 @@
         "u": 0.37,
         "v": 0.1846
       },
-      "fontSize": 54,
-      "rotation": -25,
-      "curveRadius": 0
+      "fontSize": 60
     },
     {
       "id": "marker_1785901599010",
@@ -1735,139 +1702,6 @@
       "fontSize": 25,
       "rotation": 0,
       "curveRadius": 0
-    },
-    {
-      "id": "marker_1786133902122",
-      "name": "FOGARENA",
-      "region": "General",
-      "type": "otro",
-      "shape": "square",
-      "position": {
-        "x": 6.301,
-        "y": -29.318,
-        "z": 2.42
-      },
-      "uv": {
-        "u": 0.563,
-        "v": 0.2068
-      },
-      "fontSize": 80,
-      "rotation": 0,
-      "curveRadius": 0
-    },
-    {
-      "id": "marker_1786134773718",
-      "name": "CIUDADELA TEILOVA",
-      "region": "General",
-      "type": "otro",
-      "shape": "triangle",
-      "position": {
-        "x": 41.336,
-        "y": -34.067,
-        "z": 2.506
-      },
-      "uv": {
-        "u": 0.9134,
-        "v": 0.1593
-      },
-      "fontSize": 80,
-      "rotation": 0,
-      "curveRadius": 0
-    },
-    {
-      "id": "marker_1786134893215",
-      "name": "YUNOVARAV",
-      "region": "General",
-      "type": "otro",
-      "shape": "square",
-      "position": {
-        "x": 39.729,
-        "y": -32.307,
-        "z": 2.707
-      },
-      "uv": {
-        "u": 0.8973,
-        "v": 0.1769
-      },
-      "fontSize": 80,
-      "rotation": 0,
-      "curveRadius": 0
-    },
-    {
-      "id": "marker_1786135693925",
-      "name": "PRAIDON",
-      "region": "EFELDRA",
-      "type": "otro",
-      "shape": "square",
-      "position": {
-        "x": -12.707,
-        "y": 7.662,
-        "z": 2.207
-      },
-      "uv": {
-        "u": 0.3729,
-        "v": 0.5766
-      },
-      "fontSize": 80,
-      "rotation": 0,
-      "curveRadius": 0
-    },
-    {
-      "id": "marker_1786136281345",
-      "name": "KHARWATAI",
-      "region": "General",
-      "type": "otro",
-      "shape": "square",
-      "position": {
-        "x": -6.882,
-        "y": -1.444,
-        "z": 2.337
-      },
-      "uv": {
-        "u": 0.4312,
-        "v": 0.4856
-      },
-      "fontSize": 80,
-      "rotation": 0,
-      "curveRadius": 0
-    },
-    {
-      "id": "marker_1786136851634",
-      "name": "EL GRAN TRECHO",
-      "region": "General",
-      "type": "mar",
-      "shape": "text",
-      "position": {
-        "x": 24.237,
-        "y": 12.701,
-        "z": 1.258
-      },
-      "uv": {
-        "u": 0.7424,
-        "v": 0.627
-      },
-      "fontSize": 65,
-      "rotation": -38,
-      "curveRadius": 1000
-    },
-    {
-      "id": "marker_1786137270399",
-      "name": "MAR DEL UMBRAL",
-      "region": "General",
-      "type": "mar",
-      "shape": "text",
-      "position": {
-        "x": -3.653999999999999,
-        "y": -30.823,
-        "z": 1.728
-      },
-      "uv": {
-        "u": 0.459,
-        "v": 0.1918
-      },
-      "fontSize": 33,
-      "rotation": -53,
-      "curveRadius": 800
     }
   ]
 }

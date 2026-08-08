@@ -108,6 +108,9 @@ async function startApp() {
                 map.material.displacementScale = disp;
                 if (map.riverMaterial) map.riverMaterial.displacementScale = disp;
                 if (map.lakeMaterial)  map.lakeMaterial.displacementScale  = disp;
+                
+                // Las sombras solo necesitan recalcularse cuando la geometría del mapa cambia físicamente
+                sceneManager.renderer.shadowMap.needsUpdate = true;
             }
         }
 

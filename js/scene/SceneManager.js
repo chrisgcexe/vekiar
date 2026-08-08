@@ -27,6 +27,7 @@ export class SceneManager {
         document.body.appendChild(this.css2dRenderer.domElement);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.autoUpdate = false; // Optimización masiva: el mapa de sombras no se recalcula cada frame
         document.body.appendChild(this.renderer.domElement);
         this._setupLights();
         // Cache del elemento vignette (evita getElementById cada frame)
