@@ -208,6 +208,14 @@ export class MapEditor {
                     </div>
                 </div>
                 
+                <div class="editor-field region-only" id="insp-color-container" style="margin-bottom: 15px; display: none;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Asignar Color de Región:</label>
+                    <input type="hidden" id="insp-color">
+                    <div id="insp-color-palette" style="display: flex; flex-wrap: wrap; gap: 4px; background: #3e2723; padding: 5px; border-radius: 4px; border: 1px solid #795548;">
+                        <!-- Colores generados dinámicamente -->
+                    </div>
+                </div>
+                
                 <div class="editor-field" style="margin-bottom: 15px; display: flex; gap: 10px;">
                     <div style="flex: 1;">
                         <label style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste X (U):</label>
@@ -232,6 +240,31 @@ export class MapEditor {
                 const isTextSurface = ['region', 'mar', 'oceano'].includes(e.target.value);
                 const displays = document.querySelectorAll('.region-only');
                 displays.forEach(el => el.style.display = isTextSurface ? 'flex' : 'none');
+            });
+            
+            // Generar paleta de colores extraídos de la máscara
+            const maskColors = ['#d1d8e4', '#ffff00', '#2b2c2e', '#00ffff', '#ff5b01', '#da007f', '#00ff00', '#ff0000', '#64788a', '#ff8fce', '#a3872d', '#0000ff', '#ff00ff'];
+            const paletteContainer = document.getElementById('insp-color-palette');
+            const colorInput = document.getElementById('insp-color');
+            
+            maskColors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.style.cssText = `
+                    width: 24px; height: 24px; background: ${color}; border-radius: 4px; 
+                    cursor: pointer; border: 2px solid transparent; transition: transform 0.1s;
+                `;
+                swatch.dataset.color = color;
+                
+                swatch.addEventListener('click', () => {
+                    colorInput.value = color;
+                    this.applyInspectorChanges(false);
+                    // Actualizar UI
+                    Array.from(paletteContainer.children).forEach(child => {
+                        child.style.borderColor = child.dataset.color === color ? '#ffffff' : 'transparent';
+                        child.style.transform = child.dataset.color === color ? 'scale(1.1)' : 'scale(1)';
+                    });
+                });
+                paletteContainer.appendChild(swatch);
             });
             
             // Auto-aplicar al salir de foco (blur) o presionar Enter
@@ -402,6 +435,17 @@ export class MapEditor {
         document.getElementById('insp-letterspacing').value = markerData.letterSpacing !== undefined ? markerData.letterSpacing : '';
         document.getElementById('insp-rotation').value = markerData.rotation || 0;
         document.getElementById('insp-curve').value = markerData.curveRadius || 0;
+        document.getElementById('insp-color').value = markerData.colorId || '';
+        
+        // Update color palette UI
+        const paletteContainer = document.getElementById('insp-color-palette');
+        if (paletteContainer) {
+            Array.from(paletteContainer.children).forEach(child => {
+                const isSelected = child.dataset.color === (markerData.colorId || '').toLowerCase();
+                child.style.borderColor = isSelected ? '#ffffff' : 'transparent';
+                child.style.transform = isSelected ? 'scale(1.1)' : 'scale(1)';
+            });
+        }
         
         if (markerData.uv) {
             document.getElementById('insp-u').value = markerData.uv.u.toFixed(4);
@@ -436,6 +480,9 @@ export class MapEditor {
 
         const curveRaw = document.getElementById('insp-curve').value;
         const newCurveRadius = curveRaw !== '' ? parseFloat(curveRaw) : 0;
+        
+        const colorIdRaw = document.getElementById('insp-color').value.trim().toUpperCase();
+        const newColorId = colorIdRaw !== '' ? colorIdRaw : undefined;
 
         const newU = parseFloat(document.getElementById('insp-u').value) || 0;
         const newV = parseFloat(document.getElementById('insp-v').value) || 0;
@@ -448,6 +495,7 @@ export class MapEditor {
         if (markerData.letterSpacing !== newLetterSpacing) { markerData.letterSpacing = newLetterSpacing; hasChanges = true; }
         if (markerData.rotation !== newRotation) { markerData.rotation = newRotation; hasChanges = true; }
         if (markerData.curveRadius !== newCurveRadius) { markerData.curveRadius = newCurveRadius; hasChanges = true; }
+        if (markerData.colorId !== newColorId) { markerData.colorId = newColorId; hasChanges = true; }
         
         if (markerData.uv && (Math.abs(markerData.uv.u - newU) > 0.0001 || Math.abs(markerData.uv.v - newV) > 0.0001)) {
             const du = newU - markerData.uv.u;

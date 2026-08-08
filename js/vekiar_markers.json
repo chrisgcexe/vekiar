@@ -1364,7 +1364,10 @@
         "v": 0.476
       },
       "fontSize": 60,
-      "letterSpacing": -1
+      "letterSpacing": -1,
+      "rotation": 0,
+      "curveRadius": 0,
+      "colorId": "#FF0000"
     },
     {
       "id": "marker_1785901368280",
@@ -1383,7 +1386,8 @@
       },
       "fontSize": 130,
       "rotation": 0,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#FF00FF"
     },
     {
       "id": "marker_1785901385360",
@@ -1420,7 +1424,8 @@
       "fontSize": 70,
       "letterSpacing": 1,
       "rotation": 0,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#64788a"
     },
     {
       "id": "marker_1785901413290",
@@ -1440,7 +1445,8 @@
       "fontSize": 55,
       "rotation": 0,
       "curveRadius": 0,
-      "letterSpacing": 5
+      "letterSpacing": 5,
+      "colorId": "#ba007c"
     },
     {
       "id": "marker_1785901431595",
@@ -1543,7 +1549,8 @@
       },
       "fontSize": 54,
       "rotation": -25,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#00FFFF"
     },
     {
       "id": "marker_1785901599010",
@@ -1560,7 +1567,10 @@
         "u": 0.404,
         "v": 0.3573
       },
-      "fontSize": 80
+      "fontSize": 80,
+      "rotation": 0,
+      "curveRadius": 0,
+      "colorId": "#00FF00"
     },
     {
       "id": "marker_1785901623548",
@@ -1576,7 +1586,11 @@
       "uv": {
         "u": 0.7823,
         "v": 0.373
-      }
+      },
+      "colorId": "#FF8FCE",
+      "fontSize": 80,
+      "rotation": 0,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785901639795",
@@ -1593,7 +1607,10 @@
         "u": 0.7284,
         "v": 0.1862
       },
-      "fontSize": 60
+      "fontSize": 60,
+      "colorId": "#A3872D",
+      "rotation": 0,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785901674110",
@@ -1612,7 +1629,8 @@
       },
       "fontSize": 70,
       "rotation": 0,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#FF5B01"
     },
     {
       "id": "marker_1785901697177",
@@ -1686,7 +1704,10 @@
         "u": 0.5279,
         "v": 0.3277
       },
-      "fontSize": 50
+      "fontSize": 50,
+      "rotation": 0,
+      "curveRadius": 0,
+      "colorId": "#FFFF00"
     },
     {
       "id": "marker_1785902280449",
@@ -1727,7 +1748,10 @@
         "u": 0.196,
         "v": 0.29
       },
-      "fontSize": 60
+      "fontSize": 60,
+      "rotation": 0,
+      "curveRadius": 0,
+      "colorId": "#0000FF"
     },
     {
       "id": "marker_1785902371509",

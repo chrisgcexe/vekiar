@@ -23,6 +23,7 @@ export class AssetLoader {
         const mapDataPromise = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
         const packedMasksPromise = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
         const flowmapPromise = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
+        const regionIdsPromise = textureLoader.loadAsync('./assets/images/mapa_referencia_regiones.png'); // NUEVO MÁSCARA ID
 
         // Esperamos a que baje todo en paralelo
         const [
@@ -31,19 +32,22 @@ export class AssetLoader {
             mapDataPackedTexture, 
             packedMasksTexture, 
             flowmapTexture,
-            referenceTexture
+            referenceTexture,
+            regionIdsTexture
         ] = await Promise.all([
             colorPromise, 
             noisePromise, 
             mapDataPromise, 
             packedMasksPromise, 
             flowmapPromise,
-            referenceTexturePromise
+            referenceTexturePromise,
+            regionIdsPromise
         ]);
 
         // Seteamos el color space para que no se vea lavado
         colorTexture.colorSpace = THREE.SRGBColorSpace;
         referenceTexture.colorSpace = THREE.SRGBColorSpace; // <-- Importante para que los colores no se laven
+        regionIdsTexture.colorSpace = THREE.SRGBColorSpace; // <-- CRUCIAL para que los colores coincidan con los HEX de JS
         
         // Configuramos el wrap para el ruido del agua
         noiseTexture.wrapS = THREE.RepeatWrapping;
@@ -58,7 +62,8 @@ export class AssetLoader {
             mapDataPackedTexture,
             packedMasksTexture,
             flowmapTexture,
-            referenceTexture
+            referenceTexture,
+            regionIdsTexture
         };
     }
 }

@@ -106,6 +106,7 @@ export class MarkerManager {
         if (this._hoveredRegionId !== regionId) {
             this._hoveredRegionId = regionId;
             this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
+            this._updateShaderRegionColor();
         }
     }
 
@@ -119,6 +120,39 @@ export class MarkerManager {
                 this._focusedRegionName = null;
             }
             this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
+            this._updateShaderRegionColor();
+        }
+    }
+
+    _updateShaderRegionColor() {
+        if (!this.mapMaterial) return;
+        
+        // Hover
+        if (this.mapMaterial.userData.uHoveredRegionColor) {
+            if (this._hoveredRegionId) {
+                const item = this._items.find(i => i.data && i.data.id === this._hoveredRegionId);
+                if (item && item.data.colorId) {
+                    this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                } else {
+                    this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                }
+            } else {
+                this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+            }
+        }
+        
+        // Focus
+        if (this.mapMaterial.userData.uFocusedRegionColor) {
+            if (this._focusedRegionId) {
+                const item = this._items.find(i => i.data && i.data.id === this._focusedRegionId);
+                if (item && item.data.colorId) {
+                    this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
+                } else {
+                    this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+                }
+            } else {
+                this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+            }
         }
     }
 
@@ -138,6 +172,27 @@ export class MarkerManager {
                 this.mapMaterial.userData.uRegionOpacity.value, 
                 targetOpacity, 
                 0.05
+            );
+        }
+
+        // Manejar el fade in/out del mapa político (Hover)
+        if (this.mapMaterial && this.mapMaterial.userData.uHoverRegionAlpha) {
+            // El hover no se muestra si la misma región está focuseada (para no mezclar textura y color)
+            const targetHoverAlpha = (this._hoveredRegionId && this._hoveredRegionId !== this._focusedRegionId) ? 1.0 : 0.0;
+            this.mapMaterial.userData.uHoverRegionAlpha.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uHoverRegionAlpha.value, 
+                targetHoverAlpha, 
+                0.1
+            );
+        }
+        
+        // Manejar el fade in/out del mapa político (Focus)
+        if (this.mapMaterial && this.mapMaterial.userData.uFocusedRegionAlpha) {
+            const targetFocusAlpha = this._focusedRegionId ? 1.0 : 0.0;
+            this.mapMaterial.userData.uFocusedRegionAlpha.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uFocusedRegionAlpha.value, 
+                targetFocusAlpha, 
+                0.1
             );
         }
 
