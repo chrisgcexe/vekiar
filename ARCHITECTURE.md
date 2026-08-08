@@ -293,25 +293,33 @@ material.userData.uTime.value = appState.time;
 
 ## 8. Sistema de Marcadores (MarkerManager)
 
-### Arquitectura de dos capas
+### Arquitectura de tres capas (Refactor Modular)
 
-Los marcadores tienen **dos componentes separados** que viven en grupos distintos del grafo de la escena:
+El manejo de marcadores se divide en tres clases para respetar el principio de responsabilidad única (Single Responsibility Principle):
 
-```
+1. **`MarkerManager.js`**: Coordinador central. Mantiene el estado (`_items`), la lógica de raycasting, el nivel de detalle (LOD / Zoom), y expone la API pública (`update`, `renderAll`).
+2. **`MarkerBuilder.js`**: Fábrica visual. Se encarga de instanciar los hitboxes 3D (para regiones) y los íconos/etiquetas CSS2D (para pueblos, lagos).
+3. **`RegionTexturePainter.js`**: Motor de renderizado de texto 2D. Escribe los nombres gigantes de las regiones y mares directamente sobre la textura 4K del mapa usando un `<canvas>`.
+
+#### Jerarquía en el Grafo de Escena
+
+Los marcadores interactivos (pueblos, lagos, islas) tienen **dos componentes separados** que viven en grupos distintos:
+
+```text
 THREE.Scene
 ├── mapPlaneGroup (rotation.x = -PI/2, scale no uniforme)
-│   ├── Mesh (esfera/cubo/triángulo/rombo) ← icono 3D del marcador
+│   ├── Mesh (hitboxes invisibles de regiones e íconos 3D)
 │   └── ... chunks de terreno, LODs, rollos, etc.
 │
 └── _labelRoot (Group limpio, sin rotación ni escala)
-    └── CSS2DObject (<div class="marker-label marker-region">) ← etiqueta de texto
+    └── CSS2DObject (<div class="marker-label">) ← etiqueta de texto
 ```
 
-> **POR QUÉ los labels NO son hijos de `mapPlaneGroup`**: ese grupo tiene `rotation.x = -Math.PI / 2` y `scale.set(1, 1/aspect, 1)`. Si los `CSS2DObject` fueran hijos de ese grupo, CSS2DRenderer proyectaría sus posiciones desde un espacio rotado y escalado de forma no uniforme, produciendo **jitter de sub-pixel** (temblor visual) porque los flotantes de la proyección varían ±0.5px entre frames. La solución: los labels viven en `_labelRoot` (escena raíz, sin transformación), y sus posiciones se calculan convirtiendo coordenadas locales del marcador a coordenadas del mundo con `mapPlaneGroup.localToWorld()`.
+> **POR QUÉ los labels NO son hijos de `mapPlaneGroup`**: ese grupo tiene `rotation.x = -Math.PI / 2`. Si los `CSS2DObject` fueran hijos de ese grupo, CSS2DRenderer proyectaría sus posiciones desde un espacio rotado, produciendo **jitter de sub-pixel** (temblor visual). La solución: los labels viven en `_labelRoot` (escena raíz, sin transformación), y sus posiciones se calculan con `mapPlaneGroup.localToWorld()`.
 
 ### Flujo de creación de un marcador
 
-```
+```text
 MapEditor.onClick()
     └─ Raycaster intersecta mapPlaneGroup
     └─ hit.point → worldToLocal(localPoint) → coordenadas locales del grupo
@@ -321,8 +329,9 @@ MapEditor.onClick()
         └─ markers.push(markerData)
         └─ saveToLocalStorage()
         └─ markerManager.spawnVisualMarker(markerData)
-            ├─ Crea Mesh 3D → agrega a mapPlaneGroup
-            └─ Crea CSS2DObject → localToWorld(pos) → agrega a _labelRoot
+            └─ MarkerBuilder.spawnVisualMarker()
+                ├─ Crea Mesh 3D → agrega a mapPlaneGroup
+                └─ Crea CSS2DObject → localToWorld(pos) → agrega a _labelRoot
 ```
 
 ### Clases CSS por tipo de marcador

@@ -573,7 +573,7 @@
     {
       "id": "marker_1785897244167",
       "name": "HAIZOR",
-      "region": "GENERAL",
+      "region": "OVARN",
       "shape": "square",
       "position": {
         "x": -3.501,
@@ -770,7 +770,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897403270",
@@ -1035,7 +1037,7 @@
     {
       "id": "marker_1785897916365",
       "name": "PUERTA SOLAR",
-      "region": "DÉSGUR",
+      "region": "BISLOG",
       "shape": "triangle",
       "position": {
         "x": -27.657,
@@ -1052,12 +1054,14 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897930838",
       "name": "IKIZAK",
-      "region": "DÉSGUR",
+      "region": "BISLOG",
       "shape": "square",
       "position": {
         "x": -27.692,
@@ -1074,12 +1078,14 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785897972064",
-      "name": "NIIBO LATS ",
-      "region": "DÉSGUR",
+      "name": "NIIBO LATS",
+      "region": "BISLOG",
       "shape": "square",
       "position": {
         "x": -25.051,
@@ -1096,12 +1102,14 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785898013777",
       "name": "VIGILIA",
-      "region": "IREVE",
+      "region": "IREVIE",
       "shape": "square",
       "position": {
         "x": 18.123,
@@ -1118,7 +1126,9 @@
         "y": 25
       },
       "rotation": 90,
-      "curve": 0
+      "curve": 0,
+      "fontSize": 80,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785898028186",
@@ -1600,7 +1610,9 @@
         "u": 0.6573,
         "v": 0.7434
       },
-      "fontSize": 70
+      "fontSize": 70,
+      "rotation": 0,
+      "curveRadius": 0
     },
     {
       "id": "marker_1785901697177",

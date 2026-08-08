@@ -2,7 +2,6 @@ import * as THREE from 'three';
 // Ya no importamos AssetLoader acá, nos lo pasan por parámetro
 import { TerrainMaterial } from './TerrainMaterial.js';
 import { SnowSystem } from '../systems/SnowSystem.js';
-import { PermafrostMistMaterial } from '../systems/PermafrostMistMaterial.js';
 import { OceanSystem } from '../systems/OceanSystem.js';
 import { LandSystem } from '../systems/LandSystem.js';
 
@@ -198,10 +197,6 @@ export class Map {
             mapMaterial.clipShadows = true; 
             this.material = mapMaterial; 
 
-            const permafrostMistMaterial = PermafrostMistMaterial.create(assets, mapMaterial);
-            permafrostMistMaterial.clippingPlanes = clippingPlanes; // <-- INYECTAMOS (Para que la niebla también se corte)
-            this.permafrostMistMaterial = permafrostMistMaterial;
-
             const canvas = document.createElement('canvas');
             canvas.width = mapDataPackedTexture.image.width;
             canvas.height = mapDataPackedTexture.image.height;
@@ -246,9 +241,6 @@ export class Map {
                             chunkMesh.castShadow = true;
                             chunkMesh.receiveShadow = true;
                             lodLevelGroup.add(chunkMesh);
-
-                            const mistLayerMesh = new THREE.Mesh(geometry, permafrostMistMaterial);
-                            lodLevelGroup.add(mistLayerMesh);
 
                             lod.addLevel(lodLevelGroup, lodDistances[index]);
                         });

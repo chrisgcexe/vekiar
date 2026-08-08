@@ -44,6 +44,33 @@ vec3 snowColor = snowColorBase + (bumpShadow * bumpMask * vec3(0.4, 0.45, 0.5));
 float zoomFadeSnow = smoothstep(0.3, 0.8, uZoomAlpha);
 diffuseColor.rgb = mix(diffuseColor.rgb, snowColor, snowFactor * zoomFadeSnow);
 
+// === 1.5 NEBLINA DE PERMAFROST BAKEADA ===
+// La textura se desliza hacia el Norte (restando a vGlobalPos.y)
+vec2 flowUv1 = vGlobalPos * 4.0 + vec2(0.0, -uTime * 0.03);
+vec2 flowUv2 = vGlobalPos * 3.0 + vec2(sin(uTime * 0.01) * 0.01, -uTime * 0.02);
+
+float mistNoise1 = texture2D(tNoise, flowUv1).r;
+float mistNoise2 = texture2D(tNoise, flowUv2).r;
+
+// Utilizamos la máscara de nieve de las montañas
+float mistMaskRaw = 1.0 - texture2D(tMapDataPacked, vGlobalPos, 3.0).b;
+float mistMask = smoothstep(0.02, 0.8, mistMaskRaw); 
+
+if (mistMask > 0.01) {
+    float mistDensity = smoothstep(0.0, 0.6, mistNoise1 * mistNoise2);
+    vec3 mistColor = vec3(0.7, 0.9, 1.0);
+    
+    // Difuminado por altura (vHeight representa la Z local, que es Y en mundo)
+    // El terreno base es aprox 0-1, las montañas suben a 3 o 4
+    float heightFade = smoothstep(1.5, 2.5, vHeight) * (1.0 - smoothstep(3.2, 4.0, vHeight));
+    
+    // Opacidad ajustada y afectada por el zoom (igual que la capa original 3D)
+    float mistAlpha = mistMask * mistDensity * heightFade * 0.15 * zoomFadeSnow;
+    
+    // Sumamos el color como si fuera Additive Blending
+    diffuseColor.rgb += mistColor * mistAlpha;
+}
+
 
 // === 2. AMBIENTACIÓN DEL DESIERTO (ESPEJISMO + POLVO) ===
 
