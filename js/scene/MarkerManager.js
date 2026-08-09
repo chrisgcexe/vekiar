@@ -50,30 +50,25 @@ export class MarkerManager {
                 
                 if (this.hoveredMeshId) {
                     const item = this._items.find(i => i.data && i.data.id === this.hoveredMeshId);
-                    if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
-                        // Si estamos lejos, pedimos vuelo (SIN poner en focus).
-                        if (this._lastZoomAlpha > 0.6) {
-                            // Limpiamos el focus si veníamos de otro lado para evitar confusiones
-                            if (this._focusedRegionId !== null) {
-                                this.setFocusedRegion(null);
-                            }
-                            window.dispatchEvent(new CustomEvent('marker:region-fly-request', {
-                                detail: { worldPos: item.worldPos.clone(), name: item.data.name }
-                            }));
-                        } else {
-                            // Si estamos cerca, SÍ la ponemos en focus y abrimos el panel.
-                            this.setFocusedRegion(item.data.id);
-                            window.dispatchEvent(new CustomEvent('marker:region-open-panel', {
-                                detail: { worldPos: item.worldPos.clone(), name: item.data.name }
-                            }));
+                if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
+                        // Solo volar: SIEMPRE al hacer click en una region
+                        window.dispatchEvent(new CustomEvent('marker:region-fly-request', {
+                            detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                        }));
+
+                        if (this._mapReady) {
+                            // Solo si ya está en el estado interactuable cercano: guardar para abrir panel al aterrizar
+                            if (this._focusedRegionId !== null) this.setFocusedRegion(null);
+                            this._pendingFocusItem = item;
                         }
-                        return; // Consumimos el click
-                    }
+                        return;
+                }
                 }
 
                 // Si llegamos hasta acá, fue un click en el WebGL canvas vacío.
                 // Limpiamos el focus para volver al estado global.
-                if (this._focusedRegionId !== null) {
+                if (this._focusedRegionId !== null || this._pendingFocusItem !== undefined) {
+                    this._pendingFocusItem = null;
                     this.setFocusedRegion(null);
                     window.dispatchEvent(new CustomEvent('marker:region-unhover'));
                 }
@@ -83,6 +78,18 @@ export class MarkerManager {
             window.addEventListener('region-panel-closed', () => {
                 if (this._focusedRegionId !== null) {
                     this.setFocusedRegion(null);
+                }
+            });
+
+            // Escuchar cuando la cámara termina de volar para abrir el panel pendiente
+            window.addEventListener('camera-flight-finished', () => {
+                if (this._pendingFocusItem) {
+                    const item = this._pendingFocusItem;
+                    this.setFocusedRegion(item.data.id);
+                    window.dispatchEvent(new CustomEvent('marker:region-open-panel', {
+                        detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                    }));
+                    this._pendingFocusItem = null;
                 }
             });
         }
@@ -114,6 +121,19 @@ export class MarkerManager {
         this._lastCameraReady = null;
         this._areShapesVisible = false;
 
+        // Flag: solo se activan hover/tooltip/focus cuando la camara llego al estado interactuable cercano
+        this._mapReady = false;
+        window.addEventListener('map:ready', () => { this._mapReady = true; });
+        window.addEventListener('map:zoom-out', () => {
+            this._mapReady = false;
+            // Limpiar hover al alejarse
+            if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
+            if (this.hoveredMeshId !== null) {
+                this.hoveredMeshId = null;
+                this._updateMarkerStates();
+            }
+        });
+
         // Instanciar delegados
         this.texturePainter = new RegionTexturePainter(mapMaterial);
         this.builder = new MarkerBuilder(this);
@@ -123,20 +143,23 @@ export class MarkerManager {
         this.builder.spawnVisualMarker(data);
     }
 
-    setHoveredRegion(regionId) {
+    setHoveredRegion(regionId, silent = false) {
         if (this._hoveredRegionId !== regionId) {
             this._hoveredRegionId = regionId;
-            this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
-            this._updateShaderRegionColor();
+            if (!silent) {
+                // Repintar textura para mostrar el glow en el nombre de la región hovereada
+                this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
+                this._updateShaderRegionColor();
 
-            if (regionId) {
-                const item = this._items.find(i => i.data.id === regionId);
-                
-                window.dispatchEvent(new CustomEvent('marker:region-hover', {
-                    detail: { name: item.data.name, worldPos: item.worldPos.clone() }
-                }));
-            } else {
-                window.dispatchEvent(new CustomEvent('marker:region-unhover'));
+                if (regionId) {
+                    const item = this._items.find(i => i.data.id === regionId);
+                    
+                    window.dispatchEvent(new CustomEvent('marker:region-hover', {
+                        detail: { name: item.data.name, worldPos: item.worldPos.clone() }
+                    }));
+                } else {
+                    window.dispatchEvent(new CustomEvent('marker:region-unhover'));
+                }
             }
         }
     }
@@ -260,25 +283,25 @@ export class MarkerManager {
             );
         }
 
+        // Determinar si debemos congelar la actualización masiva de DOM/Meshes del LOD
+        // Como ya optimizamos la textura, el LOD es muy liviano. NO congelamos en FLY_TO
+        // para que las ciudades "florezcan" orgánicamente mientras nos acercamos.
+        const shouldFreezeLOD = (cameraState === 'INIT' || cameraState === 'WAIT_INPUT');
+
         const currentShowVisual = window._showVisualMarkers !== false;
         
-        const areShapesVisible = isCameraReady && (zoomAlpha <= 0.30);
         let needsRedraw = false;
-        if (this._areShapesVisible !== areShapesVisible) {
-            this._areShapesVisible = areShapesVisible;
-            needsRedraw = true;
-        }
         
-        // Forzar chequeo de LOD si el focus cambió
-        if (this._lastFocusedRegionId !== this._focusedRegionId) {
+        // Forzar chequeo de LOD si el focus cambió (solo si no estamos congelados)
+        if (!shouldFreezeLOD && this._lastFocusedRegionId !== this._focusedRegionId) {
             this._lastFocusedRegionId = this._focusedRegionId;
             needsRedraw = true;
         }
 
-        // Determinar qué figura 3D está bajo el cursor con Raycaster (optimizado)
-        if (this.camera && cameraState === 'PLAYING' && this._focusedRegionId === null) { // Raycast solo si estamos jugando y no hay un panel abierto
+        // Raycasting: solo cuando la camara esta en el estado interactuable cercano (map:ready)
+        if (this.camera && cameraState === 'PLAYING' && this._mapReady) {
             const now = performance.now();
-            if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS para Raycast
+            if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS
                 this._lastRaycastTime = now;
                 if (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y) {
                     this._lastRaycastMouse.copy(this.mouse);
@@ -286,7 +309,8 @@ export class MarkerManager {
                     let newHoveredMeshId = null;
                     
                     this.raycaster.setFromCamera(this.mouse, this.camera);
-                    const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
+                    // recursive=true para detectar meshes dentro de grupos (lodLevelGroup)
+                    const intersects = this.raycaster.intersectObjects(this.markersGroup.children, true);
                     for (let i = 0; i < intersects.length; i++) {
                         const obj = intersects[i].object;
                         if (obj.visible && obj.userData && obj.userData.id) {
@@ -299,7 +323,7 @@ export class MarkerManager {
                         this.hoveredMeshId = newHoveredMeshId;
                         
                         if (this.domElement) {
-                            this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'default';
+                            this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'grab';
                         }
                         
                         // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion
@@ -307,7 +331,6 @@ export class MarkerManager {
                         if (item && item.type === 'region') {
                             this.setHoveredRegion(newHoveredMeshId);
                         } else if (!newHoveredMeshId || (item && item.type !== 'region')) {
-                            // Si dejamos de hoverear una region, limpiamos la textura
                             if (this._hoveredRegionId !== null) {
                                 this.setHoveredRegion(null);
                             }
@@ -319,7 +342,18 @@ export class MarkerManager {
         } else {
             if (this.hoveredMeshId !== null) {
                 this.hoveredMeshId = null;
-                if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
+                if (this._hoveredRegionId !== null) {
+                    // Si hay un vuelo pendiente a una región, limpiar el hover en silencio
+                    // para evitar el repintado pesado del canvas 4096x4096 durante el primer frame del vuelo.
+                    if (this._pendingFocusItem) {
+                        this._hoveredRegionId = null;
+                        if (this.mapMaterial && this.mapMaterial.userData.uHoveredRegionColor) {
+                            this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                        }
+                    } else {
+                        this.setHoveredRegion(null);
+                    }
+                }
                 this._updateMarkerStates();
             }
         }
@@ -336,10 +370,11 @@ export class MarkerManager {
             }
         }
 
-        // Solo actualizar el resto del DOM si el zoom, el estado de cámara o el toggle cambiaron.
-        if (!needsRedraw && Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && isCameraReady === this._lastCameraReady && currentShowVisual === this._lastShowVisualMarkers) return;
+        // Solo actualizar el resto del DOM si el zoom o el toggle cambiaron.
+        if (shouldFreezeLOD) return; 
+
+        if (!needsRedraw && Math.abs(zoomAlpha - this._lastZoomAlpha) < 0.005 && currentShowVisual === this._lastShowVisualMarkers) return;
         this._lastZoomAlpha = zoomAlpha;
-        this._lastCameraReady = isCameraReady;
         this._lastShowVisualMarkers = currentShowVisual;
 
         for (const item of this._items) {
@@ -362,12 +397,19 @@ export class MarkerManager {
                 if (item.label) {
                     // La transición de opacidad es suave gracias a la regla CSS transition en markers.css
                     item.label.element.style.opacity = visible ? '1' : '0';
-                    // Habilitar pointer-events solo si es visible, para todas las etiquetas
-                    item.label.element.style.pointerEvents = visible ? 'auto' : 'none';
+                    // Nunca habilitar pointer-events, ya que el Raycaster funciona sobre el mesh 3D invisible. 
+                    // Si habilitamos HTML pointer-events, los labels tapan el mapa y rompen el paneo de OrbitControls.
                 }
 
                 // Icono 3D: ocultar también para no generar ruido visual
                 if (item.mesh && !['region', 'mar', 'oceano'].includes(item.type)) {
+                    if (shouldMeshBeVisible && !item.mesh.visible) {
+                        // Estaba oculto y ahora es visible: forzamos que crezca desde escala 0 (floración/bloom)
+                        if (item.mesh.userData) {
+                            item.mesh.userData.currentScale = 0.0;
+                            item.mesh.scale.set(0, 0, 1.0);
+                        }
+                    }
                     item.mesh.visible = shouldMeshBeVisible;
                 }
             }

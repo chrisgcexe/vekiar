@@ -27,8 +27,9 @@ export class RegionTooltipUI {
         // Conectar a los eventos globales
         window.addEventListener('marker:region-hover', this.onHover.bind(this));
         window.addEventListener('marker:region-unhover', this.onUnhover.bind(this));
-        // Escuchar cuando el click se hace efectivo para ocultarlo
-        window.addEventListener('marker:region-click', this.onUnhover.bind(this));
+        // Ocultar tooltip cuando se hace click en una región (inicia vuelo) o se abre el panel
+        window.addEventListener('marker:region-fly-request', this.onUnhover.bind(this));
+        window.addEventListener('marker:region-open-panel', this.onUnhover.bind(this));
     }
 
     onHover(e) {

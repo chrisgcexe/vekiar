@@ -1,8 +1,8 @@
 export class Compass {
     constructor(cameraController) {
         this.cameraController = cameraController;
-        this.lastX = this.cameraController.controls.target.x;
-        this.lastZ = this.cameraController.controls.target.z;
+        this.lastX = this.cameraController.target.x;
+        this.lastZ = this.cameraController.target.z;
 
         this.elN = document.querySelector('.dir.n');
         this.elS = document.querySelector('.dir.s');
@@ -11,8 +11,8 @@ export class Compass {
     }
 
     update() {
-        const currentX = this.cameraController.controls.target.x;
-        const currentZ = this.cameraController.controls.target.z;
+        const currentX = this.cameraController.target.x;
+        const currentZ = this.cameraController.target.z;
 
         const dx = currentX - this.lastX;
         const dz = currentZ - this.lastZ;

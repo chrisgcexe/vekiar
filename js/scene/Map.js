@@ -109,10 +109,11 @@ export class Map {
                     const { sharedIndices, chunks } = e.data;
                     
                     const indexAttributes = sharedIndices.map(indices => new THREE.BufferAttribute(indices, 1));
-                    const lodDistances = [0, 40, 55]; 
+                    const lodDistances = [0, 40, 55];
 
                     for (let chunkData of chunks) {
                         const lod = new THREE.LOD();
+                        lod.autoUpdate = false; // Desactivar actualización automática para controlarla por estado
                         
                         const posX = (-totalSize / 2) + (chunkData.cx * chunkSize) + (chunkSize / 2);
                         const posY = (totalSize / 2) - (chunkData.cy * chunkSize) - (chunkSize / 2);
@@ -145,6 +146,21 @@ export class Map {
                     
                     this.snowSystem = new SnowSystem(this.scene, assets, mapMaterial, this.aspect);
                     this.snowLight = this.snowSystem.snowLight;
+
+                    // LOD controlado por eventos del gestor de estados.
+                    // Se activa 1 segundo DESPUES de map:ready para evitar lag durante el dolly.
+                    // Se desactiva inmediatamente cuando el jugador aleja la camara.
+                    this._lodEnabled = false;
+                    this._lodEnableTimeout = null;
+                    window.addEventListener('map:ready', () => {
+                        this._lodEnableTimeout = setTimeout(() => {
+                            this._lodEnabled = true;
+                        }, 1000);
+                    });
+                    window.addEventListener('map:zoom-out', () => {
+                        clearTimeout(this._lodEnableTimeout);
+                        this._lodEnabled = false;
+                    });
 
                     mapGroup.rotation.x = -Math.PI / 2;
                     mapGroup.scale.set(1, 1 / this.aspect, 1);
@@ -205,7 +221,7 @@ updateUnfurl(progress) {
         }
     }
 
-update(time) {
+    update(time, cameraState, camera) {
         // Robamos el valor de zoom actual directo del material del terreno
         let currentZoom = 1.0;
         if (this.material && this.material.userData && this.material.userData.uZoomAlpha) {
@@ -220,6 +236,20 @@ update(time) {
         if (this.rightRoll && this.rightRoll.material.userData.shaderUniforms) {
             this.rightRoll.material.userData.shaderUniforms.uTime.value = time;
             this.rightRoll.material.userData.shaderUniforms.uZoom.value = currentZoom;
+        }
+
+        // --- LOD: ON/OFF controlado por map:ready / map:zoom-out ---
+        if (this.chunksLOD && camera) {
+            for (let i = 0; i < this.chunksLOD.length; i++) {
+                const lod = this.chunksLOD[i];
+                if (this._lodEnabled) {
+                    lod.update(camera);
+                } else {
+                    lod.levels.forEach((level, index) => {
+                        level.object.visible = (index === 0);
+                    });
+                }
+            }
         }
     }
 }

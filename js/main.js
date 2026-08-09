@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { SceneManager } from './scene/SceneManager.js';
 import { Map } from './scene/Map.js';
 import { Clouds } from './scene/Clouds.js';
-import { CameraController } from './controls/CameraController.js';
-import { RaycasterBounds } from './controls/RaycasterBounds.js';
+import { MapCameraController } from './controls/MapCameraController.js';
 import { Compass } from './ui/Compass.js';
 import { ResponsiveManager } from './ResponsiveManager.js';
 import { AppState } from './state/AppState.js';
@@ -25,10 +24,9 @@ const regionPanel = new RegionSidePanelUI('ui');
 const map = new Map(sceneManager.scene, sceneManager.renderer); 
 
 const clouds = new Clouds(sceneManager.scene);
-const cameraController = new CameraController(sceneManager.camera, sceneManager.getDomElement());
+const cameraController = new MapCameraController(sceneManager.camera, sceneManager.getDomElement());
 // --- CONECTAMOS EL MAPA AL CONTROLADOR ACÁ ---
 cameraController.setMap(map);
-const raycasterBounds = new RaycasterBounds(sceneManager.camera, cameraController.controls);
 const compass = new Compass(cameraController);
 
 // 2. Función Principal Asíncrona
@@ -82,7 +80,7 @@ async function startApp() {
         cameraController.update(aspect);
         appState.update(timeMs, cameraController, map, sceneManager.camera); 
 
-        const target = cameraController.controls.target;
+        const target = cameraController.target;
         
         const isPlaying = (cameraController.state === 'DROP_2' || cameraController.state === 'PLAYING');
         
@@ -101,7 +99,7 @@ async function startApp() {
         }
         
         if (cameraController.state !== 'FLY_TO') {
-            raycasterBounds.update(aspect);
+            // El clamping ahora ocurre nativamente en MapCameraController
         }
         compass.update();
         sceneManager.update(appState);
@@ -134,7 +132,7 @@ async function startApp() {
             if (map.landSystem) map.landSystem.update(appState);
             
             if (typeof map.update === 'function') {
-                map.update(appState.time);
+                map.update(appState.time, cameraController.state, sceneManager.camera);
             }
         }
 
