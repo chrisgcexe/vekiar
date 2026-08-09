@@ -96,6 +96,7 @@ export class MarkerBuilder {
             // siempre se mantenga horizontal (paralela al texto CSS2D que las acompaña).
 
             mesh.scale.set(1, 1, 1);
+            mesh.visible = false; // Ocultos por defecto hasta que MarkerManager decida mostrarlos
             mesh.userData = { 
                 id: data.id, name: data.name, region: data.region, type: markerType, 
                 targetScale: 1.0, currentScale: 1.0, wasHoveredDOM: false
@@ -107,17 +108,21 @@ export class MarkerBuilder {
             const textLen = data.name ? data.name.length : 10;
             const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
             
-            // Aproximación de tamaño en píxeles
-            const pixelWidth = textLen * (fSize * 0.65 + spacing);
-            const pixelHeight = fSize * 2.0; // margen vertical
+            // Aproximación de tamaño en píxeles (las mayúsculas de Georgia Bold son anchas)
+            const approxWidthPx = (fSize * 0.8 * textLen) + (spacing * (textLen - 1));
             
-            // Convertir píxeles a unidades 3D (mapa de 60x40, textura de 4096x4096)
-            let boxWidth = pixelWidth * (60 / 4096);
-            let boxHeight = pixelHeight * (40 / 4096);
+            // Convertir a unidades de mundo (aproximado)
+            // Ancho del mapa: 60 unidades = 4096 px. Alto del mapa: 40 unidades = 4096 px.
+            let boxWidth = approxWidthPx * (60 / 4096);
             
-            // Si hay curvatura, hacemos el hitbox más alto para abarcar el arco
-            if (data.curveRadius && Math.abs(data.curveRadius) > 0) {
-                boxHeight += Math.min(Math.abs(data.curveRadius) * (40 / 4096) * 0.5, 10);
+            // Margen vertical generoso para facilitar el hover (1.5x)
+            let boxHeight = (fSize * 1.5) * (40 / 4096);
+
+            // Ajuste empírico para texto curvo
+            if (data.curveRadius) {
+                // Al curvarse, el bounding box abarca más espacio
+                boxWidth *= 1.3;
+                boxHeight += Math.min(Math.abs(data.curveRadius) * (40 / 4096) * 1.5, 10);
             }
 
             // Hitbox transparente (invisible pero clickeable)
@@ -172,16 +177,11 @@ export class MarkerBuilder {
         const div = document.createElement('div');
         div.className = `marker-label marker-${type}`;
         div.textContent = message;
-        if (id) div.dataset.markerId = id;
-
-        // Delegar interacciones de ratón al Manager
-        div.addEventListener('mouseenter', () => {
-            this.manager.setHoveredRegion(id);
-        });
+        // Ocultos por defecto hasta que MarkerManager decida mostrarlos
+        div.style.opacity = '0';
+        div.style.pointerEvents = 'none';
         
-        div.addEventListener('mouseleave', () => {
-            this.manager.setHoveredRegion(null);
-        });
+        if (id) div.dataset.markerId = id;
 
         return new CSS2DObject(div);
     }

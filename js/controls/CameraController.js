@@ -278,8 +278,9 @@ if (this.state === 'DROP_1') {
      * Anima la cámara hacia la posición mundo de una región (dolly cinematográfico).
      * Solo funciona desde el estado PLAYING.
      * @param {THREE.Vector3} worldPos - Posición mundo del marcador (output de localToWorld)
+     * @param {number} offsetX - Desplazamiento opcional en X para el centro de enfoque
      */
-    flyTo(worldPos) {
+    flyTo(worldPos, offsetX = 0) {
         if (this.state !== 'PLAYING') return;
 
         // --- Esféricos actuales de la cámara ---
@@ -305,7 +306,10 @@ if (this.state === 'DROP_1') {
         const maxRadiusX = 72 * freedom;
         const maxRadiusZ = (56 / aspect) * freedom;
 
-        const clampedTargetX = THREE.MathUtils.clamp(worldPos.x, -maxRadiusX, maxRadiusX);
+        // Aplicamos el offset X al target final
+        const targetWorldX = worldPos.x + offsetX;
+        
+        const clampedTargetX = THREE.MathUtils.clamp(targetWorldX, -maxRadiusX, maxRadiusX);
         const clampedTargetZ = THREE.MathUtils.clamp(worldPos.z, -maxRadiusZ, maxRadiusZ);
 
         // Guardar para el tween

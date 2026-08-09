@@ -51,17 +51,36 @@ export class MarkerManager {
                 if (this.hoveredMeshId) {
                     const item = this._items.find(i => i.data && i.data.id === this.hoveredMeshId);
                     if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
-                        // Clickeamos una región 3D
-                        this.setFocusedRegion(item.data.id);
-                        window.dispatchEvent(new CustomEvent('marker:region-click', {
-                            detail: { worldPos: item.worldPos.clone(), name: item.data.name }
-                        }));
+                        // Si estamos lejos, pedimos vuelo (SIN poner en focus).
+                        if (this._lastZoomAlpha > 0.6) {
+                            // Limpiamos el focus si veníamos de otro lado para evitar confusiones
+                            if (this._focusedRegionId !== null) {
+                                this.setFocusedRegion(null);
+                            }
+                            window.dispatchEvent(new CustomEvent('marker:region-fly-request', {
+                                detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                            }));
+                        } else {
+                            // Si estamos cerca, SÍ la ponemos en focus y abrimos el panel.
+                            this.setFocusedRegion(item.data.id);
+                            window.dispatchEvent(new CustomEvent('marker:region-open-panel', {
+                                detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                            }));
+                        }
                         return; // Consumimos el click
                     }
                 }
 
                 // Si llegamos hasta acá, fue un click en el WebGL canvas vacío.
                 // Limpiamos el focus para volver al estado global.
+                if (this._focusedRegionId !== null) {
+                    this.setFocusedRegion(null);
+                    window.dispatchEvent(new CustomEvent('marker:region-unhover'));
+                }
+            });
+
+            // Escuchar cuando el panel lateral se cierra para limpiar el focus
+            window.addEventListener('region-panel-closed', () => {
                 if (this._focusedRegionId !== null) {
                     this.setFocusedRegion(null);
                 }
@@ -73,6 +92,8 @@ export class MarkerManager {
                 const rect = this.domElement.getBoundingClientRect();
                 this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
                 this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                this._lastClientX = e.clientX;
+                this._lastClientY = e.clientY;
             });
         }
 
@@ -107,6 +128,16 @@ export class MarkerManager {
             this._hoveredRegionId = regionId;
             this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
             this._updateShaderRegionColor();
+
+            if (regionId) {
+                const item = this._items.find(i => i.data.id === regionId);
+                
+                window.dispatchEvent(new CustomEvent('marker:region-hover', {
+                    detail: { name: item.data.name, worldPos: item.worldPos.clone() }
+                }));
+            } else {
+                window.dispatchEvent(new CustomEvent('marker:region-unhover'));
+            }
         }
     }
 
@@ -121,6 +152,39 @@ export class MarkerManager {
             }
             this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
             this._updateShaderRegionColor();
+            this._updateMarkerStates();
+        }
+    }
+
+    _updateMarkerStates() {
+        for (const item of this._items) {
+            if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {
+                const us = item.mesh.userData;
+                const isHovered = (item.data.id === this._hoveredRegionId || item.data.id === this.hoveredMeshId);
+                
+                // Lógica de Focus: si hay un foco activo, el targetScale de los ajenos va a 0
+                let isFocused = true;
+                if (this._focusedRegionName && item.type === 'otro') {
+                    isFocused = (item.data.region === this._focusedRegionName);
+                }
+
+                if (!isFocused) {
+                    us.targetScale = 0.0;
+                } else {
+                    us.targetScale = isHovered ? 1.5 : 1.0;
+                }
+
+                // Forzar agrandar la fuente en el DOM sin thrashing (solo al cambiar estado)
+                if (item.label && item.type === 'otro') {
+                    if (isHovered && !us.wasHoveredDOM && isFocused) {
+                        item.label.element.style.setProperty('font-size', '14px', 'important');
+                        us.wasHoveredDOM = true;
+                    } else if ((!isHovered || !isFocused) && us.wasHoveredDOM) {
+                        item.label.element.style.removeProperty('font-size'); // Vuelve al comportamiento default CSS
+                        us.wasHoveredDOM = false;
+                    }
+                }
+            }
         }
     }
 
@@ -212,38 +276,43 @@ export class MarkerManager {
         }
 
         // Determinar qué figura 3D está bajo el cursor con Raycaster (optimizado)
-        if (this.camera && isCameraReady) { // Hacemos raycast siempre que estemos explorando
-            if (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y) {
-                this._lastRaycastMouse.copy(this.mouse);
-                
-                let newHoveredMeshId = null;
-                
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
-                for (let i = 0; i < intersects.length; i++) {
-                    const obj = intersects[i].object;
-                    if (obj.visible && obj.userData && obj.userData.id) {
-                        newHoveredMeshId = obj.userData.id;
-                        break;
-                    }
-                }
-                
-                if (this.hoveredMeshId !== newHoveredMeshId) {
-                    this.hoveredMeshId = newHoveredMeshId;
+        if (this.camera && cameraState === 'PLAYING' && this._focusedRegionId === null) { // Raycast solo si estamos jugando y no hay un panel abierto
+            const now = performance.now();
+            if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS para Raycast
+                this._lastRaycastTime = now;
+                if (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y) {
+                    this._lastRaycastMouse.copy(this.mouse);
                     
-                    if (this.domElement) {
-                        this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'default';
-                    }
+                    let newHoveredMeshId = null;
                     
-                    // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion
-                    const item = this._items.find(i => i.data && i.data.id === newHoveredMeshId);
-                    if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
-                        this.setHoveredRegion(newHoveredMeshId);
-                    } else if (!newHoveredMeshId || (item && !['region', 'mar', 'oceano'].includes(item.type))) {
-                        // Si dejamos de hoverear una region, limpiamos la textura
-                        if (this._hoveredRegionId !== null) {
-                            this.setHoveredRegion(null);
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+                    const intersects = this.raycaster.intersectObjects(this.markersGroup.children, false);
+                    for (let i = 0; i < intersects.length; i++) {
+                        const obj = intersects[i].object;
+                        if (obj.visible && obj.userData && obj.userData.id) {
+                            newHoveredMeshId = obj.userData.id;
+                            break;
                         }
+                    }
+                    
+                    if (this.hoveredMeshId !== newHoveredMeshId) {
+                        this.hoveredMeshId = newHoveredMeshId;
+                        
+                        if (this.domElement) {
+                            this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'default';
+                        }
+                        
+                        // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion
+                        const item = this._items.find(i => i.data && i.data.id === newHoveredMeshId);
+                        if (item && item.type === 'region') {
+                            this.setHoveredRegion(newHoveredMeshId);
+                        } else if (!newHoveredMeshId || (item && item.type !== 'region')) {
+                            // Si dejamos de hoverear una region, limpiamos la textura
+                            if (this._hoveredRegionId !== null) {
+                                this.setHoveredRegion(null);
+                            }
+                        }
+                        this._updateMarkerStates();
                     }
                 }
             }
@@ -251,38 +320,14 @@ export class MarkerManager {
             if (this.hoveredMeshId !== null) {
                 this.hoveredMeshId = null;
                 if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
+                this._updateMarkerStates();
             }
         }
 
-        // Determinar qué marcadores interactivos están hovered y enfocados
+        // Lerp del scale hacia targetScale
         for (const item of this._items) {
             if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {
                 const us = item.mesh.userData;
-                const isHovered = (item.data.id === this._hoveredRegionId || item.data.id === this.hoveredMeshId);
-                
-                // Lógica de Focus: si hay un foco activo, el targetScale de los ajenos va a 0
-                let isFocused = true;
-                if (this._focusedRegionName && item.type === 'otro') {
-                    isFocused = (item.data.region === this._focusedRegionName);
-                }
-
-                if (!isFocused) {
-                    us.targetScale = 0.0;
-                } else {
-                    us.targetScale = isHovered ? 1.5 : 1.0;
-                }
-
-                // Forzar agrandar la fuente en el DOM sin thrashing (solo al cambiar estado)
-                if (item.label && item.type === 'otro') {
-                    if (isHovered && !us.wasHoveredDOM && isFocused) {
-                        item.label.element.style.setProperty('font-size', '14px', 'important');
-                        us.wasHoveredDOM = true;
-                    } else if ((!isHovered || !isFocused) && us.wasHoveredDOM) {
-                        item.label.element.style.removeProperty('font-size'); // Vuelve al comportamiento default CSS
-                        us.wasHoveredDOM = false;
-                    }
-                }
-
                 // Lerp suave del scale solo si no ha alcanzado la meta
                 if (Math.abs(us.currentScale - us.targetScale) > 0.001) {
                     us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, 0.15);

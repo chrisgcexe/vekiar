@@ -84,3 +84,164 @@
 .show-idle {
     opacity: 1 !important;
 }
+
+/* Contenedor UI principal para aislar z-index y superar al CSS2DRenderer */
+#ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999999 !important;
+    pointer-events: none; /* Dejar pasar los clicks al canvas */
+}
+
+/* Cualquier elemento interactivo de UI debe reactivar los clicks */
+#idle-prompt,
+.region-side-panel,
+.region-panel-overlay.visible {
+    pointer-events: auto !important;
+}
+
+/* ==========================================================================
+   INTERFAZ DE REGIONES (Tooltip Hover y Panel Lateral)
+   ========================================================================== */
+
+/* TOOLTIP FLOTANTE (HOVER) */
+.region-tooltip {
+    display: none;
+    position: absolute;
+    background: rgba(15, 20, 30, 0.85);
+    border: 1px solid rgba(200, 180, 100, 0.4);
+    border-radius: 6px;
+    padding: 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    /* z-index ya está manejado por #ui, pero no duele mantenerlo por las dudas */
+    z-index: 10;
+    transform: translate(-50%, calc(-100% - 20px));
+    width: 250px;
+    pointer-events: none; /* Asegurar que nunca intercepte clicks o hover */
+}
+
+.region-tooltip.visible {
+    display: block;
+}
+
+.region-tooltip h3 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    color: #f0d78c;
+    letter-spacing: 1px;
+}
+
+.region-tooltip p {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: #ccc;
+    line-height: 1.4;
+}
+
+.region-tooltip-tabs {
+    display: flex;
+    gap: 5px;
+}
+
+.region-tooltip-tab {
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: white;
+}
+
+/* OVERLAY PARA CERRAR EL PANEL */
+.region-panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.region-panel-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* PANEL LATERAL (CLICK) */
+.region-side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 40vw; /* Ocupa casi la mitad */
+    min-width: 400px;
+    height: 100vh;
+    background: rgba(20, 25, 35, 0.95);
+    border-left: 1px solid rgba(200, 180, 100, 0.3);
+    backdrop-filter: blur(10px);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+    z-index: 999;
+    transform: translateX(100%);
+    transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1); /* Suave slide de salida */
+    display: flex;
+    flex-direction: column;
+}
+
+.region-side-panel.open {
+    transform: translateX(0);
+}
+
+.region-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.region-panel-header h2 {
+    margin: 0;
+    font-size: 28px;
+    color: #f0d78c;
+    letter-spacing: 2px;
+}
+
+.region-panel-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.region-panel-close:hover {
+    opacity: 1;
+}
+
+.region-panel-content {
+    padding: 30px;
+    color: #ddd;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-y: auto;
+    flex-grow: 1;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.region-panel-content p {
+    margin-bottom: 20px;
+}

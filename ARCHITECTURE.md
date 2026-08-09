@@ -448,3 +448,23 @@ Los 64 chunks son instancias de `THREE.LOD`. `AppState.update()` llama a `lod.up
 
 ### `CSS2DRenderer` y el orden del DOM
 El `domElement` del `CSS2DRenderer` se monta en `document.body` en el constructor de `SceneManager`. Si se agrega algún overlay HTML que deba ir encima de los labels, ponerle un `z-index` explícito en CSS.
+ 
+ # #   S e c u e n c i a   d e   I n i c i o   y   A n i m a c i � n   ( D o l l y )  
+ 1 .   A l   c a r g a r   l a   p � g i n a ,   s e   m u e s t r a   e l   b o t � n   ' C o m e n z a r '   ( \ # i d l e - p r o m p t \ )   s o b r e   e l   m a p a   e s t � t i c o .  
+ 2 .   A l   h a c e r   c l i c k   e n   e l   b o t � n ,   c o m i e n z a   l a   a n i m a c i � n   d e   e n t r a d a   ( D o l l y ) .  
+ 3 .   L a   c � m a r a   d e s c i e n d e   y   s e   p o s i c i o n a   e n   e l   m a p a .  
+ 4 .   S O L O   u n a   v e z   q u e   l a   a n i m a c i � n   d e   D o l l y   f i n a l i z a   y   e l   u s u a r i o   t i e n e   c o n t r o l ,   s e   r e v e l a n   l o s   e l e m e n t o s   i n t e r a c t i v o s   d e   U I   ( e t i q u e t a s   C S S 2 D ,   t o o l t i p s   d e   h o v e r ,   m a r c a d o r e s ,   e t c . ) .  
+ 
+### Flujo de Interacción y Clicks (State Machine)
+
+Para evitar comportamientos conflictivos al hacer click, el sistema respeta el nivel de zoom actual de la cámara (zoomAlpha) y emite eventos diferenciados:
+
+1. **Estado MAP_GENERAL (Zoom Lejos, zoomAlpha > 0.6)**
+   - **Visibilidad:** Regiones, mares y océanos. (Los marcadores menores están ocultos).
+   - **Click en una región:** Emite marker:region-fly-request. La cámara inicia un vuelo suave (flyTo) hacia la región.
+   - **Importante:** Durante este vuelo, la región NO se marca como enfocada (focused) y NO se abre el panel lateral, para no confundir al usuario tapando la pantalla durante la navegación panorámica.
+
+2. **Estado MAP_DETALLE (Zoom Cerca, zoomAlpha <= 0.6)**
+   - **Visibilidad:** Aparecen los marcadores menores (isla, lago, otro). Si hay una región enfocada, los marcadores otro ajenos a esa región se desvanecen.
+   - **Click en una región:** Emite marker:region-open-panel. 
+   - **Resultado:** La región ahora SÍ se marca como enfocada (cambia de color en el shader), la cámara se re-centra ligeramente, y se abre la ventana lateral de información (RegionSidePanelUI).

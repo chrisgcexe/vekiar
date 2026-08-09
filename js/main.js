@@ -8,11 +8,17 @@ import { Compass } from './ui/Compass.js';
 import { ResponsiveManager } from './ResponsiveManager.js';
 import { AppState } from './state/AppState.js';
 import { MapEditor } from './scene/MapEditor.js?v=2';
+import { RegionTooltipUI } from './ui/RegionTooltipUI.js';
+import { RegionSidePanelUI } from './ui/RegionSidePanelUI.js';
 
 // 1. Instanciamos las clases base
 const appState = new AppState();
 const responsiveManager = new ResponsiveManager();
 const sceneManager = new SceneManager();
+
+// UI 
+const regionTooltip = new RegionTooltipUI('ui');
+const regionPanel = new RegionSidePanelUI('ui');
 
 // NOTA: Cambiamos cómo se instancia el mapa. 
 // No le pasamos los assets todavía.
@@ -38,12 +44,20 @@ async function startApp() {
         map.plane,
         map.material,
         assets.referenceTexture, // La textura con nombres plana
-        assets.colorTexture      // La textura 3D normal
+        assets.colorTexture,     // La textura 3D normal
+        assets.regionMasks       // Texturas PNG pre-subidas a VRAM
     );
 
-    // Click en una región → dolly de cámara hacia ella
-    window.addEventListener('marker:region-click', (e) => {
-        cameraController.flyTo(e.detail.worldPos);
+    // Click en una región (de lejos) -> dolly de cámara hacia ella
+    window.addEventListener('marker:region-fly-request', (e) => {
+        // Offset positivo mueve el target a la derecha, por lo que el objeto queda a la izquierda en la pantalla
+        cameraController.flyTo(e.detail.worldPos, 10); 
+    });
+
+    // Click en una región (de cerca) -> abrir panel
+    window.addEventListener('marker:region-open-panel', (e) => {
+        // Hacemos el dolly también para centrarlo (el panel lo escuchará para abrirse)
+        cameraController.flyTo(e.detail.worldPos, 10); 
     });
     
 
@@ -128,6 +142,9 @@ async function startApp() {
         if (appState.isReady) {
             mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state);
         }
+
+        // IMPORTANTE: Actualizar tooltip DESPUÉS de la cámara para evitar temblor
+        regionTooltip.update(sceneManager.camera);
 
         sceneManager.render();
     }
