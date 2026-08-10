@@ -123,9 +123,15 @@ export class MarkerManager {
 
         // Flag: solo se activan hover/tooltip/focus cuando la camara llego al estado interactuable cercano
         this._mapReady = false;
-        window.addEventListener('map:ready', () => { this._mapReady = true; });
+        this._overviewHoveredId = null;
+
+        window.addEventListener('map:ready', () => { 
+            this._mapReady = true;
+            this.setOverviewHover(null); 
+        });
         window.addEventListener('map:zoom-out', () => {
             this._mapReady = false;
+            this.setOverviewHover(null);
             // Limpiar hover al alejarse
             if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
             if (this.hoveredMeshId !== null) {
@@ -161,6 +167,25 @@ export class MarkerManager {
                     window.dispatchEvent(new CustomEvent('marker:region-unhover'));
                 }
             }
+        }
+    }
+
+    setOverviewHover(regionId) {
+        if (this._overviewHoveredId === regionId) return;
+        this._overviewHoveredId = regionId;
+
+        // Repintar textura para mostrar el glow en el nombre incluso en vista general
+        this.texturePainter.updateRegionTexture(this._items.map(i => i.data), regionId, this._focusedRegionId);
+
+        if (!this.mapMaterial || !this.mapMaterial.userData.uHoveredRegionColor) return;
+        
+        if (regionId) {
+            const item = this._items.find(i => i.data.id === regionId);
+            if (item && item.data.colorId) {
+                this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+            }
+        } else {
+            this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
         }
     }
 
@@ -298,8 +323,10 @@ export class MarkerManager {
             needsRedraw = true;
         }
 
-        // Raycasting: solo cuando la camara esta en el estado interactuable cercano (map:ready)
-        if (this.camera && cameraState === 'PLAYING' && this._mapReady) {
+        // Raycasting: activo en PLAYING siempre.
+        // En modo overview (!_mapReady): solo ilumina el shader (sin tooltip ni textura).
+        // En modo interactuable (_mapReady): hover completo con tooltip y efectos.
+        if (this.camera && cameraState === 'PLAYING') {
             const now = performance.now();
             if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS
                 this._lastRaycastTime = now;
@@ -326,13 +353,19 @@ export class MarkerManager {
                             this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'grab';
                         }
                         
-                        // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion
+                        // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion u overviewHovered
                         const item = this._items.find(i => i.data && i.data.id === newHoveredMeshId);
                         if (item && item.type === 'region') {
-                            this.setHoveredRegion(newHoveredMeshId);
+                            if (this._mapReady) {
+                                this.setHoveredRegion(newHoveredMeshId);
+                            } else {
+                                this.setOverviewHover(newHoveredMeshId);
+                            }
                         } else if (!newHoveredMeshId || (item && item.type !== 'region')) {
-                            if (this._hoveredRegionId !== null) {
-                                this.setHoveredRegion(null);
+                            if (this._mapReady) {
+                                if (this._hoveredRegionId !== null) this.setHoveredRegion(null);
+                            } else {
+                                this.setOverviewHover(null);
                             }
                         }
                         this._updateMarkerStates();
@@ -342,6 +375,9 @@ export class MarkerManager {
         } else {
             if (this.hoveredMeshId !== null) {
                 this.hoveredMeshId = null;
+                
+                this.setOverviewHover(null);
+
                 if (this._hoveredRegionId !== null) {
                     // Si hay un vuelo pendiente a una región, limpiar el hover en silencio
                     // para evitar el repintado pesado del canvas 4096x4096 durante el primer frame del vuelo.

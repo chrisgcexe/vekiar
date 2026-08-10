@@ -263,7 +263,8 @@ export class MapCameraController {
             t = THREE.MathUtils.clamp(t, 0, 1);
         }
 
-        const freedom = 1.0 - Math.pow(t, 8.0); 
+        // Suavizar la restricción en max distance (overview) para permitir panear el mapa
+        const freedom = 1.0 - Math.pow(t, 4.0) * 0.7; 
         const maxRadiusX = 72 * freedom; 
         const maxRadiusZ = (56 / this.mapAspect) * freedom;
 
@@ -381,7 +382,7 @@ export class MapCameraController {
             tEnd = THREE.MathUtils.clamp(tEnd, 0, 1);
         }
 
-        const freedom = 1.0 - Math.pow(tEnd, 8.0);
+        const freedom = 1.0 - Math.pow(tEnd, 4.0) * 0.7;
         const maxRadiusX = 72 * freedom;
         const maxRadiusZ = (56 / this.mapAspect) * freedom;
 
