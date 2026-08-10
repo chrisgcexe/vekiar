@@ -153,8 +153,6 @@ export class MarkerManager {
         if (this._hoveredRegionId !== regionId) {
             this._hoveredRegionId = regionId;
             if (!silent) {
-                // Repintar textura para mostrar el glow en el nombre de la región hovereada
-                this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
                 this._updateShaderRegionColor();
 
                 if (regionId) {
@@ -170,12 +168,9 @@ export class MarkerManager {
         }
     }
 
-    setOverviewHover(regionId) {
+    setOverviewHover(regionId, silent = false) {
         if (this._overviewHoveredId === regionId) return;
         this._overviewHoveredId = regionId;
-
-        // Repintar textura para mostrar el glow en el nombre incluso en vista general
-        this.texturePainter.updateRegionTexture(this._items.map(i => i.data), regionId, this._focusedRegionId);
 
         if (!this.mapMaterial || !this.mapMaterial.userData.uHoveredRegionColor) return;
         
@@ -183,9 +178,21 @@ export class MarkerManager {
             const item = this._items.find(i => i.data.id === regionId);
             if (item && item.data.colorId) {
                 this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                
+                let u = -1, v = -1;
+                if (item.data.uv) { u = item.data.uv.u; v = item.data.uv.v; }
+                else if (item.data.u !== undefined) { u = item.data.u; v = item.data.v; }
+                else if (item.data.position) { u = (item.data.position.x + 30) / 60; v = 1.0 - ((item.data.position.y + 20) / 40); }
+                const width = item.data.textWidthUV || 0.15;
+                if (this.mapMaterial.userData.uHoverTextUV) {
+                    this.mapMaterial.userData.uHoverTextUV.value.set(u, v, width);
+                }
             }
         } else {
             this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+            if (this.mapMaterial.userData.uHoverTextUV) {
+                this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
+            }
         }
     }
 
@@ -198,7 +205,6 @@ export class MarkerManager {
             } else {
                 this._focusedRegionName = null;
             }
-            this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
             this._updateShaderRegionColor();
             this._updateMarkerStates();
         }
@@ -245,11 +251,26 @@ export class MarkerManager {
                 const item = this._items.find(i => i.data && i.data.id === this._hoveredRegionId);
                 if (item && item.data.colorId) {
                     this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                    
+                    let u = -1, v = -1;
+                    if (item.data.uv) { u = item.data.uv.u; v = item.data.uv.v; }
+                    else if (item.data.u !== undefined) { u = item.data.u; v = item.data.v; }
+                    else if (item.data.position) { u = (item.data.position.x + 30) / 60; v = 1.0 - ((item.data.position.y + 20) / 40); }
+                    const width = item.data.textWidthUV || 0.15;
+                    if (this.mapMaterial.userData.uHoverTextUV) {
+                        this.mapMaterial.userData.uHoverTextUV.value.set(u, v, width);
+                    }
                 } else {
                     this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                    if (this.mapMaterial.userData.uHoverTextUV) {
+                        this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
+                    }
                 }
             } else {
                 this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                if (this.mapMaterial.userData.uHoverTextUV) {
+                    this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
+                }
             }
         }
         
@@ -259,11 +280,26 @@ export class MarkerManager {
                 const item = this._items.find(i => i.data && i.data.id === this._focusedRegionId);
                 if (item && item.data.colorId) {
                     this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
+                    
+                    let u = -1, v = -1;
+                    if (item.data.uv) { u = item.data.uv.u; v = item.data.uv.v; }
+                    else if (item.data.u !== undefined) { u = item.data.u; v = item.data.v; }
+                    else if (item.data.position) { u = (item.data.position.x + 30) / 60; v = 1.0 - ((item.data.position.y + 20) / 40); }
+                    const width = item.data.textWidthUV || 0.15;
+                    if (this.mapMaterial.userData.uFocusTextUV) {
+                        this.mapMaterial.userData.uFocusTextUV.value.set(u, v, width);
+                    }
                 } else {
                     this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+                    if (this.mapMaterial.userData.uFocusTextUV) {
+                        this.mapMaterial.userData.uFocusTextUV.value.set(-1, -1, 1);
+                    }
                 }
             } else {
                 this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+                if (this.mapMaterial.userData.uFocusTextUV) {
+                    this.mapMaterial.userData.uFocusTextUV.value.set(-1, -1, 1);
+                }
             }
         }
     }
@@ -376,7 +412,13 @@ export class MarkerManager {
             if (this.hoveredMeshId !== null) {
                 this.hoveredMeshId = null;
                 
-                this.setOverviewHover(null);
+                if (this._overviewHoveredId !== null) {
+                    if (this._pendingFocusItem) {
+                        this.setOverviewHover(null, true);
+                    } else {
+                        this.setOverviewHover(null);
+                    }
+                }
 
                 if (this._hoveredRegionId !== null) {
                     // Si hay un vuelo pendiente a una región, limpiar el hover en silencio
@@ -431,28 +473,32 @@ export class MarkerManager {
                 item.isVisible = visible;
                 
                 if (item.label) {
-                    // La transición de opacidad es suave gracias a la regla CSS transition en markers.css
                     item.label.element.style.opacity = visible ? '1' : '0';
-                    // Nunca habilitar pointer-events, ya que el Raycaster funciona sobre el mesh 3D invisible. 
-                    // Si habilitamos HTML pointer-events, los labels tapan el mapa y rompen el paneo de OrbitControls.
                 }
 
-                // Icono 3D: ocultar también para no generar ruido visual
                 if (item.mesh && !['region', 'mar', 'oceano'].includes(item.type)) {
                     if (shouldMeshBeVisible && !item.mesh.visible) {
-                        // Estaba oculto y ahora es visible: forzamos que crezca desde escala 0 (floración/bloom)
                         if (item.mesh.userData) {
                             item.mesh.userData.currentScale = 0.0;
                             item.mesh.scale.set(0, 0, 1.0);
                         }
                     }
+                    
                     item.mesh.visible = shouldMeshBeVisible;
+                    
+                    if (item.mesh.userData) {
+                        if (shouldMeshBeVisible) {
+                            item.mesh.userData.targetScale = item.originalScale || 1.0;
+                        } else {
+                            item.mesh.userData.targetScale = 0.001;
+                        }
+                    }
                 }
             }
         }
         
         if (needsRedraw) {
-            this.texturePainter.updateRegionTexture(this._items.map(i => i.data), this._hoveredRegionId, this._focusedRegionId);
+            // Ya no repintamos textura en CPU, todo pasa en GPU!
         }
     }
 
@@ -486,6 +532,6 @@ export class MarkerManager {
     renderAll(markersList) {
         this.clearSceneMarkers();
         markersList.forEach(data => this.spawnVisualMarker(data));
-        this.texturePainter.updateRegionTexture(markersList, this._hoveredRegionId, this._focusedRegionId);
+        this.texturePainter.initTextures(markersList);
     }
 }

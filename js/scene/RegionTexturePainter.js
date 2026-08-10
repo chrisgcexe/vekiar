@@ -3,36 +3,40 @@ import * as THREE from 'three';
 export class RegionTexturePainter {
     constructor(mapMaterial) {
         this.mapMaterial = mapMaterial;
-        this.regionCanvas = null;
-        this.regionCtx = null;
-        this.regionTexture = null;
+        this.normalCanvas = null;
+        this.normalCtx = null;
+        this.normalTexture = null;
+
+        this.glowCanvas = null;
+        this.glowCtx = null;
+        this.glowTexture = null;
+        this.isInitialized = false;
     }
 
     /**
-     * Dibuja los textos de regiones, mares y océanos en una textura 4K
-     * que luego es leída por el shader del terreno.
+     * Dibuja los textos de regiones, mares y océanos en DOS texturas 4K
+     * de una sola vez durante la inicialización.
      * 
      * @param {Array} markersList - Lista plana de datos de marcadores
-     * @param {string|null} hoveredRegionId - ID de la región actualmente focuseada/hover
-     * @param {string|null} focusedRegionId - ID de la región enfocada
      */
-    updateRegionTexture(markersList, hoveredRegionId, focusedRegionId) {
+    initTextures(markersList) {
         if (!this.mapMaterial) return;
+        if (this.isInitialized) return;
 
-        if (!this.regionCanvas) {
-            this._initCanvas();
-        }
+        this._initCanvases();
 
-        const ctx = this.regionCtx;
-        const w = this.regionCanvas.width;
-        const h = this.regionCanvas.height;
+        const nw = this.normalCanvas.width;
+        const nh = this.normalCanvas.height;
 
-        // Limpiar canvas
-        ctx.clearRect(0, 0, w, h);
+        this.normalCtx.clearRect(0, 0, nw, nh);
+        this.glowCtx.clearRect(0, 0, nw, nh);
 
         // Estilos base compartidos
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        this.normalCtx.textAlign = 'center';
+        this.normalCtx.textBaseline = 'middle';
+        
+        this.glowCtx.textAlign = 'center';
+        this.glowCtx.textBaseline = 'middle';
 
         markersList.forEach(data => {
             const mType = String(data.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -54,32 +58,54 @@ export class RegionTexturePainter {
             }
             
             if (u !== undefined && v !== undefined) {
-                const cx = u * w;
-                const cy = (1.0 - v) * h;
+                const cx = u * nw;
+                const cy = (1.0 - v) * nh;
 
-                this._drawText(ctx, data, cx, cy, mType, hoveredRegionId, focusedRegionId);
+                // Dibujar versión normal
+                this._drawText(this.normalCtx, data, cx, cy, mType, false);
+                
+                // Dibujar versión glow y guardar el ancho estimado del texto en UV
+                const tw = this._drawText(this.glowCtx, data, cx, cy, mType, true);
+                
+                // Guardamos el ancho (textWidthUV) en la data para pasarlo luego al shader
+                data.textWidthUV = tw / nw; 
             }
         });
 
-        this.regionTexture.needsUpdate = true;
+        this.normalTexture.needsUpdate = true;
+        this.glowTexture.needsUpdate = true;
+        this.isInitialized = true;
     }
 
-    _initCanvas() {
-        this.regionCanvas = document.createElement('canvas');
-        // Alta resolución para textos nítidos
-        this.regionCanvas.width = 4096;
-        this.regionCanvas.height = 4096;
-        this.regionCtx = this.regionCanvas.getContext('2d');
-        this.regionTexture = new THREE.CanvasTexture(this.regionCanvas);
-        this.regionTexture.anisotropy = 4;
-        this.regionTexture.minFilter = THREE.LinearMipmapLinearFilter;
-        // Asignar textura al material del terreno
+    _initCanvases() {
+        // Textura Normal
+        this.normalCanvas = document.createElement('canvas');
+        this.normalCanvas.width = 4096;
+        this.normalCanvas.height = 4096;
+        this.normalCtx = this.normalCanvas.getContext('2d');
+        this.normalTexture = new THREE.CanvasTexture(this.normalCanvas);
+        this.normalTexture.anisotropy = 4;
+        this.normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+        // Textura con Brillo (Glow)
+        this.glowCanvas = document.createElement('canvas');
+        this.glowCanvas.width = 4096;
+        this.glowCanvas.height = 4096;
+        this.glowCtx = this.glowCanvas.getContext('2d');
+        this.glowTexture = new THREE.CanvasTexture(this.glowCanvas);
+        this.glowTexture.anisotropy = 4;
+        this.glowTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+        // Asignar texturas al material del terreno
         if (this.mapMaterial.userData.tRegionText) {
-            this.mapMaterial.userData.tRegionText.value = this.regionTexture;
+            this.mapMaterial.userData.tRegionText.value = this.normalTexture;
+        }
+        if (this.mapMaterial.userData.tRegionTextGlow) {
+            this.mapMaterial.userData.tRegionTextGlow.value = this.glowTexture;
         }
     }
 
-    _drawText(ctx, data, cx, cy, mType, hoveredRegionId, focusedRegionId) {
+    _drawText(ctx, data, cx, cy, mType, isGlow) {
         const fSize = data.fontSize || 80;
         ctx.font = `bold ${fSize}px "Georgia", serif`;
         const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
@@ -87,18 +113,22 @@ export class RegionTexturePainter {
         const curveRadius = data.curveRadius || 0;
         const rotationDeg = data.rotation || 0;
         
-        if (data.id === hoveredRegionId || data.id === focusedRegionId) {
+        // Medir ancho para la máscara elíptica del shader
+        const textWidthPixels = ctx.measureText(message).width + (message.length * spacing);
+        
+        if (isGlow) {
+            // Todos los textos en esta textura tienen el brillo amarillo
             ctx.fillStyle = 'rgba(255, 230, 150, 1.0)';
             ctx.shadowColor = 'rgba(255, 200, 50, 0.8)';
             ctx.shadowBlur = 15;
         } else {
+            // Textura normal: colores según tipo
             if (['mar', 'oceano'].includes(mType)) {
-                // Celeste suave y semitransparente para que se fusione con el mar
                 ctx.fillStyle = 'rgba(118, 175, 215, 0.26)'; 
                 ctx.shadowColor = 'rgba(0,0,0,0)';
                 ctx.shadowBlur = 0;
             } else {
-                ctx.fillStyle = 'rgba(32, 30, 17, 0.78)'; // Negro para regiones terrestres
+                ctx.fillStyle = 'rgba(32, 30, 17, 0.78)'; 
                 ctx.shadowColor = 'rgba(0,0,0,0)';
                 ctx.shadowBlur = 0;
             }
@@ -112,7 +142,6 @@ export class RegionTexturePainter {
         }
 
         if (curveRadius !== 0) {
-            // Texto curvo (desactivar letterSpacing nativo porque se calcula manualmente)
             if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
 
             const radius = curveRadius;
@@ -127,11 +156,9 @@ export class RegionTexturePainter {
                 charAngles.push(angle);
                 totalAngle += angle;
             }
-            totalAngle -= spacing / absRadius; // Quitar el último espaciado
+            totalAngle -= spacing / absRadius; 
 
-            // Mover el pivote al centro del círculo para que el texto siga anclado en (cx, cy)
             ctx.translate(0, radius);
-
             ctx.rotate(-sign * (totalAngle / 2));
 
             for (let i = 0; i < message.length; i++) {
@@ -141,7 +168,7 @@ export class RegionTexturePainter {
                 ctx.save();
                 ctx.translate(0, -radius);
                 if (sign < 0) {
-                    ctx.rotate(Math.PI); // Enderezar si la curva es invertida
+                    ctx.rotate(Math.PI); 
                 }
                 ctx.fillText(message[i], 0, 0);
                 ctx.restore();
@@ -149,7 +176,6 @@ export class RegionTexturePainter {
                 ctx.rotate(sign * (charAngle / 2));
             }
         } else {
-            // Texto recto
             if ('letterSpacing' in ctx) {
                 ctx.letterSpacing = spacing + 'px';
             }
@@ -157,5 +183,7 @@ export class RegionTexturePainter {
         }
         
         ctx.restore();
+        
+        return textWidthPixels;
     }
 }

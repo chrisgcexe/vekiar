@@ -314,15 +314,19 @@ export class MapCameraController {
             }
 
         } else if (this.state === 'FLY_TO') {
-            this.distance = THREE.MathUtils.lerp(this.distance, this._flyEndDist, 0.10);
-            this.target.lerp(this._flyEndTarget, 0.10);
-
-            const distDiff = Math.abs(this.distance - this._flyEndDist);
-            const targetDiff = this.target.distanceTo(this._flyEndTarget);
+            const now = performance.now();
+            let progress = (now - this._flyStartTime) / this._flyDuration;
+            if (progress > 1.0) progress = 1.0;
             
-            if (distDiff < 0.3 && targetDiff < 0.3) {
-                this.distance = this._flyEndDist;
-                this.target.copy(this._flyEndTarget);
+            // Suavizado Ease-In-Out Cuadrático (más cinematográfico)
+            const easeProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            this.distance = THREE.MathUtils.lerp(this._flyStartDist, this._flyEndDist, easeProgress);
+            this.target.copy(this._flyStartTarget).lerp(this._flyEndTarget, easeProgress);
+
+            if (progress === 1.0) {
                 this.state = 'PLAYING';
                 window.dispatchEvent(new CustomEvent('camera-flight-finished'));
                 window.dispatchEvent(new CustomEvent('map:ready'));
@@ -344,10 +348,7 @@ export class MapCameraController {
         }
 
         // --- DETECCIÓN DE ESTADO INTERACTUABLE (map:ready / map:zoom-out) ---
-        // map:ready se dispara cuando el jugador llegó al mismo nivel de zoom que un FLY_TO
-        // (distance ≈ 28) ya sea manualmente o por haber volado a una región.
         if (this.state === 'PLAYING') {
-            // Calcular el umbral equivalente al aterrizaje de FLY_TO (endDist = 28)
             const flyLandingDist = 28;
             const playableDist = this.calculatedMaxDistance || 60;
             const readyThreshold = (flyLandingDist - this.minDistance) / (playableDist - this.minDistance) + 0.02;
@@ -360,7 +361,6 @@ export class MapCameraController {
                 window.dispatchEvent(new CustomEvent('map:zoom-out'));
             }
         } else {
-            // Fuera de PLAYING, resetear para que vuelva a detectar cuando corresponda
             this._mapReady = false;
         }
 
@@ -370,10 +370,14 @@ export class MapCameraController {
     flyTo(worldPos, offsetX = 0) {
         if (this.state !== 'PLAYING' && this.state !== 'FLY_TO') return;
 
-        const startDist = this.distance;
-        const endDist  = startDist <= 35 ? startDist : 28;
+        // Si ya estamos volando o en PLAYING, capturamos el inicio exacto actual
+        this._flyStartTarget.copy(this.target);
+        this._flyStartDist = this.distance;
+        this._flyStartTime = performance.now();
+        this._flyDuration = 1200; // Mayor duración para un vuelo más fluido (1.2 seg)
+
+        const endDist  = this._flyStartDist <= 35 ? this._flyStartDist : 28;
         
-        // Simular el clamping exacto de la distancia final para no intentar viajar fuera de los límites
         const playableDist = this.calculatedMaxDistance || 60;
         let tEnd = 1.0;
         const distRange = playableDist - this.minDistance;

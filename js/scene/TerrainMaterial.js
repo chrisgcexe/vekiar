@@ -36,15 +36,19 @@ export class TerrainMaterial {
         // --- UNIFORM: Sigue la posición actual de los rollos ---
         material.userData.uRollX = { value: 50.1 }; 
         material.userData.tRegionText = { value: null };
+        material.userData.tRegionTextGlow = { value: null };
         material.userData.uRegionOpacity = { value: 0.0 };
         
-        // --- UNIFORMS: Hover Político ---
+        // --- UNIFORMS: Hover Político y Texto ---
         material.userData.tRegionIds = { value: assets.regionIdsTexture };
         material.userData.tReferenceMap = { value: assets.referenceTexture };
         material.userData.uHoveredRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uHoverRegionAlpha = { value: 0.0 };
         material.userData.uFocusedRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uFocusedRegionAlpha = { value: 0.0 };
+        
+        material.userData.uHoverTextUV = { value: new THREE.Vector3(-1, -1, 1) };
+        material.userData.uFocusTextUV = { value: new THREE.Vector3(-1, -1, 1) };
 
         material.onBeforeCompile = (shader) => {
             shader.uniforms.uZoomAlpha = material.userData.uZoomAlpha;
@@ -56,6 +60,7 @@ export class TerrainMaterial {
             shader.uniforms.uMountainCenter = material.userData.uMountainCenter;
             shader.uniforms.uRollX = material.userData.uRollX;
             shader.uniforms.tRegionText = material.userData.tRegionText;
+            shader.uniforms.tRegionTextGlow = material.userData.tRegionTextGlow;
             shader.uniforms.uRegionOpacity = material.userData.uRegionOpacity;
             
             shader.uniforms.tRegionIds = material.userData.tRegionIds;
@@ -64,9 +69,12 @@ export class TerrainMaterial {
             shader.uniforms.uHoverRegionAlpha = material.userData.uHoverRegionAlpha;
             shader.uniforms.uFocusedRegionColor = material.userData.uFocusedRegionColor;
             shader.uniforms.uFocusedRegionAlpha = material.userData.uFocusedRegionAlpha;
+            
+            shader.uniforms.uHoverTextUV = material.userData.uHoverTextUV;
+            shader.uniforms.uFocusTextUV = material.userData.uFocusTextUV;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

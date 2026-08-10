@@ -148,8 +148,8 @@ export class Map {
                     this.snowLight = this.snowSystem.snowLight;
 
                     // LOD controlado por eventos del gestor de estados.
-                    // Se activa 1 segundo DESPUES de map:ready para evitar lag durante el dolly.
-                    // Se desactiva inmediatamente cuando el jugador aleja la camara.
+                    // Durante overview y dolly, usamos calidad media (LOD 1) para evitar costuras.
+                    // Se activa 1 segundo DESPUES de map:ready para mostrar calidad completa de cerca.
                     this._lodEnabled = false;
                     this._lodEnableTimeout = null;
                     window.addEventListener('map:ready', () => {
@@ -161,7 +161,7 @@ export class Map {
                         clearTimeout(this._lodEnableTimeout);
                         this._lodEnabled = false;
                     });
-
+                    
                     mapGroup.rotation.x = -Math.PI / 2;
                     mapGroup.scale.set(1, 1 / this.aspect, 1);
                     
@@ -243,10 +243,12 @@ updateUnfurl(progress) {
             for (let i = 0; i < this.chunksLOD.length; i++) {
                 const lod = this.chunksLOD[i];
                 if (this._lodEnabled) {
-                    lod.update(camera);
+                    lod.update(camera); // Actualización dinámica fina (AppState también ayuda, pero lo aseguramos acá)
                 } else {
+                    // Si estamos volando o en overview, forzamos calidad Media (index 1) a todo el mapa
+                    // Esto oculta las costuras y mantiene altísimo rendimiento
                     lod.levels.forEach((level, index) => {
-                        level.object.visible = (index === 0);
+                        level.object.visible = (index === 1);
                     });
                 }
             }

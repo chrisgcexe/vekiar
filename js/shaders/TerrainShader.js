@@ -127,8 +127,29 @@ float bloomIntensity = finalMask * uFocusedRegionAlpha * 0.25 * pulse;
 gl_FragColor.rgb += bloomColor * bloomIntensity;
 
 // --- TEXTOS DE REGION PROYECTADOS ---
-vec4 regionText = texture2D(tRegionText, vGlobalPos);
-// Mezclar el texto usando su propio color (para permitir hover de otros colores)
-// Respetamos la opacidad global controlada por el estado del mapa
-gl_FragColor.rgb = mix(gl_FragColor.rgb, regionText.rgb, regionText.a * 0.85 * uRegionOpacity);
+vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);
+vec4 regionTextGlow = texture2D(tRegionTextGlow, vGlobalPos);
+
+// uHoverTextUV.z es el ancho del texto en unidades UV. 
+// Usamos length() con escala desigual para crear una máscara elíptica
+float distHoverText = length(vec2(
+    (vGlobalPos.x - uHoverTextUV.x) / max(uHoverTextUV.z * 0.6, 0.02),
+    (vGlobalPos.y - uHoverTextUV.y) / 0.05
+));
+float distFocusText = length(vec2(
+    (vGlobalPos.x - uFocusTextUV.x) / max(uFocusTextUV.z * 0.6, 0.02),
+    (vGlobalPos.y - uFocusTextUV.y) / 0.05
+));
+
+// Smoothstep para tener un borde suave. 
+// Si la distancia es mayor a 1.2, isHoveredText es 0.
+float isHoveredText = 1.0 - smoothstep(0.7, 1.2, distHoverText);
+float isFocusedText = 1.0 - smoothstep(0.7, 1.2, distFocusText);
+float textGlowMask = clamp(isHoveredText + isFocusedText, 0.0, 1.0);
+
+// Mezclar texto base y texto con brillo
+vec4 finalRegionText = mix(regionTextNormal, regionTextGlow, textGlowMask);
+
+// Mezclar el texto final con el terreno
+gl_FragColor.rgb = mix(gl_FragColor.rgb, finalRegionText.rgb, finalRegionText.a * 0.85 * uRegionOpacity);
 `;
