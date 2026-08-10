@@ -339,7 +339,7 @@ export class MapCameraController {
             }
         }
 
-        if (this.state === 'PLAYING' || this.state === 'FLY_TO') {
+        if (this.state === 'PLAYING') {
             this.clampTargetToBounds();
         }
 
