@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export class RegionTooltipUI {
     constructor(uiContainerId = 'ui') {
         this.container = document.getElementById(uiContainerId);
@@ -23,6 +25,17 @@ export class RegionTooltipUI {
             tab.textContent = num;
             this.tabsContainer.appendChild(tab);
         });
+
+        // Vector3 preallocado — evita crear un objeto nuevo en cada frame de update()
+        this._projVec = new THREE.Vector3();
+
+        // Cache de dimensiones de ventana — window.innerWidth/Height puede forzar layout queries
+        this._vpW = window.innerWidth;
+        this._vpH = window.innerHeight;
+        window.addEventListener('resize', () => {
+            this._vpW = window.innerWidth;
+            this._vpH = window.innerHeight;
+        }, { passive: true });
 
         // Conectar a los eventos globales
         window.addEventListener('marker:region-hover', this.onHover.bind(this));
@@ -63,15 +76,13 @@ export class RegionTooltipUI {
     update(camera) {
         if (!this.targetWorldPos || !camera) return;
 
-        // Proyectar la posición 3D al espacio de la pantalla 2D
-        const vector = this.targetWorldPos.clone();
-        vector.project(camera);
+        // Reusar el mismo Vector3 en lugar de crear uno nuevo cada frame con .clone()
+        this._projVec.copy(this.targetWorldPos);
+        this._projVec.project(camera);
 
-        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-        const y = -(vector.y * 0.5 - 0.5) * window.innerHeight;
+        const x = (this._projVec.x * 0.5 + 0.5) * this._vpW;
+        const y = -(this._projVec.y * 0.5 - 0.5) * this._vpH;
 
-        // Posicionar (como Ui.css tiene top: 0, left: 100% y transform: translateY(-100%), 
-        // le setearemos el left y top explícitos y eliminaremos las dependencias de parent)
         this.tooltip.style.left = `${x}px`;
         this.tooltip.style.top = `${y}px`;
     }

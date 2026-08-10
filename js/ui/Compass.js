@@ -8,6 +8,16 @@ export class Compass {
         this.elS = document.querySelector('.dir.s');
         this.elE = document.querySelector('.dir.e');
         this.elW = document.querySelector('.dir.w');
+
+        // Trackear el estado anterior para evitar writes al DOM sin cambios
+        this._prevActive = { n: false, s: false, e: false, w: false };
+    }
+
+    _setDir(el, key, active) {
+        if (active === this._prevActive[key]) return; // Sin cambio: no tocar el DOM
+        this._prevActive[key] = active;
+        if (active) el.classList.add('active');
+        else el.classList.remove('active');
     }
 
     update() {
@@ -24,29 +34,11 @@ export class Compass {
         const threshold = 0.02;
 
         // Eje Z (Norte / Sur) - Recuerda que en Three.js el Norte (hacia arriba en el plano) es -Z
-        if (dz < -threshold) {
-            this.elN.classList.add('active');
-        } else {
-            this.elN.classList.remove('active');
-        }
+        this._setDir(this.elN, 'n', dz < -threshold);
+        this._setDir(this.elS, 's', dz >  threshold);
 
-        if (dz > threshold) {
-            this.elS.classList.add('active');
-        } else {
-            this.elS.classList.remove('active');
-        }
-        
         // Eje X (Este / Oeste)
-        if (dx > threshold) {
-            this.elE.classList.add('active');
-        } else {
-            this.elE.classList.remove('active');
-        }
-
-        if (dx < -threshold) {
-            this.elW.classList.add('active');
-        } else {
-            this.elW.classList.remove('active');
-        }
+        this._setDir(this.elE, 'e', dx >  threshold);
+        this._setDir(this.elW, 'w', dx < -threshold);
     }
 }

@@ -106,8 +106,14 @@ export class MarkerManager {
         }
 
         if (this.domElement) {
+            // Cachear el rect del canvas — getBoundingClientRect() fuerza un layout reflow si se llama cada mousemove.
+            this._canvasRect = this.domElement.getBoundingClientRect();
+            window.addEventListener('resize', () => {
+                this._canvasRect = this.domElement.getBoundingClientRect();
+            }, { passive: true });
+
             this.domElement.addEventListener('mousemove', (e) => {
-                const rect = this.domElement.getBoundingClientRect();
+                const rect = this._canvasRect;
                 this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
                 this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
                 this._lastClientX = e.clientX;
@@ -577,8 +583,9 @@ export class MarkerManager {
             }
         });
 
-        // Limpiar registro LOD
+        // Limpiar registro LOD + índice de búsqueda
         this._items = [];
+        this._itemsMap.clear(); // Evita que el Map retenga referencias a objetos ya destruidos
     }
 
     renderAll(markersList) {
