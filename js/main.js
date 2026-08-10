@@ -138,7 +138,7 @@ async function startApp() {
 
         // Actualizar visibilidad de marcadores según el zoom actual (sistema LOD) y el estado de la cámara
         if (appState.isReady) {
-            mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state);
+            mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
         }
 
         // IMPORTANTE: Actualizar tooltip DESPUÉS de la cámara para evitar temblor

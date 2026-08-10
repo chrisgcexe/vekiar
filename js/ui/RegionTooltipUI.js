@@ -29,10 +29,20 @@ export class RegionTooltipUI {
         window.addEventListener('marker:region-unhover', this.onUnhover.bind(this));
         // Ocultar tooltip cuando se hace click en una región (inicia vuelo) o se abre el panel
         window.addEventListener('marker:region-fly-request', this.onUnhover.bind(this));
-        window.addEventListener('marker:region-open-panel', this.onUnhover.bind(this));
+        
+        this.isDisabled = false;
+        window.addEventListener('marker:region-open-panel', () => {
+            this.isDisabled = true;
+            this.onUnhover();
+        });
+        window.addEventListener('region-panel-closed', () => {
+            this.isDisabled = false;
+        });
     }
 
     onHover(e) {
+        if (this.isDisabled) return;
+        
         const { name, worldPos } = e.detail;
         
         this.title.textContent = name;

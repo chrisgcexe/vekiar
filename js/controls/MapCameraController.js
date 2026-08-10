@@ -135,18 +135,29 @@ export class MapCameraController {
         if (this.state !== 'PLAYING') return;
         if (e.button !== 0 && e.pointerType !== 'touch') return; // Solo click izquierdo o touch
 
-        this.isDragging = true;
+        this._isPointerDown = true;
+        this.isDragging = false; // Solo es arrastre si se mueve el mouse
         this.panVelocity.set(0, 0, 0); // Resetear inercia
         
         this.lastPointerX = e.clientX;
         this.lastPointerY = e.clientY;
         
-        this.domElement.style.cursor = 'grabbing';
         this.domElement.setPointerCapture(e.pointerId); // Asegura que move y up lleguen incluso fuera del canvas
     }
 
     onPointerMove(e) {
-        if (!this.isDragging || this.state !== 'PLAYING') return;
+        if (!this._isPointerDown || this.state !== 'PLAYING') return;
+
+        // Solo empezamos a arrastrar oficialmente si el mouse se mueve unos píxeles
+        if (!this.isDragging) {
+            const dist = Math.hypot(e.clientX - this.lastPointerX, e.clientY - this.lastPointerY);
+            if (dist > 3) {
+                this.isDragging = true;
+                this.domElement.style.cursor = 'grabbing';
+            } else {
+                return; // No hacer paneo todavía
+            }
+        }
 
         const movementX = e.clientX - this.lastPointerX;
         const movementY = e.clientY - this.lastPointerY;
@@ -177,7 +188,7 @@ export class MapCameraController {
     }
 
     onPointerUp(e) {
-        if (!this.isDragging) return;
+        this._isPointerDown = false;
         this.isDragging = false;
         this.domElement.style.cursor = 'grab';
         try {
@@ -374,7 +385,6 @@ export class MapCameraController {
         this._flyStartTarget.copy(this.target);
         this._flyStartDist = this.distance;
         this._flyStartTime = performance.now();
-        this._flyDuration = 1200; // Mayor duración para un vuelo más fluido (1.2 seg)
 
         const endDist  = this._flyStartDist <= 35 ? this._flyStartDist : 28;
         
@@ -388,7 +398,7 @@ export class MapCameraController {
 
         const freedom = 1.0 - Math.pow(tEnd, 4.0) * 0.7;
         const maxRadiusX = 72 * freedom;
-        const maxRadiusZ = (56 / this.mapAspect) * freedom;
+        const maxRadiusZ = (56 / (this.mapAspect || 1.0)) * freedom;
 
         const targetWorldX = worldPos.x + offsetX;
         const clampedTargetX = THREE.MathUtils.clamp(targetWorldX, -maxRadiusX, maxRadiusX);
@@ -396,6 +406,14 @@ export class MapCameraController {
 
         this._flyEndTarget.set(clampedTargetX, 0, clampedTargetZ);
         this._flyEndDist = endDist;
+        
+        // Calcular si ya estamos prácticamente en la posición de destino
+        const travelDistance = this._flyStartTarget.distanceTo(this._flyEndTarget) + Math.abs(this._flyStartDist - this._flyEndDist);
+        if (travelDistance < 0.5) {
+            this._flyDuration = 0; // Viaje instantáneo, no hay que esperar la animación
+        } else {
+            this._flyDuration = 1200; // Mayor duración para un vuelo más fluido (1.2 seg)
+        }
         
         this.panVelocity.set(0,0,0);
         this.isDragging = false;

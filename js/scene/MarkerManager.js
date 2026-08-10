@@ -86,8 +86,19 @@ export class MarkerManager {
                 if (this._pendingFocusItem) {
                     const item = this._pendingFocusItem;
                     this.setFocusedRegion(item.data.id);
+                    
+                    // Buscar los lugares que pertenecen a esta región
+                    const regionName = item.data.name;
+                    const placesInRegion = this._items
+                        .map(i => i.data)
+                        .filter(d => d.region === regionName && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(d.type));
+
                     window.dispatchEvent(new CustomEvent('marker:region-open-panel', {
-                        detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                        detail: { 
+                            worldPos: item.worldPos.clone(), 
+                            name: item.data.name,
+                            places: placesInRegion 
+                        }
                     }));
                     this._pendingFocusItem = null;
                 }
@@ -137,6 +148,39 @@ export class MarkerManager {
             if (this.hoveredMeshId !== null) {
                 this.hoveredMeshId = null;
                 this._updateMarkerStates();
+            }
+        });
+
+        // Hover interactivo remoto desde la UI HTML
+        this._forcedHoverId = null;
+        window.addEventListener('marker:force-hover', (e) => {
+            if (e.detail && e.detail.id) {
+                this._forcedHoverId = e.detail.id;
+                if (this._lastRaycastMouse) this._lastRaycastMouse.set(-999, -999); // Forzar reevaluación inmediata
+            }
+        });
+        window.addEventListener('marker:force-unhover', (e) => {
+            if (e.detail && e.detail.id === this._forcedHoverId) {
+                this._forcedHoverId = null;
+                if (this._lastRaycastMouse) this._lastRaycastMouse.set(-999, -999); // Forzar reevaluación inmediata
+            }
+        });
+
+        // Debug: Toggle de hitboxes con la tecla '2'
+        this._debugHitboxesVisible = false;
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '2') {
+                this._debugHitboxesVisible = !this._debugHitboxesVisible;
+                this.markersGroup.children.forEach(child => {
+                    // Solo las hitboxes transparentes que creamos en MarkerBuilder tienen MeshBasicMaterial con color rojo o transparente
+                    if (child.material && child.material.transparent !== undefined) {
+                        // Verificamos si es una hitbox asumiendo que empieza oculta (o si su color es rojo)
+                        if (child.material.color && child.material.color.getHex() === 0xff0000) {
+                            child.material.opacity = this._debugHitboxesVisible ? 0.4 : 0.0;
+                            child.material.wireframe = this._debugHitboxesVisible;
+                        }
+                    }
+                });
             }
         });
 
@@ -310,7 +354,7 @@ export class MarkerManager {
      *
      * @param {number} zoomAlpha - 0.0 = máximo zoom in (cerca), 1.0 = máximo zoom out (lejos)
      */
-    update(zoomAlpha, cameraState) {
+    update(zoomAlpha, cameraState, isDragging = false) {
         const isCameraReady = (cameraState === 'PLAYING' || cameraState === 'FLY_TO');
 
         // Manejar la opacidad global de la textura dinámica de regiones en el shader
@@ -359,10 +403,10 @@ export class MarkerManager {
             needsRedraw = true;
         }
 
-        // Raycasting: activo en PLAYING siempre.
+        // Raycasting: activo en PLAYING siempre (excepto cuando se está arrastrando/paneando).
         // En modo overview (!_mapReady): solo ilumina el shader (sin tooltip ni textura).
         // En modo interactuable (_mapReady): hover completo con tooltip y efectos.
-        if (this.camera && cameraState === 'PLAYING') {
+        if (this.camera && cameraState === 'PLAYING' && !isDragging) {
             const now = performance.now();
             if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS
                 this._lastRaycastTime = now;
@@ -382,11 +426,15 @@ export class MarkerManager {
                         }
                     }
                     
+                    if (this._forcedHoverId !== null) {
+                        newHoveredMeshId = this._forcedHoverId;
+                    }
+                    
                     if (this.hoveredMeshId !== newHoveredMeshId) {
                         this.hoveredMeshId = newHoveredMeshId;
                         
                         if (this.domElement) {
-                            this.domElement.style.cursor = newHoveredMeshId ? 'pointer' : 'grab';
+                            this.domElement.style.cursor = newHoveredMeshId && !this._forcedHoverId ? 'pointer' : 'grab';
                         }
                         
                         // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion u overviewHovered
