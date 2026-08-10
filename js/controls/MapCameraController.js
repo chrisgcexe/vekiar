@@ -136,9 +136,11 @@ export class MapCameraController {
         if (e.button !== 0 && e.pointerType !== 'touch') return; // Solo click izquierdo o touch
 
         this._isPointerDown = true;
-        this.isDragging = false; // Solo es arrastre si se mueve el mouse
+        this.isDragging = false; // Arranca como falso, se vuelve true al superar el umbral
         this.panVelocity.set(0, 0, 0); // Resetear inercia
         
+        this.startPointerX = e.clientX;
+        this.startPointerY = e.clientY;
         this.lastPointerX = e.clientX;
         this.lastPointerY = e.clientY;
         
@@ -148,17 +150,16 @@ export class MapCameraController {
     onPointerMove(e) {
         if (!this._isPointerDown || this.state !== 'PLAYING') return;
 
-        // Solo empezamos a arrastrar oficialmente si el mouse se mueve unos píxeles
+        // Validar si superamos el umbral para ser considerado un arrastre (suprime hover)
         if (!this.isDragging) {
-            const dist = Math.hypot(e.clientX - this.lastPointerX, e.clientY - this.lastPointerY);
+            const dist = Math.hypot(e.clientX - this.startPointerX, e.clientY - this.startPointerY);
             if (dist > 3) {
                 this.isDragging = true;
                 this.domElement.style.cursor = 'grabbing';
-            } else {
-                return; // No hacer paneo todavía
             }
         }
 
+        // Siempre calculamos el movimiento relativo al último frame para evitar saltos bruscos
         const movementX = e.clientX - this.lastPointerX;
         const movementY = e.clientY - this.lastPointerY;
         
