@@ -49,7 +49,7 @@ export class MarkerManager {
                 if (editorPanel && editorPanel.style.display !== 'none') return;
                 
                 if (this.hoveredMeshId) {
-                    const item = this._items.find(i => i.data && i.data.id === this.hoveredMeshId);
+                    const item = this._itemsMap.get(this.hoveredMeshId);
                 if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
                         // Solo volar: SIEMPRE al hacer click en una region
                         window.dispatchEvent(new CustomEvent('marker:region-fly-request', {
@@ -126,6 +126,10 @@ export class MarkerManager {
 
         // Registro de todos los items activos para el sistema LOD de visibilidad.
         this._items = [];
+        // Lookup O(1) por ID para evitar _items.find() en el bucle de renderizado.
+        this._itemsMap = new Map();
+        // Buffer reutilizable para el raycaster — evita crear un nuevo Array en cada cast.
+        this._intersectsBuffer = [];
 
         // Cache del último zoomAlpha procesado
         this._lastZoomAlpha = -1;
@@ -200,7 +204,7 @@ export class MarkerManager {
                 this._updateShaderRegionColor();
 
                 if (regionId) {
-                    const item = this._items.find(i => i.data.id === regionId);
+                    const item = this._itemsMap.get(regionId);
                     
                     window.dispatchEvent(new CustomEvent('marker:region-hover', {
                         detail: { name: item.data.name, worldPos: item.worldPos.clone() }
@@ -219,7 +223,7 @@ export class MarkerManager {
         if (!this.mapMaterial || !this.mapMaterial.userData.uHoveredRegionColor) return;
         
         if (regionId) {
-            const item = this._items.find(i => i.data.id === regionId);
+            const item = this._itemsMap.get(regionId);
             if (item && item.data.colorId) {
                 this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
                 
@@ -244,7 +248,7 @@ export class MarkerManager {
         if (this._focusedRegionId !== regionId) {
             this._focusedRegionId = regionId;
             if (regionId) {
-                const r = this._items.find(i => i.data.id === regionId);
+                const r = this._itemsMap.get(regionId);
                 this._focusedRegionName = r ? r.data.name : null;
             } else {
                 this._focusedRegionName = null;
@@ -292,7 +296,7 @@ export class MarkerManager {
         // Hover
         if (this.mapMaterial.userData.uHoveredRegionColor) {
             if (this._hoveredRegionId) {
-                const item = this._items.find(i => i.data && i.data.id === this._hoveredRegionId);
+                const item = this._itemsMap.get(this._hoveredRegionId);
                 if (item && item.data.colorId) {
                     this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
                     
@@ -321,7 +325,7 @@ export class MarkerManager {
         // Focus
         if (this.mapMaterial.userData.uFocusedRegionColor) {
             if (this._focusedRegionId) {
-                const item = this._items.find(i => i.data && i.data.id === this._focusedRegionId);
+                const item = this._itemsMap.get(this._focusedRegionId);
                 if (item && item.data.colorId) {
                     this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
                     
@@ -416,10 +420,10 @@ export class MarkerManager {
                     let newHoveredMeshId = null;
                     
                     this.raycaster.setFromCamera(this.mouse, this.camera);
-                    // recursive=true para detectar meshes dentro de grupos (lodLevelGroup)
-                    const intersects = this.raycaster.intersectObjects(this.markersGroup.children, true);
-                    for (let i = 0; i < intersects.length; i++) {
-                        const obj = intersects[i].object;
+                    this._intersectsBuffer.length = 0; // Limpiar sin crear nuevo Array
+                    this.raycaster.intersectObjects(this.markersGroup.children, true, this._intersectsBuffer);
+                    for (let i = 0; i < this._intersectsBuffer.length; i++) {
+                        const obj = this._intersectsBuffer[i].object;
                         if (obj.visible && obj.userData && obj.userData.id) {
                             newHoveredMeshId = obj.userData.id;
                             break;
@@ -438,7 +442,7 @@ export class MarkerManager {
                         }
                         
                         // Si el mesh que hovereamos es una region, la establecemos como hoveredRegion u overviewHovered
-                        const item = this._items.find(i => i.data && i.data.id === newHoveredMeshId);
+                        const item = this._itemsMap.get(newHoveredMeshId);
                         if (item && item.type === 'region') {
                             if (this._mapReady) {
                                 this.setHoveredRegion(newHoveredMeshId);

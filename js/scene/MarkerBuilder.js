@@ -145,7 +145,9 @@ export class MarkerBuilder {
         // --- Label CSS2D ---
         if (data.name) {
             if (['mar', 'oceano'].includes(markerType)) {
-                this.manager._items.push({ label: null, mesh, type: markerType, data, worldPos: new THREE.Vector3(posX, posY, posZ), isVisible: null });
+                const itemData1 = { label: null, mesh, type: markerType, data, worldPos: new THREE.Vector3(posX, posY, posZ), isVisible: null };
+                this.manager._items.push(itemData1);
+                if (data.id) this.manager._itemsMap.set(data.id, itemData1);
             } else {
                 const label = this._createTextLabel(data.name, markerType, data.id);
 
@@ -166,7 +168,9 @@ export class MarkerBuilder {
                     this.manager._labelRoot.add(label);
                 }
 
-                this.manager._items.push({ label, mesh, type: markerType, data, worldPos: worldPos.clone(), isVisible: null });
+                const itemData2 = { label, mesh, type: markerType, data, worldPos: worldPos.clone(), isVisible: null };
+                this.manager._items.push(itemData2);
+                if (data.id) this.manager._itemsMap.set(data.id, itemData2);
             }
         }
     }
