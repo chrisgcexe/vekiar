@@ -19,7 +19,8 @@ float m = texture2D(tPackedMasks, vGlobalPos).b;
 float snowZone = smoothstep(0.1, 0.5, m);
 
 vec4 packedMasks = texture2D(tPackedMasks, vGlobalPos);
-float blurryMountain = 1.0 - texture2D(tMapDataPacked, vGlobalPos, 5.0).b;
+// tMountainMask muestrea la mascara de montañas pre-blureada (512x512, sin mipmaps)
+float blurryMountain = 1.0 - texture2D(tMountainMask, vGlobalPos).r;
 float mountainFade = smoothstep(0.01, 0.8, blurryMountain);
 
 snowZone *= mix(1.0, 0.35, mountainFade);
@@ -53,7 +54,7 @@ float mistNoise1 = texture2D(tNoise, flowUv1).r;
 float mistNoise2 = texture2D(tNoise, flowUv2).r;
 
 // Utilizamos la máscara de nieve de las montañas
-float mistMaskRaw = 1.0 - texture2D(tMapDataPacked, vGlobalPos, 3.0).b;
+float mistMaskRaw = 1.0 - texture2D(tMountainMask, vGlobalPos).r;
 float mistMask = smoothstep(0.02, 0.8, mistMaskRaw); 
 
 if (mistMask > 0.01) {

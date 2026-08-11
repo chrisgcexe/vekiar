@@ -13,41 +13,53 @@ export class AssetLoader {
             .detectSupport(renderer);
 
         // 1. Cargar Assets Visuales (Comprimidos en VRAM)
-        const noisePromise = textureLoader.loadAsync('./assets/images/water_noise_distortion.jpg');
-        const colorPromise = ktx2Loader.loadAsync('./assets/images/base_color_map.ktx2');  
-        //const   colorPromise = textureLoader.loadAsync('./assets/images/source_assets/base_color_map.jpg');
-        const referenceTexturePromise = textureLoader.loadAsync('./assets/images/mapa_referencia.jpg'); // Ajustá la ruta si es distinta
-  
+        const noisePromise       = textureLoader.loadAsync('./assets/images/water_noise_distortion.jpg');
+        const colorPromise        = ktx2Loader.loadAsync('./assets/images/base_color_map.ktx2');
+        const mapDataPromise      = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
+        const packedMasksPromise  = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
+        const flowmapPromise      = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
+        const regionIdsPromise    = textureLoader.loadAsync('./assets/images/mapa_referencia_regiones.png');
+        const mountainMaskPromise = textureLoader.loadAsync('./assets/images/mountain_snow_mask.png');
+        // mapa_referencia.jpg (5.9 MB) se carga en lazy — solo cuando el editor la necesita
 
-        // 2. Cargar Assets de Datos (Crudos en PNG para no perder matemática)
-        const mapDataPromise = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
-        const packedMasksPromise = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
-        const flowmapPromise = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
-        const regionIdsPromise = textureLoader.loadAsync('./assets/images/mapa_referencia_regiones.png'); // NUEVO MÁSCARA ID
+        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, regionIdsTexture, mountainMaskTexture;
+        try {
+            [
+                colorTexture,
+                noiseTexture,
+                mapDataPackedTexture,
+                packedMasksTexture,
+                flowmapTexture,
+                regionIdsTexture,
+                mountainMaskTexture
+            ] = await Promise.all([
+                colorPromise,
+                noisePromise,
+                mapDataPromise,
+                packedMasksPromise,
+                flowmapPromise,
+                regionIdsPromise,
+                mountainMaskPromise
+            ]);
+        } catch (err) {
+            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, regionIdsTexture, mountainMaskTexture]
+                .forEach(t => t?.dispose());
+            ktx2Loader.dispose();
+            throw new Error(`AssetLoader: fallo al cargar uno o más assets. Causa: ${err.message}`);
+        }
 
-        // Esperamos a que baje todo en paralelo
-        const [
-            colorTexture, 
-            noiseTexture, 
-            mapDataPackedTexture, 
-            packedMasksTexture, 
-            flowmapTexture,
-            referenceTexture,
-            regionIdsTexture
-        ] = await Promise.all([
-            colorPromise, 
-            noisePromise, 
-            mapDataPromise, 
-            packedMasksPromise, 
-            flowmapPromise,
-            referenceTexturePromise,
-            regionIdsPromise
-        ]);
+        colorTexture.colorSpace   = THREE.SRGBColorSpace;
+        regionIdsTexture.colorSpace = THREE.NoColorSpace; // IDs discretos — no aplicar conversión gamma
 
-        // Seteamos el color space para que no se vea lavado
-        colorTexture.colorSpace = THREE.SRGBColorSpace;
-        referenceTexture.colorSpace = THREE.SRGBColorSpace; // <-- Importante para que los colores no se laven
-        regionIdsTexture.colorSpace = THREE.SRGBColorSpace; // <-- CRUCIAL para que los colores coincidan con los HEX de JS
+        // La mascara de regiones es un ID lookup — sin mipmaps para no mezclar colores en bordes
+        regionIdsTexture.generateMipmaps = false;
+        regionIdsTexture.minFilter = THREE.NearestFilter;
+        regionIdsTexture.magFilter = THREE.NearestFilter;
+
+        // La mascara de montañas ya viene pre-blureada — sin mipmaps
+        mountainMaskTexture.generateMipmaps = false;
+        mountainMaskTexture.minFilter = THREE.LinearFilter;
+        mountainMaskTexture.magFilter = THREE.LinearFilter;
         
         // Configuramos el wrap para el ruido del agua
         noiseTexture.wrapS = THREE.RepeatWrapping;
@@ -62,8 +74,17 @@ export class AssetLoader {
             mapDataPackedTexture,
             packedMasksTexture,
             flowmapTexture,
-            referenceTexture,
-            regionIdsTexture
+            regionIdsTexture,
+            mountainMaskTexture,
+            referenceTexture: null // lazy — usar loadReferenceMap() cuando el editor la necesite
         };
     }
-}
+
+    /** Carga mapa_referencia.jpg solo cuando el editor la necesita (5.9 MB diferidos) */
+    static async loadReferenceMap() {
+        const textureLoader = new THREE.TextureLoader();
+        const tex = await textureLoader.loadAsync('./assets/images/mapa_referencia.jpg');
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+}

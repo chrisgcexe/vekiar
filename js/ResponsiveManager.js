@@ -7,13 +7,22 @@ export class ResponsiveManager {
 
         this._checkMobile();
 
-        // Escucha centralizada
-        window.addEventListener('resize', this._onResize.bind(this));
+        // Throttle con rAF: los callbacks se ejecutan como máximo una vez por frame,
+        // evitando layout thrashing cuando el usuario arrastra el borde de la ventana.
+        this._rafPending = false;
+        window.addEventListener('resize', () => {
+            if (this._rafPending) return;
+            this._rafPending = true;
+            requestAnimationFrame(() => {
+                this._rafPending = false;
+                this._onResize();
+            });
+        });
     }
 
     // Patrón Observador: registrar funciones a llamar cuando haya resize
     subscribe(callback) {
-        this.listeners.push(callback);
+        if (typeof callback === 'function') this.listeners.push(callback);
     }
 
     _checkMobile() {

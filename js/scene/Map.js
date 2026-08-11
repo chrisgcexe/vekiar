@@ -13,7 +13,6 @@ export class Map {
         
         this.aspect = 1.0;
         this.plane = null;
-        this.onLoadCallback = null;
         
         this.chunksLOD = []; 
         // Eliminamos la llamada automática a _initMap()
@@ -48,7 +47,6 @@ export class Map {
 
             // Cilindros base para hacer de bordes del papel
             const mapWidth = 100;
-            const mapHeight = (mapWidth / this.aspect) * this.aspect; 
             const finalRollHeight = 103.5; // Ajustado a 103.5 para coincidir físicamente y cubrir todo el terreno sin dejar pedazos libres
             
             const rollGeo = new THREE.CylinderGeometry(2, 2, finalRollHeight, 32, 64, true); // true = openEnded (sin tapas duras)
@@ -124,7 +122,9 @@ export class Map {
                             geometry.setAttribute('position', new THREE.BufferAttribute(levelData.positions, 3));
                             geometry.setAttribute('uv', new THREE.BufferAttribute(levelData.uvs, 2));
                             geometry.setAttribute('normal', new THREE.BufferAttribute(levelData.normals, 3));
-                            geometry.setIndex(indexAttributes[index]);
+                            // Instanciar un BufferAttribute independiente por geometría—compartir la misma instancia
+                            // entre múltiples BufferGeometry puede corromper el estado interno de WebGL.
+                            geometry.setIndex(new THREE.BufferAttribute(sharedIndices[index].slice(), 1));
 
                             const lodLevelGroup = new THREE.Group();
 
@@ -170,10 +170,6 @@ export class Map {
 
                     worker.terminate();
 
-                    if (this.onLoadCallback) {
-                        this.onLoadCallback(this.aspect);
-                    }
-
                     // Aseguramos que clave en 100%
                     if (updateUI) updateUI(100);
                     
@@ -199,11 +195,8 @@ export class Map {
         });
     }
 
-    onLoad(callback) {
-        this.onLoadCallback = callback;
-    }
 
-updateUnfurl(progress) {
+    updateUnfurl(progress) {
         const mapHalfWidth = 50.1;
         const currentX = THREE.MathUtils.lerp(0.1, mapHalfWidth, progress);
         

@@ -16,7 +16,8 @@ export class TerrainMaterial {
             mapDataPackedTexture, 
             noiseTexture, 
             packedMasksTexture, 
-            flowmapTexture 
+            flowmapTexture,
+            mountainMaskTexture
         } = assets;
 
         const material = new THREE.MeshStandardMaterial({ 
@@ -31,6 +32,7 @@ export class TerrainMaterial {
         material.userData.tNoise = { value: noiseTexture };
         material.userData.tPackedMasks = { value: packedMasksTexture };
         material.userData.tFlowMap = { value: flowmapTexture };
+        material.userData.tMountainMask = { value: mountainMaskTexture };
         material.userData.uMountainCenter = { value: new THREE.Vector2(0, 0) };
         
         // --- UNIFORM: Sigue la posición actual de los rollos ---
@@ -57,6 +59,7 @@ export class TerrainMaterial {
             shader.uniforms.tNoise = material.userData.tNoise;
             shader.uniforms.tPackedMasks = material.userData.tPackedMasks;
             shader.uniforms.tFlowMap = material.userData.tFlowMap;
+            shader.uniforms.tMountainMask = material.userData.tMountainMask;
             shader.uniforms.uMountainCenter = material.userData.uMountainCenter;
             shader.uniforms.uRollX = material.userData.uRollX;
             shader.uniforms.tRegionText = material.userData.tRegionText;
@@ -74,7 +77,7 @@ export class TerrainMaterial {
             shader.uniforms.uFocusTextUV = material.userData.uFocusTextUV;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

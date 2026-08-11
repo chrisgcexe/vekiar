@@ -19,9 +19,9 @@ export class RegionTexturePainter {
      * 
      * @param {Array} markersList - Lista plana de datos de marcadores
      */
-    initTextures(markersList) {
+    initTextures(markersList, force = false) {
         if (!this.mapMaterial) return;
-        if (this.isInitialized) return;
+        if (this.isInitialized && !force) return;
 
         this._initCanvases();
 
@@ -103,6 +103,20 @@ export class RegionTexturePainter {
         if (this.mapMaterial.userData.tRegionTextGlow) {
             this.mapMaterial.userData.tRegionTextGlow.value = this.glowTexture;
         }
+    }
+
+    /**
+     * Libera las dos texturas 4K de la VRAM del GPU.
+     * Llamar antes de re-instanciar o cuando el mapa se destruye.
+     */
+    dispose() {
+        if (this.normalTexture) { this.normalTexture.dispose(); this.normalTexture = null; }
+        if (this.glowTexture)   { this.glowTexture.dispose();   this.glowTexture   = null; }
+        this.normalCanvas = null;
+        this.normalCtx    = null;
+        this.glowCanvas   = null;
+        this.glowCtx      = null;
+        this.isInitialized = false;
     }
 
     _drawText(ctx, data, cx, cy, mType, isGlow) {

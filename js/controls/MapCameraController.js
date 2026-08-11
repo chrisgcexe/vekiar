@@ -41,6 +41,16 @@ export class MapCameraController {
         this.raycaster = new THREE.Raycaster();
         this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
+        // Buffers reutilizables para getPointerIntersection — evitan allocations en cada evento wheel/drag
+        this._pointerNDC = new THREE.Vector2();
+        this._intersectionTarget = new THREE.Vector3();
+
+        // Cache del rect del canvas — igual que en MarkerManager
+        this._canvasRect = null; // Se inicializa al primer uso y en resize
+        window.addEventListener('resize', () => {
+            this._canvasRect = this.domElement.getBoundingClientRect();
+        }, { passive: true });
+
         this.camera.position.set(0, 140, 0.1);
 
         // Bindings
@@ -118,15 +128,16 @@ export class MapCameraController {
     // --- INPUT HANDLING ---
     
     getPointerIntersection(clientX, clientY) {
-        const rect = this.domElement.getBoundingClientRect();
-        const pointer = new THREE.Vector2();
-        pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        // Lazy-init del rect (primera vez, o si fue invalidado por resize)
+        if (!this._canvasRect) this._canvasRect = this.domElement.getBoundingClientRect();
+        const rect = this._canvasRect;
 
-        this.raycaster.setFromCamera(pointer, this.camera);
-        const target = new THREE.Vector3();
-        const hit = this.raycaster.ray.intersectPlane(this.plane, target);
-        return hit ? target : null;
+        this._pointerNDC.x = ((clientX - rect.left) / rect.width)  * 2 - 1;
+        this._pointerNDC.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this._pointerNDC, this.camera);
+        const hit = this.raycaster.ray.intersectPlane(this.plane, this._intersectionTarget);
+        return hit ? this._intersectionTarget : null;
     }
 
     onPointerDown(e) {

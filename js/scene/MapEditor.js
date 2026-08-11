@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MarkerManager } from './MarkerManager.js?v=2';
 import { EditorUI } from '../ui/EditorUI.js';
+import { AssetLoader } from '../utils/AssetLoader.js';
 
 export class MapEditor {
     constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture) {
@@ -60,10 +61,20 @@ export class MapEditor {
                 console.log(`%c[EDITOR] Modo Edición: ${this.enabled ? 'ACTIVADO' : 'APAGADO'}`, 'color: #a5d6a7; font-weight: bold;');
             }
             
-            if (e.key.toLowerCase() === 't' && this.referenceTexture) {
+            if (e.key.toLowerCase() === 't') {
                 this.isReferenceView = !this.isReferenceView;
-                this.mapMaterial.map = this.isReferenceView ? this.referenceTexture : this.normalTexture;
-                this.mapMaterial.needsUpdate = true;
+                
+                if (this.isReferenceView && !this.referenceTexture) {
+                    // Lazy-load: primera vez que se aprieta T (5.9 MB diferidos hasta este momento)
+                    AssetLoader.loadReferenceMap().then(tex => {
+                        this.referenceTexture = tex;
+                        this.mapMaterial.map = tex;
+                        this.mapMaterial.needsUpdate = true;
+                    });
+                } else {
+                    this.mapMaterial.map = this.isReferenceView ? this.referenceTexture : this.normalTexture;
+                    this.mapMaterial.needsUpdate = true;
+                }
             }
         });
 
@@ -77,8 +88,6 @@ export class MapEditor {
 
 
     async initStorage() {
-        // FORZAR LA CARGA DESDE EL JSON BUSTEANDO LA CACHÉ LOCAL
-        localStorage.removeItem('vekiar_custom_markers');
         const saved = localStorage.getItem('vekiar_custom_markers');
         if (saved) {
             try {
@@ -341,13 +350,15 @@ export class MapEditor {
             markers: this.markers
         };
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataStructure, null, 2));
+        const blob = new Blob([JSON.stringify(dataStructure, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
         const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.href = url;
         downloadAnchor.setAttribute("download", "vekiar_markers.json");
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
+        URL.revokeObjectURL(url);
         console.log("%c[EDITOR] Archivo markers.json exportado con éxito.", "color: #81c784; font-weight: bold;");
     }
 

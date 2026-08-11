@@ -30,12 +30,14 @@ export class RegionSidePanelUI {
         // Contenido del panel
         this.content = document.createElement('div');
         this.content.className = 'region-panel-content';
-        this.content.innerHTML = `
+        // Guardar el HTML de descripción como template fijo para restaurarlo en cada open()
+        this._descriptionHTML = `
             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. 
             Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor.</p>
             <p>Ut in nulla enim. Phasellus molestie magna non est bibendum non venenatis nisl tempor. 
             Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere.</p>
         `;
+        this.content.innerHTML = this._descriptionHTML;
         this.panel.appendChild(this.content);
 
         // Eventos
@@ -66,39 +68,54 @@ export class RegionSidePanelUI {
         const { name, places } = e.detail;
         this.title.textContent = name;
         
-        // Generar contenido dinámico basado en los lugares, manteniendo la descripción original arriba
-        let html = `
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. 
-            Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor.</p>
-            <p>Ut in nulla enim. Phasellus molestie magna non est bibendum non venenatis nisl tempor. 
-            Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere.</p>
-        `;
-        
+        // Construir DOM de forma segura (sin interpolación de strings) para evitar XSS
+        // si algún nombre de lugar contiene caracteres como < o >
+        const contentRoot = document.createDocumentFragment();
+
+        // Restaurar bloque de descripción (Lorem ipsum o texto de la región)
+        const descContainer = document.createElement('div');
+        descContainer.innerHTML = this._descriptionHTML;
+        while (descContainer.firstChild) contentRoot.appendChild(descContainer.firstChild);
+
         if (places && places.length > 0) {
-            // Agrupar lugares por tipo
             const groups = {};
             places.forEach(p => {
                 const typeName = this.formatTypeName(p.type);
                 if (!groups[typeName]) groups[typeName] = [];
                 groups[typeName].push(p);
             });
-            
-            // Construir HTML
+
             for (const [type, items] of Object.entries(groups)) {
-                html += `<div class="region-places-group">`;
-                html += `<h3>${type}</h3>`;
-                html += `<ul style="padding-left: 0;">`;
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'region-places-group';
+
+                const typeHeading = document.createElement('h3');
+                typeHeading.textContent = type;
+                groupDiv.appendChild(typeHeading);
+
+                const ul = document.createElement('ul');
+                ul.style.paddingLeft = '0';
+
                 items.forEach(itemObj => {
-                    html += `<li class="region-place-item" data-id="${itemObj.id}" style="list-style-type: none; cursor: pointer; margin-bottom: 4px;">${itemObj.name}</li>`;
+                    const li = document.createElement('li');
+                    li.className = 'region-place-item';
+                    li.dataset.id = itemObj.id;
+                    li.style.cssText = 'list-style-type: none; cursor: pointer; margin-bottom: 4px;';
+                    li.textContent = itemObj.name; // textContent — nunca interpreta HTML
+                    ul.appendChild(li);
                 });
-                html += `</ul>`;
-                html += `</div>`;
+
+                groupDiv.appendChild(ul);
+                contentRoot.appendChild(groupDiv);
             }
         } else {
-            html = `<p>No hay lugares de interés registrados en esta región.</p>`;
+            const empty = document.createElement('p');
+            empty.textContent = 'No hay lugares de interés registrados en esta región.';
+            contentRoot.appendChild(empty);
         }
-        
-        this.content.innerHTML = html;
+
+        this.content.innerHTML = ''; // Limpiar contenido anterior
+        this.content.appendChild(contentRoot);
         
         this.panel.classList.add('open');
         this.overlay.classList.remove('hidden');
