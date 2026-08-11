@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-
+import { regionLore, defaultLore } from '../../assets/data/region_lore.js';
 export class RegionTooltipUI {
     constructor(uiContainerId = 'ui') {
         this.container = document.getElementById(uiContainerId);
@@ -11,7 +11,7 @@ export class RegionTooltipUI {
         this.title = document.createElement('h3');
         this.tooltip.appendChild(this.title);
 
-        this.description = document.createElement('p');
+       this.description = document.createElement('div');
         this.tooltip.appendChild(this.description);
 
 
@@ -49,7 +49,17 @@ export class RegionTooltipUI {
         const { name, worldPos } = e.detail;
         
         this.title.textContent = name;
-        this.description.textContent = "Descripción de región provisoria.";
+// 3. Buscás la data. Si no existe la key, cae al defaultLore
+        const key = name.toUpperCase();
+        const data = regionLore[key] || defaultLore; 
+// Evaluamos si el string está vacío o tiene etiquetas inútiles
+    const isDescriptionEmpty = data.shortDescription === "" || data.shortDescription === "<p></p>";
+
+
+        
+        this.title.textContent = name;
+        // Inyectás el shortDescription
+       this.description.innerHTML = isDescriptionEmpty ? defaultLore.shortDescription : data.shortDescription;
         
         this.targetWorldPos = worldPos;
         

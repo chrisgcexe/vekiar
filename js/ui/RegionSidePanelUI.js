@@ -1,3 +1,4 @@
+import { regionLore, defaultLore } from '../../assets/data/region_lore.js';
 export class RegionSidePanelUI {
     constructor(uiContainerId = 'ui') {
         this.container = document.getElementById(uiContainerId);
@@ -27,17 +28,9 @@ export class RegionSidePanelUI {
 
         this.panel.appendChild(this.header);
 
-        // Contenido del panel
+       // Contenido del panel
         this.content = document.createElement('div');
         this.content.className = 'region-panel-content';
-        // Guardar el HTML de descripción como template fijo para restaurarlo en cada open()
-        this._descriptionHTML = `
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. 
-            Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor.</p>
-            <p>Ut in nulla enim. Phasellus molestie magna non est bibendum non venenatis nisl tempor. 
-            Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere.</p>
-        `;
-        this.content.innerHTML = this._descriptionHTML;
         this.panel.appendChild(this.content);
 
         // Eventos
@@ -67,14 +60,20 @@ export class RegionSidePanelUI {
     open(e) {
         const { name, places } = e.detail;
         this.title.textContent = name;
+
+        // 2. Buscás la data
+        const key = name.toUpperCase();
+        const data = regionLore[key] || defaultLore;
         
         // Construir DOM de forma segura (sin interpolación de strings) para evitar XSS
         // si algún nombre de lugar contiene caracteres como < o >
         const contentRoot = document.createDocumentFragment();
 
-        // Restaurar bloque de descripción (Lorem ipsum o texto de la región)
+        // 3. Creás el contenedor dinámico y le inyectás el extendedDescription
         const descContainer = document.createElement('div');
-        descContainer.innerHTML = this._descriptionHTML;
+// AGREGAR ESTA LÓGICA DE VALIDACIÓN ACÁ TAMBIÉN:
+        const isExtDescriptionEmpty = data.extendedDescription === "" || data.extendedDescription === "<p></p>";
+        descContainer.innerHTML = isExtDescriptionEmpty ? defaultLore.extendedDescription : data.extendedDescription;
         while (descContainer.firstChild) contentRoot.appendChild(descContainer.firstChild);
 
         if (places && places.length > 0) {

@@ -109,8 +109,10 @@
 
 /* TOOLTIP FLOTANTE (HOVER) */
 .region-tooltip {
-    display: none;
     position: absolute;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.10s ease-in-out, visibility 0.10s ease-in-out;
     background: rgba(15, 20, 30, 0.85);
     border: 1px solid rgba(200, 180, 100, 0.4);
     border-radius: 6px;
@@ -125,6 +127,8 @@
 }
 
 .region-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
     display: block;
 }
 
@@ -142,23 +146,8 @@
     line-height: 1.4;
 }
 
-.region-tooltip-tabs {
-    display: flex;
-    gap: 5px;
-}
 
-.region-tooltip-tab {
-    width: 30px;
-    height: 30px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: white;
-}
+
 
 /* OVERLAY PARA CERRAR EL PANEL */
 .region-panel-overlay {
@@ -232,7 +221,7 @@
 }
 
 .region-panel-content {
-    padding: 30px;
+    padding: 10px 30px 30px 30px;
     color: #ddd;
     font-size: 16px;
     line-height: 1.6;
@@ -243,5 +232,5 @@
 }
 
 .region-panel-content p {
-    margin-bottom: 20px;
+    margin-bottom: 60px;
 }
