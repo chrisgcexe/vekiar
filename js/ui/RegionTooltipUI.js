@@ -14,17 +14,7 @@ export class RegionTooltipUI {
         this.description = document.createElement('p');
         this.tooltip.appendChild(this.description);
 
-        this.tabsContainer = document.createElement('div');
-        this.tabsContainer.className = 'region-tooltip-tabs';
-        this.tooltip.appendChild(this.tabsContainer);
 
-        // Crear pestañas dummy
-        ['1', '2', '3'].forEach(num => {
-            const tab = document.createElement('div');
-            tab.className = 'region-tooltip-tab';
-            tab.textContent = num;
-            this.tabsContainer.appendChild(tab);
-        });
 
         // Vector3 preallocado — evita crear un objeto nuevo en cada frame de update()
         this._projVec = new THREE.Vector3();
