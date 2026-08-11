@@ -44,6 +44,8 @@ export class MapCameraController {
         // Buffers reutilizables para getPointerIntersection — evitan allocations en cada evento wheel/drag
         this._pointerNDC = new THREE.Vector2();
         this._intersectionTarget = new THREE.Vector3();
+        this._zoomDelta = new THREE.Vector3(); // Buffer para zoom-to-mouse diff (BUG1: no puede ser el mismo que _intersectionTarget)
+        this._pointBeforeZoom = new THREE.Vector3(); // Copia del punto pre-zoom para comparar con post-zoom
 
         // Cache del rect del canvas — igual que en MarkerManager
         this._canvasRect = null; // Se inicializa al primer uso y en resize
@@ -200,6 +202,8 @@ export class MapCameraController {
     }
 
     onPointerUp(e) {
+        // BUG 4 fix: solo procesar botón izquierdo o touch para no cancelar el arrastre con click derecho
+        if (e.button !== 0 && e.pointerType !== 'touch') return;
         this._isPointerDown = false;
         this.isDragging = false;
         this.domElement.style.cursor = 'grab';
@@ -218,25 +222,28 @@ export class MapCameraController {
         e.preventDefault();
 
         // 1. Dónde apunta el mouse AHORA en el mundo
-        const pointBeforeZoom = this.getPointerIntersection(e.clientX, e.clientY);
+        const hit1 = this.getPointerIntersection(e.clientX, e.clientY);
+        if (!hit1) return;
+        // BUG 1 fix: copiar el resultado en un buffer separado ANTES de llamar updateCameraPosition,
+        // que internamente usa el mismo _intersectionTarget y lo sobreescribiría.
+        this._pointBeforeZoom.copy(hit1);
 
         // 2. Aplicar el zoom (cambiar distancia)
-        const zoomDelta = Math.sign(e.deltaY) * 2.0; 
+        const zoomDelta = Math.sign(e.deltaY) * 2.0;
         this.distance += zoomDelta;
         this.distance = THREE.MathUtils.clamp(this.distance, this.minDistance, this.maxDistance);
 
-        if (!pointBeforeZoom) return;
-
         // 3. Si no moviéramos el target, ¿dónde caería el mouse después del zoom?
         this.updateCameraPosition();
-        const pointAfterZoom = this.getPointerIntersection(e.clientX, e.clientY);
+        const hit2 = this.getPointerIntersection(e.clientX, e.clientY);
 
-        if (pointAfterZoom) {
+        if (hit2) {
             // 4. Mover el target para compensar el deslizamiento (Zoom-to-Mouse)
-            const delta = new THREE.Vector3().subVectors(pointBeforeZoom, pointAfterZoom);
-            this.target.add(delta);
+            // BUG 5 fix: reusar _zoomDelta en lugar de new THREE.Vector3()
+            this._zoomDelta.subVectors(this._pointBeforeZoom, hit2);
+            this.target.add(this._zoomDelta);
             this.clampTargetToBounds();
-            this.updateCameraPosition(); // Re-actualizar cámara con el nuevo target
+            this.updateCameraPosition();
         }
     }
 
@@ -358,12 +365,13 @@ export class MapCameraController {
         }
 
         // --- INERCIA (Damping) ---
-        if (this.state === 'PLAYING') {
-            if (!this.isDragging) {
-                this.target.add(this.panVelocity);
-                this.panVelocity.multiplyScalar(this.friction);
-                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
-            }
+        // BUG 3 fix: la inercia solo aplica cuando NO se está arrastrando.
+        // Durante el arrastre, onPointerMove ya mueve el target directamente.
+        // Aplicarlo en ambos lados duplicaría el movimiento en cada frame.
+        if (this.state === 'PLAYING' && !this.isDragging) {
+            this.target.add(this.panVelocity);
+            this.panVelocity.multiplyScalar(this.friction);
+            if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
         }
 
         if (this.state === 'PLAYING') {
