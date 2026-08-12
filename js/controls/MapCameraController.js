@@ -59,11 +59,13 @@ export class MapCameraController {
         this.onPointerDown = this.onPointerDown.bind(this);
         this.onPointerMove = this.onPointerMove.bind(this);
         this.onPointerUp = this.onPointerUp.bind(this);
+        this.onPointerCancel = this.onPointerCancel.bind(this);
         this.onWheel = this.onWheel.bind(this);
 
         this.domElement.addEventListener('pointerdown', this.onPointerDown);
         this.domElement.addEventListener('pointermove', this.onPointerMove);
         window.addEventListener('pointerup', this.onPointerUp); // Captura soltar fuera del canvas
+        window.addEventListener('pointercancel', this.onPointerCancel); // El browser abortó el pointer (gesto/touch)
         this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
 
         // Soporte para hacer zoom con las flechas (teclado)
@@ -110,7 +112,10 @@ export class MapCameraController {
     }
 
     updateConstraints(mapAspect) {
-        if (mapAspect === 1.0) return;
+        // (FIX B) Se eliminó el guardia `if (mapAspect === 1.0) return;`. Usaba el
+        // default 1.0 como sentinela y salteaba el cálculo de
+        // calculatedMaxDistance para canvas cuadrados → bounds/zoom quedaban
+        // en el default 60 y maxDistance sin ajustar. Un canvas cuadrado es válido.
         this.mapAspect = mapAspect;
         
         const mapHalfW = 50;
@@ -169,8 +174,13 @@ export class MapCameraController {
             if (dist > 3) {
                 this.isDragging = true;
                 this.domElement.style.cursor = 'grabbing';
+                // Reset lastPointer coordinates when dragging actually starts to avoid a sudden jump
+                this.lastPointerX = e.clientX;
+                this.lastPointerY = e.clientY;
             }
         }
+
+        if (!this.isDragging) return;
 
         // Siempre calculamos el movimiento relativo al último frame para evitar saltos bruscos
         const movementX = e.clientX - this.lastPointerX;
@@ -206,6 +216,20 @@ export class MapCameraController {
         if (e.button !== 0 && e.pointerType !== 'touch') return;
         this._isPointerDown = false;
         this.isDragging = false;
+        this.domElement.style.cursor = 'grab';
+        try {
+            this.domElement.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+    }
+
+    onPointerCancel(e) {
+        // FIX D: el browser abortó el pointer (gesto cancelado, touch fuera del
+        // canvas, etc.). Sin esto, isDragging/_isPointerDown quedan pegados y
+        // el hover de regiones se muere permanentemente hasta el próximo click.
+        if (e.button !== 0 && e.pointerType !== 'touch') return;
+        this._isPointerDown = false;
+        this.isDragging = false;
+        this.panVelocity.set(0, 0, 0);
         this.domElement.style.cursor = 'grab';
         try {
             this.domElement.releasePointerCapture(e.pointerId);
@@ -359,19 +383,26 @@ export class MapCameraController {
             if (progress === 1.0) {
                 this.state = 'PLAYING';
                 window.dispatchEvent(new CustomEvent('camera-flight-finished'));
-                window.dispatchEvent(new CustomEvent('map:ready'));
-                this._mapReady = true;
+                // No forzamos map:ready/_mapReady aquí. Dejamos que el bloque de
+                // detección de estado (abajo) dispare map:ready o map:zoom-out según
+                // closeEnough. Si el vuelo termina a una distancia que aún no es
+                // interactuable, forzar map:ready aquí provocaba un inmediato
+                // map:zoom-out en el mismo frame (flicker de hover/LOD sobre el aterrizaje).
             }
         }
 
         // --- INERCIA (Damping) ---
-        // BUG 3 fix: la inercia solo aplica cuando NO se está arrastrando.
-        // Durante el arrastre, onPointerMove ya mueve el target directamente.
-        // Aplicarlo en ambos lados duplicaría el movimiento en cada frame.
-        if (this.state === 'PLAYING' && !this.isDragging) {
-            this.target.add(this.panVelocity);
-            this.panVelocity.multiplyScalar(this.friction);
-            if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
+        if (this.state === 'PLAYING') {
+            if (this.isDragging) {
+                // Decay the velocity if pointer is held still (no new move events) to avoid sudden drift on release
+                this.panVelocity.multiplyScalar(this.friction);
+                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
+            } else {
+                // Not dragging: apply inertia to target and decay
+                this.target.add(this.panVelocity);
+                this.panVelocity.multiplyScalar(this.friction);
+                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
+            }
         }
 
         if (this.state === 'PLAYING') {
@@ -444,6 +475,7 @@ export class MapCameraController {
         this.domElement.removeEventListener('pointerdown', this.onPointerDown);
         this.domElement.removeEventListener('pointermove', this.onPointerMove);
         window.removeEventListener('pointerup', this.onPointerUp);
+        window.removeEventListener('pointercancel', this.onPointerCancel);
         this.domElement.removeEventListener('wheel', this.onWheel);
     }
 }

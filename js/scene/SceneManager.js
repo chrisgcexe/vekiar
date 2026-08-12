@@ -91,6 +91,7 @@ export class SceneManager {
             } else {
                 // Fallback por si no encuentra el HTML
                 appState.setTerrainReady();
+                if (cameraController) cameraController.playIntro();
             }
 
             return assets; // <-- AGREGAR ESTO ACÁ ANTES DEL CATCH

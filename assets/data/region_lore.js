@@ -98,9 +98,16 @@ export const regionLore = {
     
     "PRIGOS": {
         factions: [],
-        shortDescription: "",
-        extendedDescription: "",
-        relevantCharacters: []
+        shortDescription: `<p>Un país de clima extremo, con un pasado de guerras y conquistas,
+         y un presente de comercio y diplomacia.</p>`,
+        extendedDescription: `<p>Prigos es una inmensa península cerrada al mundo y convertida durante milenios en una especie de fortaleza a grab escala. La habitan los gigantes,
+         una de las especies más inteligentes de Vékiar, cuyo desarrollo científico, filosófico, arquitectónico y militar supera ampliamente al de las demás civilizaciones,
+          a excepción casi únicamente del pueblo irei. Su sociedad gira en torno a la familia, el apellido y los méritos acumulados por cada linaje, hasta el punto de que la vergüenza de un antepasado 
+          puede perseguir a sus descendientes durante generaciones. Profundamente materialistas y convencidos de su propia superioridad, los gigantes mantienen una rígida separación respecto a las demás especies 
+          y castigan con la muerte cualquier mestizaje con humanos. Los extranjeros rara vez penetran más allá de sus puertos y puestos de intercambio, y buena parte de Prigos permanece desconocida incluso para sus vecinos. 
+          Aunque llevan siglos sin afrontar grandes conflictos, continúan construyendo fortificaciones, perfeccionando aleaciones y desarrollando nuevas máquinas de guerra. Prigos lleva milenios preparándose, y nadie más que ellos sabe para qué.</p>`,
+        
+          relevantCharacters: []
     },
     
     "RAUN": {

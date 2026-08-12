@@ -126,7 +126,7 @@ export class MarkerBuilder {
             }
 
             // Hitbox transparente (invisible pero clickeable)
-            geometry = new THREE.PlaneGeometry(boxWidth * 1.6, boxHeight * 1.6);
+            geometry = new THREE.PlaneGeometry(boxWidth * 1.9, boxHeight * 1.9);
             const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
             mesh = new THREE.Mesh(geometry, material);
             // El Z debe coincidir exactamente con la superficie del terreno (posZ) para evitar el paralaje

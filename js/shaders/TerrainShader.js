@@ -127,6 +127,9 @@ float bloomIntensity = finalMask * uFocusedRegionAlpha * 0.25 * pulse;
 gl_FragColor.rgb += bloomColor * bloomIntensity;
 
 // --- TEXTOS DE REGION PROYECTADOS ---
+// Hover identico en todos los modos (overview y juego): las texturas de region se
+// muestrean en su posicion natural (sin agrandar) y el texto bajo el cursor se ilumina
+// con el mismo brillo de siempre, desde el momento en que aparece el overview.
 vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);
 vec4 regionTextGlow = texture2D(tRegionTextGlow, vGlobalPos);
 
@@ -145,7 +148,12 @@ float distFocusText = length(vec2(
 // Si la distancia es mayor a 1.2, isHoveredText es 0.
 float isHoveredText = 1.0 - smoothstep(0.7, 1.2, distHoverText);
 float isFocusedText = 1.0 - smoothstep(0.7, 1.2, distFocusText);
-float textGlowMask = clamp(isHoveredText + isFocusedText, 0.0, 1.0);
+
+// Hover y focus se iluminan por separado:
+// - uHoverTextAlpha enciende el texto bajo el cursor (fade suave) en overview y juego.
+// - uFocusedRegionAlpha enciende la región del focus desde el click hasta cerrar la
+//   ventana (persiste, sin apagarse y volver a encenderse).
+float textGlowMask = clamp(isHoveredText * uHoverTextAlpha + isFocusedText * uFocusedRegionAlpha, 0.0, 1.0);
 
 // Mezclar texto base y texto con brillo
 vec4 finalRegionText = mix(regionTextNormal, regionTextGlow, textGlowMask);

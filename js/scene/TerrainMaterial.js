@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { 
     mapVertexCommon, 
     mapVertexUv, 
@@ -46,11 +46,15 @@ export class TerrainMaterial {
         material.userData.tReferenceMap = { value: assets.referenceTexture };
         material.userData.uHoveredRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uHoverRegionAlpha = { value: 0.0 };
+        material.userData.uHoverTextAlpha = { value: 0.0 };
         material.userData.uFocusedRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uFocusedRegionAlpha = { value: 0.0 };
         
         material.userData.uHoverTextUV = { value: new THREE.Vector3(-1, -1, 1) };
         material.userData.uFocusTextUV = { value: new THREE.Vector3(-1, -1, 1) };
+        // 1 = modo overview (alejado): el hover agranda la letra en vez de iluminarla y dejarla fija.
+        // 0 = modo juego (cercano): comportamiento previo de brillo/hover.
+        material.userData.uOverviewMode = { value: 0.0 };
 
         material.onBeforeCompile = (shader) => {
             shader.uniforms.uZoomAlpha = material.userData.uZoomAlpha;
@@ -70,14 +74,16 @@ export class TerrainMaterial {
             shader.uniforms.tReferenceMap = material.userData.tReferenceMap;
             shader.uniforms.uHoveredRegionColor = material.userData.uHoveredRegionColor;
             shader.uniforms.uHoverRegionAlpha = material.userData.uHoverRegionAlpha;
+            shader.uniforms.uHoverTextAlpha = material.userData.uHoverTextAlpha;
             shader.uniforms.uFocusedRegionColor = material.userData.uFocusedRegionColor;
             shader.uniforms.uFocusedRegionAlpha = material.userData.uFocusedRegionAlpha;
             
             shader.uniforms.uHoverTextUV = material.userData.uHoverTextUV;
             shader.uniforms.uFocusTextUV = material.userData.uFocusTextUV;
+            shader.uniforms.uOverviewMode = material.userData.uOverviewMode;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

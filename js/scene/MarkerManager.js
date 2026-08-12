@@ -32,6 +32,11 @@ export class MarkerManager {
         
         // Tracking para diferenciar click real vs drag (paneo)
         this._mouseDownPos = new THREE.Vector2(-1000, -1000);
+        // Estado para la transición suave del texto de región:
+        // _hoverTextUV (posición real lerpeada por frame) y _hoverTextUVTarget (objetivo).
+        this._hoverTextUV = new THREE.Vector3(-1, -1, 1);
+        this._hoverTextUVTarget = new THREE.Vector3(-1, -1, 1);
+
 
         // Limpiar focus si se hace click en el canvas (fuera de las etiquetas HTML)
         if (this.domElement) {
@@ -60,6 +65,22 @@ export class MarkerManager {
                             // Solo si ya está en el estado interactuable cercano: guardar para abrir panel al aterrizar
                             if (this._focusedRegionId !== null) this.setFocusedRegion(null);
                             this._pendingFocusItem = item;
+                            
+                            // Iluminar el texto del focus durante el vuelo (sin esperar a aterrizar),
+                            // para que la luz persista de forma continua al pasar de hover a focus.
+                            if (this.mapMaterial) {
+                                if (item.data.colorId && this.mapMaterial.userData.uFocusedRegionColor) {
+                                    this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
+                                }
+                                let fu = -1, fv = -1;
+                                if (item.data.uv) { fu = item.data.uv.u; fv = item.data.uv.v; }
+                                else if (item.data.u !== undefined) { fu = item.data.u; fv = item.data.v; }
+                                else if (item.data.position) { fu = (item.data.position.x + 30) / 60; fv = 1.0 - ((item.data.position.y + 20) / 40); }
+                                const fwidth = item.data.textWidthUV || 0.15;
+                                if (this.mapMaterial.userData.uFocusTextUV) {
+                                    this.mapMaterial.userData.uFocusTextUV.value.set(fu, fv, fwidth);
+                                }
+                            }
                         }
                         return;
                 }
@@ -112,12 +133,23 @@ export class MarkerManager {
                 this._canvasRect = this.domElement.getBoundingClientRect();
             }, { passive: true });
 
-            this.domElement.addEventListener('mousemove', (e) => {
+            this.domElement.addEventListener('pointermove', (e) => {
                 const rect = this._canvasRect;
                 this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
                 this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
                 this._lastClientX = e.clientX;
                 this._lastClientY = e.clientY;
+            });
+
+            // Al salir del canvas, sacar el cursor fuera de rango para provocar un raycast
+            // que limpie el hover (el rayo ya no tocará ninguna hitbox/región).
+            this.domElement.addEventListener('pointerleave', (e) => {
+                if (e.pointerType && e.pointerType !== 'mouse') return;
+                this.mouse.x = 2;
+                this.mouse.y = 2;
+                this._lastRaycastMouse.set(-999, -999); // Forzar reevaluación inmediata
+                this._lastClientX = -1;
+                this._lastClientY = -1;
             });
         }
 
@@ -238,15 +270,11 @@ export class MarkerManager {
                 else if (item.data.u !== undefined) { u = item.data.u; v = item.data.v; }
                 else if (item.data.position) { u = (item.data.position.x + 30) / 60; v = 1.0 - ((item.data.position.y + 20) / 40); }
                 const width = item.data.textWidthUV || 0.15;
-                if (this.mapMaterial.userData.uHoverTextUV) {
-                    this.mapMaterial.userData.uHoverTextUV.value.set(u, v, width);
-                }
+                this._hoverTextUVTarget.set(u, v, width);
             }
         } else {
             this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
-            if (this.mapMaterial.userData.uHoverTextUV) {
-                this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
-            }
+            this._hoverTextUVTarget.set(-1, -1, 1);
         }
     }
 
@@ -311,20 +339,14 @@ export class MarkerManager {
                     else if (item.data.u !== undefined) { u = item.data.u; v = item.data.v; }
                     else if (item.data.position) { u = (item.data.position.x + 30) / 60; v = 1.0 - ((item.data.position.y + 20) / 40); }
                     const width = item.data.textWidthUV || 0.15;
-                    if (this.mapMaterial.userData.uHoverTextUV) {
-                        this.mapMaterial.userData.uHoverTextUV.value.set(u, v, width);
-                    }
+                    this._hoverTextUVTarget.set(u, v, width);
                 } else {
                     this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
-                    if (this.mapMaterial.userData.uHoverTextUV) {
-                        this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
-                    }
+                    this._hoverTextUVTarget.set(-1, -1, 1);
                 }
             } else {
                 this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
-                if (this.mapMaterial.userData.uHoverTextUV) {
-                    this.mapMaterial.userData.uHoverTextUV.value.set(-1, -1, 1);
-                }
+                this._hoverTextUVTarget.set(-1, -1, 1);
             }
         }
         
@@ -367,34 +389,83 @@ export class MarkerManager {
     update(zoomAlpha, cameraState, isDragging = false) {
         const isCameraReady = (cameraState === 'PLAYING' || cameraState === 'FLY_TO');
 
-        // Manejar la opacidad global de la textura dinámica de regiones en el shader
+        // Manejar la opacidad global de la textura dinámica de regiones en el shader.
+        // Ramp rápido para que las etiquetas (y por tanto el hover) sean visibles apenas
+        // aparece el overview, sin tener que hacer un ciclo de zoom para verlas.
         if (this.mapMaterial && this.mapMaterial.userData.uRegionOpacity) {
             const targetOpacity = isCameraReady ? 1.0 : 0.0;
             this.mapMaterial.userData.uRegionOpacity.value = THREE.MathUtils.lerp(
                 this.mapMaterial.userData.uRegionOpacity.value, 
                 targetOpacity, 
-                0.05
+                0.15
             );
         }
 
         // Manejar el fade in/out del mapa político (Hover)
         if (this.mapMaterial && this.mapMaterial.userData.uHoverRegionAlpha) {
-            // El hover no se muestra si la misma región está focuseada (para no mezclar textura y color)
-            const targetHoverAlpha = (this._hoveredRegionId && this._hoveredRegionId !== this._focusedRegionId) ? 1.0 : 0.0;
+            // El hover no se muestra si la misma región está focuseada (para no mezclar textura y color).
+            // Funciona igual en overview (!_mapReady) que en el modo interactuable cercano.
+            const overviewHoverActive = !this._mapReady && this._overviewHoveredId !== null;
+            const hoveredId = this._hoveredRegionId || (overviewHoverActive ? this._overviewHoveredId : null);
+            const targetHoverAlpha = (hoveredId && hoveredId !== this._focusedRegionId) ? 1.0 : 0.0;
             this.mapMaterial.userData.uHoverRegionAlpha.value = THREE.MathUtils.lerp(
                 this.mapMaterial.userData.uHoverRegionAlpha.value, 
                 targetHoverAlpha, 
                 0.1
             );
         }
+        // Fade del texto en hover: ilumina el texto bajo el cursor con el MISMO brillo de siempre,
+        // tanto en modo interactuable (cercano) como en modo overview (!_mapReady).
+        if (this.mapMaterial && this.mapMaterial.userData.uHoverTextAlpha) {
+            const overviewHoverActive = !this._mapReady && this._overviewHoveredId !== null;
+            const targetHoverText = (this._hoveredRegionId !== null || overviewHoverActive) ? 1.0 : 0.0;
+            this.mapMaterial.userData.uHoverTextAlpha.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uHoverTextAlpha.value, 
+                targetHoverText, 
+                0.12
+            );
+        }
+        // Uniform de modo conservado por compatibilidad (ya no modifica el muestreo del shader).
+        if (this.mapMaterial && this.mapMaterial.userData.uOverviewMode) {
+            this.mapMaterial.userData.uOverviewMode.value = this._mapReady ? 0.0 : 1.0;
+        }
+        // Posición del texto de hover: se entrega de forma INSTANTÁNEA (sin barrido) sobre el
+        // elemento hovereado, y el encendido/apagado se hace con el fade de alpha (más arriba).
+        // Al desactivar (objetivo x < 0) CONSERVAMOS la última posición mientras el alpha esté
+        // decayendo, para que el glow se apague suavemente desde esa misma región (fade out).
+        // Solo cuando el alpha ya se apagó del todo neutralizamos la posición a un punto fuera
+        // de la textura, garantizando que NO quede iluminación residual "pegada" a la última
+        // región (regresión: antes esto se hacía directamente en setOverviewHover(null)).
+        if (this.mapMaterial && this.mapMaterial.userData.uHoverTextUV) {
+            const hovering = (this._hoveredRegionId !== null || this._overviewHoveredId !== null);
+            const hoverAlpha = this.mapMaterial.userData.uHoverTextAlpha ?
+                               this.mapMaterial.userData.uHoverTextAlpha.value : 0;
+            if (this._hoverTextUVTarget.x >= 0) {
+                // Hover activo: apuntar la posición al texto bajo el cursor (cambio instantáneo).
+                this._hoverTextUV.copy(this._hoverTextUVTarget);
+            } else if (!hovering && hoverAlpha <= 0.005) {
+                // Sin hover y con el fade ya apagado: neutralizar para que isHoveredText ≈ 0
+                // en todo el mapa y el glow no pueda quedarse encendido en una posición vieja.
+                this._hoverTextUV.set(-1, -1, 1);
+            }
+            // Si hay objetivo pendiente o el fade aún está decayendo (hovering o hoverAlpha alto),
+            // no tocamos _hoverTextUV y el glow se apaga desde la última posición.
+            this.mapMaterial.userData.uHoverTextUV.value.copy(this._hoverTextUV);
+        }
         
-        // Manejar el fade in/out del mapa político (Focus)
+
+        
+
+        
+        // Manejar el fade in/out del mapa político (Focus).
+        // Enciende desde el click (vuelo pendiente) y persiste hasta cerrar la ventana,
+        // para que la luz no se apague durante el vuelo ni al abrir el panel.
         if (this.mapMaterial && this.mapMaterial.userData.uFocusedRegionAlpha) {
-            const targetFocusAlpha = this._focusedRegionId ? 1.0 : 0.0;
+            const targetFocusAlpha = (this._focusedRegionId !== null || this._pendingFocusItem !== null) ? 1.0 : 0.0;
             this.mapMaterial.userData.uFocusedRegionAlpha.value = THREE.MathUtils.lerp(
                 this.mapMaterial.userData.uFocusedRegionAlpha.value, 
                 targetFocusAlpha, 
-                0.1
+                0.15
             );
         }
 
