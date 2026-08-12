@@ -116,7 +116,70 @@ export class RegionTexturePainter {
         this.normalCtx    = null;
         this.glowCanvas   = null;
         this.glowCtx      = null;
-        this.isInitialized = false;
+            this.isInitialized = false;
+    }
+
+    /**
+     * Mide el bounding box axial (en píxeles de textura 4096x4096) del nombre de
+     * la región, usando EXACTAMENTE la misma fuente, spacing, curvatura y rotación
+     * que `_drawText`. Devuelve widthPx/heightPx.
+     *
+     * Centraliza la medición para que MarkerBuilder construya la hitbox 3D con el
+     * mismo tamaño que el texto proyectado, evitando que las hitboxes se
+     * superpongan entre regiones vecinas (causa del hover que "a veces salta").
+     *
+     * @param {object} data  Datos del marcador (name, fontSize, letterSpacing, curveRadius, rotation)
+     * @param {CanvasRenderingContext2D} ctx  Contexto 2D (se le asigna font/textAlign/textBaseline)
+     * @returns {{widthPx:number, heightPx:number}}
+     */
+    static measureTextBounds(data, ctx) {
+        const fSize = data.fontSize || 80;
+        const font = `bold ${fSize}px "Georgia", serif`;
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
+        const message = (data.name || '').toUpperCase();
+
+        if (!message) return { widthPx: fSize, heightPx: fSize * 1.5 };
+
+        // Ancho recto idéntico al que usa _drawText para textWidthPixels
+        const straightWidth = ctx.measureText(message).width + (message.length * spacing);
+
+        // Alto real via métricas del browser (ascent + descent)
+        const m = ctx.measureText(message);
+        const heightPx = (m.actualBoundingBoxAscent || 0) + (m.actualBoundingBoxDescent || 0) || (fSize * 1.2);
+
+        let widthPx = straightWidth;
+        let outH = heightPx;
+
+        const curveRadius = data.curveRadius || 0;
+        const rotationDeg = data.rotation || 0;
+
+        if (curveRadius !== 0) {
+            const radius = Math.abs(curveRadius);
+            let totalAngle = 0;
+            for (let i = 0; i < message.length; i++) {
+                const cw = ctx.measureText(message[i]).width;
+                totalAngle += (cw + spacing) / radius;
+            }
+            totalAngle -= spacing / radius;
+            // Envolvente del arco: radio exterior = radius + mitad del glyph
+            const outerR = radius + (fSize * 0.5);
+            widthPx = (2 * outerR * Math.sin(totalAngle / 2)) + (fSize * 0.3);
+            outH = radius * (1 - Math.cos(totalAngle / 2)) + (fSize * 1.0);
+        }
+
+        if (rotationDeg !== 0) {
+            const r = rotationDeg * Math.PI / 180;
+            const c = Math.abs(Math.cos(r));
+            const s = Math.abs(Math.sin(r));
+            const w = widthPx, h = outH;
+            widthPx = w * c + h * s;
+            outH = w * s + h * c;
+        }
+
+        return { widthPx, heightPx: outH };
     }
 
     _drawText(ctx, data, cx, cy, mType, isGlow) {

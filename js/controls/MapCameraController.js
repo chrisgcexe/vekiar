@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 
 export class MapCameraController {
+    // (REFACTOR E) Catalogo de estados cinematograficos + tabla de transiciones validas.
+    static get CINEMATIC_STATES() { return ['INIT', 'DROP_1', 'WAIT_INPUT', 'DROP_2', 'FLY_TO', 'PLAYING']; }
+    static get _TRANSITIONS() {
+        return {
+            'INIT':       ['DROP_1'],
+            'DROP_1':     ['WAIT_INPUT', 'DROP_2', 'PLAYING'],
+            'WAIT_INPUT': ['DROP_2'],
+            'DROP_2':     ['PLAYING'],
+            'FLY_TO':     ['PLAYING', 'FLY_TO'],
+            'PLAYING':    ['FLY_TO'],
+        };
+    }
+
     constructor(camera, domElement) {
         this.camera = camera;
         this.domElement = domElement;
@@ -92,7 +105,7 @@ export class MapCameraController {
                 const btn = document.getElementById('btn-start');
                 if(btn) btn.style.pointerEvents = 'none';
             }
-            this.state = 'DROP_2';
+            this.transitionTo('DROP_2', { reason: 'start' });
         };
 
         setTimeout(() => {
@@ -108,7 +121,28 @@ export class MapCameraController {
     }
 
     playIntro() {
-        this.state = 'DROP_1';
+        this.transitionTo('DROP_1', { reason: 'intro' });
+    }
+
+    /**
+     * (REFACTOR E) Unico punto de transicion de estado cinematografico.
+     * Valida contra la tabla (warn-only: nunca lanza, para no romper runtime) y
+     * conserva el contrato publico: `state` sigue legible por MarkerManager y
+     * los eventos map:ready/map:zoom-out/camera-flight-finished se disparan igual.
+     */
+    transitionTo(newState, { reason = 'auto' } = {}) {
+        const prev = this.state;
+        const states = MapCameraController.CINEMATIC_STATES;
+        const table = MapCameraController._TRANSITIONS;
+        if (!states.includes(newState)) {
+            console.warn('[MapCameraController] estado desconocido: ' + newState + ' (' + reason + ') en ' + prev);
+        }
+        const allowed = table[prev];
+        if (!(allowed && allowed.includes(newState))) {
+            console.warn('[MapCameraController] transicion invalida ' + prev + ' -> ' + newState + ' (' + reason + ')');
+        }
+        this.state = newState;
+        return prev;
     }
 
     updateConstraints(mapAspect) {
@@ -149,7 +183,7 @@ export class MapCameraController {
 
     onPointerDown(e) {
         // Permitir interrumpir el vuelo
-        if (this.state === 'FLY_TO') this.state = 'PLAYING';
+        if (this.state === 'FLY_TO') this.transitionTo('PLAYING', { reason: 'flight-interrupt' });
         if (this.state !== 'PLAYING') return;
         if (e.button !== 0 && e.pointerType !== 'touch') return; // Solo click izquierdo o touch
 
@@ -238,7 +272,7 @@ export class MapCameraController {
 
     onWheel(e) {
         // Permitir interrumpir el vuelo
-        if (this.state === 'FLY_TO') this.state = 'PLAYING';
+        if (this.state === 'FLY_TO') this.transitionTo('PLAYING', { reason: 'flight-interrupt' });
         if (this.state !== 'PLAYING') {
             e.preventDefault();
             return;
@@ -350,7 +384,7 @@ export class MapCameraController {
             } else {
                 this.distance = idleDist;
                 this.maxDistance = idleDist; 
-                this.state = 'WAIT_INPUT';
+                this.transitionTo('WAIT_INPUT', { reason: 'intro_complete' });
                 if (this.mapInstance) this.mapInstance.updateUnfurl(1.0);
                 const idlePrompt = document.getElementById('idle-prompt');
                 if (idlePrompt) idlePrompt.classList.add('show-idle');
@@ -362,7 +396,7 @@ export class MapCameraController {
             } else {
                 this.distance = playableDist;
                 this.maxDistance = playableDist; 
-                this.state = 'PLAYING';
+                this.transitionTo('PLAYING', { reason: 'drop2' });
                 const compassUI = document.getElementById('compass');
                 if (compassUI) compassUI.classList.add('show-compass');
             }
@@ -381,7 +415,7 @@ export class MapCameraController {
             this.target.copy(this._flyStartTarget).lerp(this._flyEndTarget, easeProgress);
 
             if (progress === 1.0) {
-                this.state = 'PLAYING';
+                this.transitionTo('PLAYING', { reason: 'flight_end' });
                 window.dispatchEvent(new CustomEvent('camera-flight-finished'));
                 // No forzamos map:ready/_mapReady aquí. Dejamos que el bloque de
                 // detección de estado (abajo) dispare map:ready o map:zoom-out según
@@ -413,12 +447,21 @@ export class MapCameraController {
         if (this.state === 'PLAYING') {
             const flyLandingDist = 28;
             const playableDist = this.calculatedMaxDistance || 60;
-            const readyThreshold = (flyLandingDist - this.minDistance) / (playableDist - this.minDistance) + 0.02;
+            // (FIX E - histeresis): zoomAlpha no se lerpea y el scroll mueve
+            // distance en saltos de 2.0; un solo umbral hacia a flicker
+            // ready<->zoom-out al hacer zoom en la frontera. Un deadband entre
+            // la entrada y la salida lo estabiliza. El event contract se mantiene.
+            const landT = (flyLandingDist - this.minDistance) / (playableDist - this.minDistance);
+            const ZOOM_IN_EPS  = 0.02; // entrada: acercarse lo suficiente
+            const ZOOM_OUT_EPS = 0.05; // salida: alejarse un poco mas (histeresis)
+            const readyThreshold  = landT + ZOOM_IN_EPS;
+            const zoomOutThreshold = landT + ZOOM_IN_EPS + ZOOM_OUT_EPS;
             const closeEnough = this.zoomAlpha <= readyThreshold;
+            const farEnough   = this.zoomAlpha >= zoomOutThreshold;
             if (closeEnough && !this._mapReady) {
                 this._mapReady = true;
                 window.dispatchEvent(new CustomEvent('map:ready'));
-            } else if (!closeEnough && this._mapReady) {
+            } else if (farEnough && this._mapReady) {
                 this._mapReady = false;
                 window.dispatchEvent(new CustomEvent('map:zoom-out'));
             }
@@ -468,7 +511,7 @@ export class MapCameraController {
         
         this.panVelocity.set(0,0,0);
         this.isDragging = false;
-        this.state = 'FLY_TO';
+        this.transitionTo('FLY_TO', { reason: 'request' });
     }
 
     dispose() {

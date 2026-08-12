@@ -214,13 +214,13 @@ export class MarkerManager {
             if (e.key === '2') {
                 this._debugHitboxesVisible = !this._debugHitboxesVisible;
                 this.markersGroup.children.forEach(child => {
-                    // Solo las hitboxes transparentes que creamos en MarkerBuilder tienen MeshBasicMaterial con color rojo o transparente
-                    if (child.material && child.material.transparent !== undefined) {
-                        // Verificamos si es una hitbox asumiendo que empieza oculta (o si su color es rojo)
-                        if (child.material.color && child.material.color.getHex() === 0xff0000) {
-                            child.material.opacity = this._debugHitboxesVisible ? 0.4 : 0.0;
-                            child.material.wireframe = this._debugHitboxesVisible;
-                        }
+                    // Solo las hitboxes que creamos en MarkerBuilder (flag userData.isHitbox).
+                    // Se mantiene el chequeo por color rojo como respaldo por si el flag falta.
+                    const isHitbox = (child.userData && child.userData.isHitbox === true)
+                        || (child.material && child.material.color && child.material.color.getHex() === 0xff0000);
+                    if (isHitbox) {
+                        child.material.opacity = this._debugHitboxesVisible ? 0.4 : 0.0;
+                        child.material.wireframe = this._debugHitboxesVisible;
                     }
                 });
             }

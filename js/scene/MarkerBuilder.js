@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-
+import { RegionTexturePainter } from './RegionTexturePainter.js';
 export class MarkerBuilder {
     constructor(manager) {
         this.manager = manager;
@@ -103,43 +103,37 @@ export class MarkerBuilder {
             };
             this.manager.markersGroup.add(mesh);
         } else if (markerType === 'region') {
-            // Generar un hitbox interactivo ajustado al texto
-            const fSize = data.fontSize || 80;
-            const textLen = data.name ? data.name.length : 10;
-            const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
-            
-            // Aproximación de tamaño en píxeles (las mayúsculas de Georgia Bold son anchas)
-            const approxWidthPx = (fSize * 0.8 * textLen) + (spacing * (textLen - 1));
-            
-            // Convertir a unidades de mundo (aproximado)
-            // Ancho del mapa: 60 unidades = 4096 px. Alto del mapa: 40 unidades = 4096 px.
-            let boxWidth = approxWidthPx * (60 / 4096);
-            
-            // Margen vertical generoso para facilitar el hover (1.5x)
-            let boxHeight = (fSize * 1.5) * (40 / 4096);
-
-            // Ajuste empírico para texto curvo
-            if (data.curveRadius) {
-                // Al curvarse, el bounding box abarca más espacio
-                boxWidth *= 1.3;
-                boxHeight += Math.min(Math.abs(data.curveRadius) * (40 / 4096) * 1.5, 10);
+            // Generar un hitbox interactivo ajustado al tamaño REAL del texto proyectado.
+            if (!this._measureCtx) {
+                const c = document.createElement('canvas');
+                this._measureCtx = c.getContext('2d');
             }
+            // Medir con measureText (misma fuente/spacing/curve/rotación que RegionTexturePainter)
+            const { widthPx, heightPx } = RegionTexturePainter.measureTextBounds(data, this._measureCtx);
 
-            // Hitbox transparente (invisible pero clickeable)
-            geometry = new THREE.PlaneGeometry(boxWidth * 1.9, boxHeight * 1.9);
+            // Convertir píxeles de textura 4096x4096 a unidades de mundo:
+            // Ancho mapa 60 = 4096px, Alto mapa 40 = 4096px.
+            const mapW = 60, mapH = 40, texSize = 4096;
+            const boxWidth = widthPx * (mapW / texSize);
+            const boxHeight = heightPx * (mapH / texSize);
+
+            // Margen moderado: suficiente para el hover sin superponerse a regiones vecinas.
+            const HIT_MARGIN = 1.3;
+            geometry = new THREE.PlaneGeometry(boxWidth * HIT_MARGIN, boxHeight * HIT_MARGIN);
             const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
             mesh = new THREE.Mesh(geometry, material);
-            // El Z debe coincidir exactamente con la superficie del terreno (posZ) para evitar el paralaje
-            // al rotar la cámara. Ya no usamos offsets artificiales porque depthTest: false garantiza el hover.
+            // El Z debe coincidir exactamente con la superficie del terreno (posZ) para evitar paralaje
+            // al rotar la cámara. depthTest: false garantiza el hover sin offsets artificiales.
             mesh.position.set(posX, posY, posZ);
-            
-            // Aplicar rotación
+
+            // Aplicar rotación (el signo negativo compensa el eje Y de canvas vs three)
             if (data.rotation) {
                 mesh.rotation.z = -data.rotation * Math.PI / 180;
             }
-            
-            mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType };
+
+            mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType, isHitbox: true };
             this.manager.markersGroup.add(mesh);
+
         }
 
         // --- Label CSS2D ---
