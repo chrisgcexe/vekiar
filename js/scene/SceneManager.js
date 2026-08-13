@@ -34,13 +34,23 @@ export class SceneManager {
         this._vignetteEl = null;
         this._lastVignetteAlpha = -1;
     }
-
-    _setupLights() {
-        // ... (Tus luces originales quedan igual)[cite: 16]
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
-        this.scene.add(ambientLight);
+_setupLights() {
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+        this.scene.add(this.ambientLight);
+        
         this.sunLight = new THREE.DirectionalLight(0xffe4b5, 1.5);
-        this.sunLight.position.set(-40, 45, -40); 
+        this.scene.add(this.sunLight);
+
+        // Posición inicial exacta para el frame 0 del ciclo (ángulo 0)
+        const radius = 200;
+        const angle = Math.PI / 2;
+        const offsetX = Math.cos(Math.PI / 4);
+        const offsetZ = Math.sin(Math.PI / 4);
+
+        this.sunLight.position.x = Math.cos(angle) * radius * offsetX;
+        this.sunLight.position.y = Math.sin(angle) * radius;
+        this.sunLight.position.z = Math.sin(angle) * radius * 0.5 + (radius * 0.5 * offsetZ);
+
         this.sunLight.castShadow = true;
         this.sunLight.shadow.camera.left = -60;
         this.sunLight.shadow.camera.right = 60;
@@ -51,9 +61,7 @@ export class SceneManager {
         this.sunLight.shadow.mapSize.width = 2048;
         this.sunLight.shadow.mapSize.height = 2048;
         this.sunLight.shadow.bias = -0.001;
-        this.scene.add(this.sunLight);
     }
-
     // AÑADIMOS cameraController A LOS ARGUMENTOS
     async initializeVekiar(appState, mapInstance, cameraController) {
         
@@ -107,9 +115,9 @@ export class SceneManager {
         // evita escritura DOM (style.opacity) y cambio de intensidad cada frame.
         if (Math.abs(alpha - this._lastVignetteAlpha) > 0.002) {
             this._lastVignetteAlpha = alpha;
-            if (this.sunLight) {
+           /* if (this.sunLight) {
                 this.sunLight.intensity = 0.8 + alpha * 0.7;
-            }
+            }*/
             if (!this._vignetteEl) this._vignetteEl = document.getElementById('vignette');
             if (this._vignetteEl) {
                 this._vignetteEl.style.opacity = alpha;

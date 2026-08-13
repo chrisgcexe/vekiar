@@ -37,20 +37,19 @@ export class RegionSidePanelUI {
         window.addEventListener('marker:region-open-panel', this.open.bind(this));
         
         // Delegación de eventos para sincronizar hover con el mundo 3D
-        this.content.addEventListener('mouseover', (e) => {
-            const li = e.target.closest('.region-place-item');
-            if (li && li.dataset.id) {
-                window.dispatchEvent(new CustomEvent('marker:force-hover', { detail: { id: li.dataset.id } }));
+this.content.addEventListener('mouseover', (e) => {
+            const item = e.target.closest('.region-place-item');
+            if (item && item.dataset.id) {
+                window.dispatchEvent(new CustomEvent('marker:force-hover', { detail: { id: item.dataset.id } }));
             }
         });
 
         this.content.addEventListener('mouseout', (e) => {
-            const li = e.target.closest('.region-place-item');
-            if (li && li.dataset.id) {
-                window.dispatchEvent(new CustomEvent('marker:force-unhover', { detail: { id: li.dataset.id } }));
+            const item = e.target.closest('.region-place-item');
+            if (item && item.dataset.id) {
+                window.dispatchEvent(new CustomEvent('marker:force-unhover', { detail: { id: item.dataset.id } }));
             }
         });
-
         // Cerrar al clickear fuera (en el overlay)
         this.overlay.addEventListener('click', () => {
             this.close();
@@ -84,7 +83,7 @@ export class RegionSidePanelUI {
                 groups[typeName].push(p);
             });
 
-            for (const [type, items] of Object.entries(groups)) {
+for (const [type, items] of Object.entries(groups)) {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'region-places-group';
 
@@ -92,19 +91,19 @@ export class RegionSidePanelUI {
                 typeHeading.textContent = type;
                 groupDiv.appendChild(typeHeading);
 
-                const ul = document.createElement('ul');
-                ul.style.paddingLeft = '0';
+                // Contenedor con la clase de CSS en lugar de un <ul>
+                const gridContainer = document.createElement('div');
+                gridContainer.className = 'region-places-grid';
 
                 items.forEach(itemObj => {
-                    const li = document.createElement('li');
+                    const li = document.createElement('div'); // Cambiado a div para la grilla
                     li.className = 'region-place-item';
                     li.dataset.id = itemObj.id;
-                    li.style.cssText = 'list-style-type: none; cursor: pointer; margin-bottom: 4px;';
-                    li.textContent = itemObj.name; // textContent — nunca interpreta HTML
-                    ul.appendChild(li);
+                    li.textContent = itemObj.name; // textContent para evitar XSS
+                    gridContainer.appendChild(li);
                 });
 
-                groupDiv.appendChild(ul);
+                groupDiv.appendChild(gridContainer);
                 contentRoot.appendChild(groupDiv);
             }
         } else {

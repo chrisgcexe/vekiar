@@ -9,6 +9,7 @@ import { AppState } from './state/AppState.js';
 import { MapEditor } from './scene/MapEditor.js?v=2';
 import { RegionTooltipUI } from './ui/RegionTooltipUI.js';
 import { RegionSidePanelUI } from './ui/RegionSidePanelUI.js';
+import { DayNightCycle } from './systems/DayNightCycle.js';
 
 // 1. Instanciamos las clases base
 const appState = new AppState();
@@ -28,6 +29,8 @@ const cameraController = new MapCameraController(sceneManager.camera, sceneManag
 // --- CONECTAMOS EL MAPA AL CONTROLADOR ACÁ ---
 cameraController.setMap(map);
 const compass = new Compass(cameraController);
+const dayNightCycle = new DayNightCycle(5, 10);
+
 
 // 2. Función Principal Asíncrona
 async function startApp() {
@@ -73,9 +76,13 @@ async function startApp() {
     // Cache de referencias a uniforms (evita lookup por string key en userData cada frame)
     let _uZoomAlpha = null, _uTime = null, _lastDispAlpha = -1;
 
+    const clock = new THREE.Clock();
+
     function animate(timeMs) {
         requestAnimationFrame(animate);
         
+        const delta = clock.getDelta();
+
         const aspect = map.aspect || 1.0; 
         cameraController.update(aspect);
         appState.update(timeMs, cameraController, map, sceneManager.camera); 
@@ -139,6 +146,9 @@ async function startApp() {
         // Actualizar visibilidad de marcadores según el zoom actual (sistema LOD) y el estado de la cámara
         if (appState.isReady) {
             mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
+            if (isPlaying) {
+            dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
+            }
         }
 
         // IMPORTANTE: Actualizar tooltip DESPUÉS de la cámara para evitar temblor

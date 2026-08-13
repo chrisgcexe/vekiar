@@ -134,7 +134,7 @@
 
 .region-tooltip h3 {
     margin: 0 0 5px 0;
-    font-size: 18px;
+    font-size: 10px;
     color: #f0d78c;
     letter-spacing: 1px;
 }
@@ -146,6 +146,19 @@
     line-height: 1.4;
 }
 
+.region-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: rgba(15, 20, 30, 0.85);
+    border-right: 1px solid rgba(200, 180, 100, 0.4);
+    border-bottom: 1px solid rgba(200, 180, 100, 0.4);
+    z-index: 11;
+}
 
 
 
@@ -231,6 +244,42 @@
     -webkit-user-select: text;
 }
 
+
+
 .region-panel-content p {
     margin-bottom: 60px;
+}
+
+/* Contenedor de la grilla de lugares */
+.region-places-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Ítem individual de la grilla */
+.region-place-item {
+    cursor: pointer;
+    padding: 0px 10px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    font-size: 0.9rem;
+    text-align: center;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.2);
+    transform: scale(1);
+    will-change: transform, color, border-color;
+    transition:all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.region-place-item:hover {
+    /* El borde y el color del texto cambian al amarillo */
+    background: rgba(212, 175, 55, 0.15);
+    border-color: #f0d78c;
+    color: #f0d78c;
+    
+    /* Efecto de elevación y expansión */
+    transform: scale(1.08) translateY(-2px);
+    z-index: 2;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Sombra para despegarlo del fondo */
 }
