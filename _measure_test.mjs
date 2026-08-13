@@ -18,7 +18,7 @@ function measureTextBounds(data, ctx) {
   const spacing = data.letterSpacing !== undefined ? data.letterSpacing : Math.floor(fSize * 0.25);
   const message = (data.name || '').toUpperCase();
   if (!message) return { widthPx: fSize, heightPx: fSize * 1.5 };
-  const straightWidth = ctx.measureText(message).width + (message.length * spacing);
+  const straightWidth = ctx.measureText(message).width + ((message.length - 1) * spacing);
   const m = ctx.measureText(message);
   const heightPx = (m.actualBoundingBoxAscent || 0) + (m.actualBoundingBoxDescent || 0) || (fSize * 1.2);
   let widthPx = straightWidth, outH = heightPx;
@@ -52,8 +52,8 @@ for (const d of cases) {
   const finite = Number.isFinite(r.widthPx) && Number.isFinite(r.heightPx) && r.widthPx > 0 && r.heightPx > 0;
   const fSize = d.fontSize || 80;
   const oldApprox = (fSize * 0.8 * d.name.length) + (Math.floor(fSize * 0.25) * (d.name.length - 1));
-  const realWorldW = r.widthPx * (60 / 4096) * 1.3;
-  const oldWorldW = oldApprox * (60 / 4096) * 1.9;
+  const realWorldW = r.widthPx * (100 / 4096) * 1.3;
+  const oldWorldW = oldApprox * (100 / 4096) * 1.9;
   console.log(JSON.stringify(d), '->', JSON.stringify(r), '| finite>0:', finite, '| worldW px real/old:', realWorldW.toFixed(2), '/', oldWorldW.toFixed(2));
   if (!finite) ok = false;
 }

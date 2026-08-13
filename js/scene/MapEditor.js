@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { MarkerManager } from './MarkerManager.js?v=2';
+import { MarkerManager } from './MarkerManager.js?v=3';
 import { EditorUI } from '../ui/EditorUI.js';
 import { AssetLoader } from '../utils/AssetLoader.js';
 
 export class MapEditor {
-    constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture) {
+    constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture, regionMasks, getSurfaceHeight) {
         this.scene = scene;
         this.camera = camera;
         this.domElement = domElement;
@@ -12,6 +12,7 @@ export class MapEditor {
         this.mapMaterial = mapMaterial;           
         this.referenceTexture = referenceTexture; 
         this.normalTexture = normalTexture;       
+        this.getSurfaceHeight = getSurfaceHeight || null;
 
         this.enabled = false;
         this.isReferenceView = false;
@@ -21,7 +22,7 @@ export class MapEditor {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial, this.camera, this.domElement);
+        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial, this.camera, this.domElement, this.getSurfaceHeight);
 
         this.initStorage();
         this.ui = new EditorUI(this);

@@ -46,7 +46,8 @@ async function startApp() {
         map.material,
         assets.referenceTexture, // La textura con nombres plana
         assets.colorTexture,     // La textura 3D normal
-        assets.regionMasks       // Texturas PNG pre-subidas a VRAM
+        assets.regionMasks,      // Texturas PNG pre-subidas a VRAM
+        map.getSurfaceHeight     // Muestreo de altura de superficie para hitboxes de regiones
     );
 
     // Click en una región (de lejos) -> dolly de cámara hacia ella

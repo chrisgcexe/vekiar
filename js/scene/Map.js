@@ -94,6 +94,29 @@ export class Map {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             const displacementScale = 3.5;
 
+            // Guardar una versión reducida del heightmap (canal R = elevación) para consultar
+            // la altura de la superficie en el hit-testing de regiones, sin raycastear el terreno.
+            this._elevW = 512;
+            this._elevH = 512;
+            this._elevation = new Uint8Array(this._elevW * this._elevH);
+            {
+                const _srcW = canvas.width, _srcH = canvas.height;
+                for (let j = 0; j < this._elevH; j++) {
+                    const sy = Math.min(_srcH - 1, Math.floor((j / this._elevH) * _srcH));
+                    for (let i = 0; i < this._elevW; i++) {
+                        const sx = Math.min(_srcW - 1, Math.floor((i / this._elevW) * _srcW));
+                        this._elevation[j * this._elevW + i] = imageData[(sy * _srcW + sx) * 4];
+                    }
+                }
+            }
+            this.getSurfaceHeight = (x, y) => {
+                const u = (x + 50) / 100;
+                const v = (y + 50) / 100;
+                const ix = Math.min(this._elevW - 1, Math.max(0, Math.floor(u * (this._elevW - 1))));
+                const iy = Math.min(this._elevH - 1, Math.max(0, Math.floor((1.0 - v) * (this._elevH - 1))));
+                return (this._elevation[iy * this._elevW + ix] / 255.0) * 3.5;
+            };
+
             const worker = new Worker('./js/workers/mapWorker.js', { type: 'module' });
 
             worker.onmessage = (e) => {

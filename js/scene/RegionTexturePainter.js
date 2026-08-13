@@ -52,8 +52,8 @@ export class RegionTexturePainter {
                 const posX = data.position ? data.position.x : data.x;
                 const posY = data.position ? data.position.y : data.y;
                 if (posX !== undefined && posY !== undefined) {
-                    u = (posX + 30) / 60;
-                    v = 1.0 - ((posY + 20) / 40);
+                    u = (posX + 50) / 100;
+                    v = (posY + 50) / 100;
                 }
             }
             
@@ -143,8 +143,9 @@ export class RegionTexturePainter {
 
         if (!message) return { widthPx: fSize, heightPx: fSize * 1.5 };
 
-        // Ancho recto idéntico al que usa _drawText para textWidthPixels
-        const straightWidth = ctx.measureText(message).width + (message.length * spacing);
+        // Ancho recto idéntico al que usa _drawText para textWidthPixels.
+        // El letter-spacing real solo se aplica ENTRE caracteres: (len - 1) * spacing.
+        const straightWidth = ctx.measureText(message).width + ((message.length - 1) * spacing);
 
         // Alto real via métricas del browser (ascent + descent)
         const m = ctx.measureText(message);
@@ -152,6 +153,10 @@ export class RegionTexturePainter {
 
         let widthPx = straightWidth;
         let outH = heightPx;
+        // Desvío vertical (en px de textura) del centro visual del arco respecto del ancla:
+        // solo distinto de 0 para textos curvados. Se usa para centrar la hitbox/glow sobre
+        // el texto curvo. Magnitud = sagita del arco (no es un porcentaje fijo del radio).
+        let offsetPx = 0;
 
         const curveRadius = data.curveRadius || 0;
         const rotationDeg = data.rotation || 0;
@@ -168,6 +173,8 @@ export class RegionTexturePainter {
             const outerR = radius + (fSize * 0.5);
             widthPx = (2 * outerR * Math.sin(totalAngle / 2)) + (fSize * 0.3);
             outH = radius * (1 - Math.cos(totalAngle / 2)) + (fSize * 1.0);
+            // Sagita del arco con el signo de la curvatura (deriva del centro del arco).
+            offsetPx = Math.sign(curveRadius) * (radius * (1 - Math.cos(totalAngle / 2)));
         }
 
         if (rotationDeg !== 0) {
@@ -177,9 +184,11 @@ export class RegionTexturePainter {
             const w = widthPx, h = outH;
             widthPx = w * c + h * s;
             outH = w * s + h * c;
+            // NOTA: para texto curvo+rotado la dirección del offset también rota; hoy no hay
+            // regiones con ese caso, se aplica a lo largo del eje local para mantener simplicidad.
         }
 
-        return { widthPx, heightPx: outH };
+        return { widthPx, heightPx: outH, offsetPx };
     }
 
     _drawText(ctx, data, cx, cy, mType, isGlow) {
@@ -190,8 +199,8 @@ export class RegionTexturePainter {
         const curveRadius = data.curveRadius || 0;
         const rotationDeg = data.rotation || 0;
         
-        // Medir ancho para la máscara elíptica del shader
-        const textWidthPixels = ctx.measureText(message).width + (message.length * spacing);
+        // Medir ancho para la máscara elíptica del shader ((len - 1) espaciados entre caracteres)
+        const textWidthPixels = ctx.measureText(message).width + ((message.length - 1) * spacing);
         
         if (isGlow) {
             // Todos los textos en esta textura tienen el brillo amarillo

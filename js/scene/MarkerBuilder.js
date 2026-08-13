@@ -109,29 +109,58 @@ export class MarkerBuilder {
                 this._measureCtx = c.getContext('2d');
             }
             // Medir con measureText (misma fuente/spacing/curve/rotación que RegionTexturePainter)
-            const { widthPx, heightPx } = RegionTexturePainter.measureTextBounds(data, this._measureCtx);
+            const { widthPx, heightPx, offsetPx = 0 } = RegionTexturePainter.measureTextBounds(data, this._measureCtx);
 
-            // Convertir píxeles de textura 4096x4096 a unidades de mundo:
-            // Ancho mapa 60 = 4096px, Alto mapa 40 = 4096px.
-            const mapW = 60, mapH = 40, texSize = 4096;
-            const boxWidth = widthPx * (mapW / texSize);
-            const boxHeight = heightPx * (mapH / texSize);
+            // Convertir píxeles de textura 4096x4096 a unidades de mundo LOCALES:
+            // El terreno mide 100x100 unidades locales y el UV va 0..1 sobre TODO el mapa,
+            // por lo que 1px de textura = 100/4096 unidades (mismo factor en X e Y).
+            // NOTA: el espacio local es CUADRADO (100x100) y la textura de regiones es 4096x4096
+            // muestreada con UV cuadrado (vGlobalPos = uv). Las cajas viven en el MISMO grupo
+            // escalado (mapPlaneGroup.scale.y = 1/aspect) que el terreno y el texto, así que el
+            // achatamiento por aspect se aplica a ambos por igual y NO debe compensarse aquí.
+            const texSize = 4096, mapUnits = 100;
+            let boxWidth = widthPx * (mapUnits / texSize);
+            let boxHeight = heightPx * (mapUnits / texSize);
 
-            // Margen moderado: suficiente para el hover sin superponerse a regiones vecinas.
-            const HIT_MARGIN = 1.3;
-            geometry = new THREE.PlaneGeometry(boxWidth * HIT_MARGIN, boxHeight * HIT_MARGIN);
+            // Margen justo (antes 1.3): el collider se adhiere a los límites medidos del texto,
+            // evitando holgura/solapamiento entre regiones vecinas.
+            const HIT_MARGIN = 1.05;
+            boxWidth *= HIT_MARGIN;
+            boxHeight *= HIT_MARGIN;
+
+            // Texto curvo: el centro visual del arco se desvía del ancla por la sagita (offsetPx).
+            // Solo distinto de 0 si hay curveRadius (hoy ningún type:'region' lo usa; queda
+            // preparado para future-proofing). Signo/magnitud = calibración empírica pendiente.
+            let offsetY = 0;
+            if (offsetPx) {
+                offsetY = -offsetPx * (mapUnits / texSize); // eje Y del canvas ↔ local están invertidos
+            }
+
+            geometry = new THREE.PlaneGeometry(boxWidth, boxHeight);
             const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
             mesh = new THREE.Mesh(geometry, material);
-            // El Z debe coincidir exactamente con la superficie del terreno (posZ) para evitar paralaje
-            // al rotar la cámara. depthTest: false garantiza el hover sin offsets artificiales.
-            mesh.position.set(posX, posY, posZ);
+            // El Z ancla el plano a la altura guardada del marcador (world Y = posZ tras la
+            // rotación del grupo). El hit-testing intersecta en ESE plano, de modo que la caja
+            // de debug (tecla '2') ES el collider exacto.
+            mesh.position.set(posX, posY + offsetY, posZ);
 
             // Aplicar rotación (el signo negativo compensa el eje Y de canvas vs three)
             if (data.rotation) {
                 mesh.rotation.z = -data.rotation * Math.PI / 180;
             }
 
-            mesh.userData = { id: data.id, name: data.name, region: data.region, type: markerType, isHitbox: true };
+            // AABB plano para el hit-testing por punto, anclado al plano del box.
+            mesh.userData = {
+                id: data.id, name: data.name, region: data.region, type: markerType, isHitbox: true,
+                hit: {
+                    cx: posX,
+                    cy: posY + offsetY,
+                    w: boxWidth,
+                    h: boxHeight,
+                    rot: mesh.rotation.z, // radianes, el mismo ángulo aplicado al plano
+                    zAnchor: posZ // world Y del plano horizontal sobre el que se detecta
+                }
+            };
             this.manager.markersGroup.add(mesh);
 
         }

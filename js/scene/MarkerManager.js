@@ -17,16 +17,24 @@ export class MarkerManager {
      * @param {THREE.Group}  mapPlaneGroup - Grupo rotado del mapa (meshes 3D de iconos)
      * @param {THREE.Scene}  scene         - Escena raiz (labels CSS2D, sin rotación)
      */
-    constructor(mapPlaneGroup, scene, mapMaterial, camera, domElement) {
+    constructor(mapPlaneGroup, scene, mapMaterial, camera, domElement, getSurfaceHeight) {
         this.mapPlaneGroup = mapPlaneGroup;
         this.scene = scene;
         this.mapMaterial = mapMaterial;
         this.camera = camera;
         this.domElement = domElement;
+        this.getSurfaceHeight = getSurfaceHeight || null;
+        // Falso = detección "plana/exacta": el collider coincide con el box de debug (tecla '2'),
+        // intersectando el rayo en el plano world Y = posZ de cada región.
+        // Verdadero = el collider sigue el relieve real del terreno (debug comparativo).
+        this._reliefColliders = false;
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2(-1, -1);
         this._lastRaycastMouse = new THREE.Vector2(-10, -10); // caché para no raycastear si no se mueve
+        // Firma (matriz mundo) de la cámara del último raycast: si cambia pos/rot aunque
+        // el puntero esté quieto, forzamos re-castear para seguir el mundo en movimiento.
+        this._lastCameraSig = null;
         this.hoveredMeshId = null;
         this._focusedRegionId = null; // Región seleccionada (focus)
         
@@ -36,6 +44,11 @@ export class MarkerManager {
         // _hoverTextUV (posición real lerpeada por frame) y _hoverTextUVTarget (objetivo).
         this._hoverTextUV = new THREE.Vector3(-1, -1, 1);
         this._hoverTextUVTarget = new THREE.Vector3(-1, -1, 1);
+
+        // Reutilizables para la detección de regiones por punto (sin raycastear el terreno).
+        this._mapPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        this._planeHit = new THREE.Vector3();
+        this._localPoint = new THREE.Vector3();
 
 
         // Limpiar focus si se hace click en el canvas (fuera de las etiquetas HTML)
@@ -161,6 +174,8 @@ export class MarkerManager {
         this.markersGroup = new THREE.Group();
         this.markersGroup.name = "markersGroup";
         if (this.mapPlaneGroup) this.mapPlaneGroup.add(this.markersGroup);
+        // Matriz de mundo lista para worldToLocal()/localToWorld() en el hit-testing.
+        if (this.mapPlaneGroup) this.mapPlaneGroup.updateWorldMatrix(true, false);
 
         // Registro de todos los items activos para el sistema LOD de visibilidad.
         this._items = [];
@@ -233,6 +248,72 @@ export class MarkerManager {
 
     spawnVisualMarker(data) {
         this.builder.spawnVisualMarker(data);
+    }
+
+    /**
+     * Devuelve el id de la región bajo el puntero. Modo por defecto "plana/exacta":
+     * se intersecta el rayo con el MISMO plano horizontal (world Y = posZ) que ancla el box
+     * de debug (tecla '2'), así el collider coincide exactamente con lo que se ve y no hay
+     * parallax del relieve. Modo alternativo (_reliefColliders = true): sigue el relieve real.
+     *
+     * @param {THREE.Raycaster} raycaster - Ya configurado con el rayo del puntero.
+     * @returns {string|null} id de la región más específica (área menor) o null.
+     */
+    _regionAtPointer(raycaster) {
+        let bestId = null, bestArea = Infinity;
+
+        for (const item of this._items) {
+            if (item.type !== 'region') continue;
+            const mesh = item.mesh;
+            if (!mesh || !mesh.userData || !mesh.userData.hit) continue;
+            const hit = mesh.userData.hit;
+
+            // Intersectar el rayo en el plano world Y = zAnchor (el Z local del box de debug).
+            // NOTA: THREE.Plane usa "normal·punto + constant = 0"; para world Y = h hace falta
+            // constant = -h.
+            const planeY = (hit.zAnchor !== undefined) ? hit.zAnchor
+                : (mesh.position ? mesh.position.z : 0);
+            this._mapPlane.constant = -planeY;
+            if (!raycaster.ray.intersectPlane(this._mapPlane, this._planeHit)) continue;
+            this._localPoint.copy(this._planeHit);
+            this.mapPlaneGroup.worldToLocal(this._localPoint);
+
+            // Modo debug comparativo: re-muestrear la superficie real (Newton) para que el
+            // collider siga el relieve en vez del plano plano de la caja.
+            if (this._reliefColliders && this.getSurfaceHeight) {
+                for (let it = 0; it < 3; it++) {
+                    const h = this.getSurfaceHeight(this._localPoint.x, this._localPoint.y);
+                    this._mapPlane.constant = -h;
+                    if (!raycaster.ray.intersectPlane(this._mapPlane, this._planeHit)) break;
+                    this._localPoint.copy(this._planeHit);
+                    this.mapPlaneGroup.worldToLocal(this._localPoint);
+                }
+            }
+
+            if (!this._pointInRect(this._localPoint.x, this._localPoint.y, hit)) continue;
+            const area = hit.w * hit.h;
+            if (area < bestArea) { bestArea = area; bestId = item.data.id; }
+        }
+        return bestId;
+    }
+
+    /**
+     * ¿Está el punto local (px,py) dentro del rectángulo (posiblemente rotado) de una región?
+     * @param {number} px - coordenada X local del mapa
+     * @param {number} py - coordenada Y local del mapa
+     * @param {{cx:number,cy:number,w:number,h:number,rot:number}} hit - AABB de la región
+     */
+    _pointInRect(px, py, hit) {
+        const dx = px - hit.cx;
+        const dy = py - hit.cy;
+        if (hit.rot !== 0) {
+            // Rotar el punto al sistema del rectángulo (inversa de la rotación del plano).
+            const c = Math.cos(-hit.rot), s = Math.sin(-hit.rot);
+            const rx = dx * c - dy * s;
+            const ry = dx * s + dy * c;
+            return Math.abs(rx) <= hit.w / 2 && Math.abs(ry) <= hit.h / 2;
+        }
+        return Math.abs(dx) <= hit.w / 2 && Math.abs(dy) <= hit.h / 2;
     }
 
     setHoveredRegion(regionId, silent = false) {
@@ -376,8 +457,36 @@ export class MarkerManager {
                 if (this.mapMaterial.userData.uFocusTextUV) {
                     this.mapMaterial.userData.uFocusTextUV.value.set(-1, -1, 1);
                 }
+
             }
         }
+    }
+
+    /**
+     * ¿Cambió la transformación de la cámara (posición/rotación) desde el último chequeo?
+     * Compara la matriz mundo (equivale a position + rotation, e incluye scale) para poder
+     * disparar el raycast aunque el puntero no se mueva pero el mundo sí, manteniendo el
+     * hover correcto bajo un cursor estático mientras la cámara panea/hace zoom o suaviza.
+     * @returns {boolean}
+     */
+    _cameraTransformChanged() {
+        const cam = this.camera;
+        if (!cam) return false;
+        // Forzar la matriz mundo actual (barato para una sola cámara por frame).
+        cam.updateWorldMatrix(true, false);
+        const e = cam.matrixWorld.elements;
+        const sig = this._lastCameraSig;
+        if (!sig) {
+            this._lastCameraSig = Array.from(e);
+            return false;
+        }
+        for (let i = 0; i < 16; i++) {
+            if (e[i] !== sig[i]) {
+                for (let j = 0; j < 16; j++) sig[j] = e[j]; // actualizar firma in-place
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -484,29 +593,47 @@ export class MarkerManager {
             needsRedraw = true;
         }
 
-        // Raycasting: activo en PLAYING siempre (excepto cuando se está arrastrando/paneando).
-        // En modo overview (!_mapReady): solo ilumina el shader (sin tooltip ni textura).
-        // En modo interactuable (_mapReady): hover completo con tooltip y efectos.
+        // Raycasting: en PLAYING excepto durante un arrastre activo (isDragging), donde
+        // estamos agarrándo el mapa y no queremos hovers espurios. isDragging es fiable:
+        // MapCameraController solo lo pone en true tras superar >3px de movimiento y lo
+        // resetea en pointerup/pointercancel (FIX D), así que no se queda pegado bloqueando.
         if (this.camera && cameraState === 'PLAYING' && !isDragging) {
             const now = performance.now();
             if (!this._lastRaycastTime || now - this._lastRaycastTime > 50) { // Throttling: max ~20 FPS
                 this._lastRaycastTime = now;
-                if (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y) {
+
+                // Disparar el raycast si el puntero se movió O si la cámara cambió (pos/rot)
+                // desde el último frame: así detectamos qué hay bajo el cursor estático
+                // mientras el mundo se mueve (paneo/zoom con inercia o suavizado en PLAYING).
+                const mouseMoved = (this.mouse.x !== this._lastRaycastMouse.x || this.mouse.y !== this._lastRaycastMouse.y);
+                const cameraMoved = this._cameraTransformChanged();
+                if (mouseMoved || cameraMoved) {
                     this._lastRaycastMouse.copy(this.mouse);
-                    
+
                     let newHoveredMeshId = null;
-                    
+
                     this.raycaster.setFromCamera(this.mouse, this.camera);
+
+                    // 1) Región bajo el cursor: detección por punto sobre la superficie
+                    //    (estable con la cámara), NO por intersección de planos flotantes.
+                    const regionAtPointerId = this._regionAtPointer(this.raycaster);
+
+                    // 2) Iconos (pueblos, islas, lagos...): intersección directa con sus meshes,
+                    //    ignorando los planos de región (solo visuales para el debug, tecla '2').
                     this._intersectsBuffer.length = 0; // Limpiar sin crear nuevo Array
                     this.raycaster.intersectObjects(this.markersGroup.children, true, this._intersectsBuffer);
                     for (let i = 0; i < this._intersectsBuffer.length; i++) {
                         const obj = this._intersectsBuffer[i].object;
-                        if (obj.visible && obj.userData && obj.userData.id) {
+                        if (obj.visible && obj.userData && obj.userData.id
+                            && !(obj.userData.isHitbox === true && obj.userData.type === 'region')) {
                             newHoveredMeshId = obj.userData.id;
                             break;
                         }
                     }
-                    
+
+                    // Las regiones tienen prioridad sobre los iconos.
+                    if (regionAtPointerId) newHoveredMeshId = regionAtPointerId;
+
                     if (this._forcedHoverId !== null) {
                         newHoveredMeshId = this._forcedHoverId;
                     }
