@@ -50,10 +50,11 @@ async function startApp() {
         map.getSurfaceHeight     // Muestreo de altura de superficie para hitboxes de regiones
     );
 
-    // Click en una región (de lejos) -> dolly de cámara hacia ella
+    // Click en una región (de lejos) -> dolly de cámara hacia ella hasta el tope de zoom
     window.addEventListener('marker:region-fly-request', (e) => {
         // Offset positivo mueve el target a la derecha, por lo que el objeto queda a la izquierda en la pantalla
-        cameraController.flyTo(e.detail.worldPos, 10); 
+        // fullZoom=true: el dolly aterriza en el tope de zoom (minDistance)
+        cameraController.flyTo(e.detail.worldPos, 10, true); 
     });
 
     // Click en una región (de cerca) -> abrir panel
