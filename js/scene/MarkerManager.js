@@ -69,9 +69,22 @@ export class MarkerManager {
                 if (this.hoveredMeshId) {
                     const item = this._itemsMap.get(this.hoveredMeshId);
                 if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
+                        // Marcadores (ciudades/pueblos/...) vinculados a esta región
+                        const regionName = item.data.name;
+                        const placePositions = this._items
+                            .filter(i => i.data.region === regionName
+                                && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type))
+                            .map(i => i.worldPos.clone());
+
                         // Solo volar: SIEMPRE al hacer click en una region
+                        // placePositions: permite al controlador encuadrar en un solo vuelo
+                        //   centrados sobre los marcadores de la región (no sobre su hitbox).
                         window.dispatchEvent(new CustomEvent('marker:region-fly-request', {
-                            detail: { worldPos: item.worldPos.clone(), name: item.data.name }
+                            detail: {
+                                worldPos: item.worldPos.clone(),
+                                name: item.data.name,
+                                placePositions: placePositions.length ? placePositions : null
+                            }
                         }));
 
                         if (this._mapReady) {
@@ -124,14 +137,14 @@ export class MarkerManager {
                     // Buscar los lugares que pertenecen a esta región
                     const regionName = item.data.name;
                     const placesInRegion = this._items
-                        .map(i => i.data)
-                        .filter(d => d.region === regionName && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(d.type));
+                        .filter(i => i.data.region === regionName && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type));
 
                     window.dispatchEvent(new CustomEvent('marker:region-open-panel', {
                         detail: { 
                             worldPos: item.worldPos.clone(), 
                             name: item.data.name,
-                            places: placesInRegion 
+                            places: placesInRegion.map(i => i.data),
+                            placePositions: placesInRegion.map(i => i.worldPos.clone())
                         }
                     }));
                     this._pendingFocusItem = null;

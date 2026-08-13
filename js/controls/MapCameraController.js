@@ -472,7 +472,7 @@ export class MapCameraController {
         this.updateCameraPosition();
     }
 
-    flyTo(worldPos, offsetX = 0, fullZoom = false) {
+    flyTo(worldPos, offsetX = 0, fullZoom = false, endDistOverride = null) {
         if (this.state !== 'PLAYING' && this.state !== 'FLY_TO') return;
 
         // Si ya estamos volando o en PLAYING, capturamos el inicio exacto actual
@@ -480,10 +480,15 @@ export class MapCameraController {
         this._flyStartDist = this.distance;
         this._flyStartTime = performance.now();
 
-        // Con fullZoom el dolly aterriza en el tope de zoom (minDistance).
-        // Sin él se mantiene el comportamiento previo: conservar la distancia
-        // actual si ya es cercana o aterrizar a 28.
-        const endDist = fullZoom ? this.minDistance : (this._flyStartDist <= 35 ? this._flyStartDist : 28);
+        // endDistOverride: distancia de destino explícita (p.ej. para encuadrar conjuntos de marcadores).
+        // fullZoom: el vuelo aterriza en el tope de zoom (minDistance).
+        // Sin ninguno: comportamiento previo (conservar la distancia actual si ya es cercana o aterrizar a 28).
+        let endDist;
+        if (endDistOverride != null) {
+            endDist = THREE.MathUtils.clamp(endDistOverride, this.minDistance, this.calculatedMaxDistance || this.maxDistance);
+        } else {
+            endDist = fullZoom ? this.minDistance : (this._flyStartDist <= 35 ? this._flyStartDist : 28);
+        }
         
         const playableDist = this.calculatedMaxDistance || 60;
         let tEnd = 1.0;

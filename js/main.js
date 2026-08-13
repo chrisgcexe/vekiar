@@ -57,10 +57,16 @@ async function startApp() {
         cameraController.flyTo(e.detail.worldPos, 10, true); 
     });
 
-    // Click en una región (de cerca) -> abrir panel
+    // Click en una región (de cerca, en focus) -> encuadrar sus marcadores y abrir panel
     window.addEventListener('marker:region-open-panel', (e) => {
-        // Hacemos el dolly también para centrarlo (el panel lo escuchará para abrirse)
-        cameraController.flyTo(e.detail.worldPos, 10); 
+        // Si la región tiene marcadores vinculados, encuadramos todos para que entren en pantalla.
+        // Si no, nos limitamos a centrar en la región (el panel lo escuchará para abrirse).
+        const placePositions = e.detail.placePositions;
+        if (placePositions && placePositions.length) {
+            cameraController.fitToPoints(placePositions, 10);
+        } else {
+            cameraController.flyTo(e.detail.worldPos, 10);
+        }
     });
     
 
