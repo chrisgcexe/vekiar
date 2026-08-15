@@ -1,4 +1,4 @@
-﻿# DocumentaciÃ³n TÃ©cnica: Proyecto VÃ©kiar
+# DocumentaciÃ³n TÃ©cnica: Proyecto VÃ©kiar
 
 > GuÃ­a maestra del proyecto. Cubre la arquitectura completa, el flujo de ejecuciÃ³n, el pipeline de renderizado, el sistema de marcadores, las dependencias y las trampas conocidas. Actualizada al estado actual del cÃ³digo.
 
@@ -293,15 +293,19 @@ material.userData.uTime.value = appState.time;
 
 ## 8. Sistema de Marcadores (MarkerManager)
 
-### Arquitectura de tres capas (Refactor Modular)
+### Arquitectura Modular
 
-El manejo de marcadores se divide en tres clases para respetar el principio de responsabilidad Ãºnica (Single Responsibility Principle):
+El manejo de marcadores se divide ahora en un ecosistema de clases para respetar el principio de responsabilidad única (Single Responsibility Principle):
 
-1. **`MarkerManager.js`**: Coordinador central. Mantiene el estado (`_items`), la lÃ³gica de raycasting, el nivel de detalle (LOD / Zoom), y expone la API pÃºblica (`update`, `renderAll`).
-2. **`MarkerBuilder.js`**: FÃ¡brica visual. Se encarga de instanciar los hitboxes 3D (para regiones) y los Ã­conos/etiquetas CSS2D (para pueblos, lagos).
-3. **`RegionTexturePainter.js`**: Motor de renderizado de texto 2D. Escribe los nombres gigantes de las regiones y mares directamente sobre la textura 4K del mapa usando un `<canvas>`.
+1. **`MarkerManager.js`**: Coordinador central (Facade). Su única responsabilidad es instanciar los submódulos y enlazarlos al `EventBus`.
+2. **`MarkerRaycaster.js`**: Motor matemático y de eventos DOM. Calcula intersecciones 3D/2D para detectar clics y hovers.
+3. **`MarkerInteractionState.js`**: Máquina de estados. Mantiene la memoria de qué región brilla o está seleccionada, e inyecta esto al shader.
+4. **`MarkerLODSystem.js`**: Nivel de Detalle. Oculta etiquetas y desvanece íconos de ciudades basado en la altura de la cámara (`zoomAlpha`).
+5. **`MarkerBuilder.js`**, **`MarkerFactory.js`**, **`MarkerPositionResolver.js`**: Trío encargado de construir visualmente los meshes 3D y etiquetas HTML.
+6. **`MarkerRegistry.js`**: Base de datos en memoria para acceso rápido (`O(1)`) a los marcadores.
+7. **`RegionTexturePainter.js`**: Escribe los nombres gigantes de las regiones en la textura 4K.
 
-#### JerarquÃ­a en el Grafo de Escena
+#### Jerarquía en el Grafo de Escena
 
 Los marcadores interactivos (pueblos, lagos, islas) tienen **dos componentes separados** que viven en grupos distintos:
 
@@ -468,3 +472,32 @@ Para evitar comportamientos conflictivos al hacer click, el sistema respeta el n
    - **Visibilidad:** Aparecen los marcadores menores (isla, lago, otro). Si hay una regiÃ³n enfocada, los marcadores otro ajenos a esa regiÃ³n se desvanecen.
    - **Click en una regiÃ³n:** Emite marker:region-open-panel. 
    - **Resultado:** La regiÃ³n ahora SÃ se marca como enfocada (cambia de color en el shader), la cÃ¡mara se re-centra ligeramente, y se abre la ventana lateral de informaciÃ³n (RegionSidePanelUI).
+
+
+## 12. Arquitectura de UI y refactorización por responsabilidades (en curso)
+
+> Esta sección se actualiza al finalizar **cada paso** de la hoja de ruta de
+> descomposición. El objetivo: evitar scripts monolíticos mediante **un módulo =
+> una responsabilidad**; los *coordinadores* orquestan, los *helpers* hacen una
+> cosa sola. Cada paso se valida con `node --check` + servidor live + QA visual.
+
+### Estado de los archivos UI (`js/ui/`)
+```
+RegionTooltipUI.js          # Coordinador (hover / unhover / update)
+RegionSidePanelUI.js        # Coordinador de panel lateral
+Compass.js                  # Brújula flotante
+LoreResolver.js             # ✅ Paso 1 — lookup lore + fallback
+TooltipAnchorCalculator.js  # ✅ Paso 2 — math puro de anclaje
+TooltipPositioner.js        # ✅ Paso 2 — escritura DOM del anclaje
+RegionTooltipFactory.js     # ✅ Paso 3 — construcción DOM del tooltip
+```
+
+### Hitos Completados (Descomposición 100%)
+
+- **Paso 1:** `LoreResolver.js` centralizó la lógica de búsqueda de textos y fallbacks.
+- **Paso 2:** `TooltipAnchorCalculator.js` y `TooltipPositioner.js` dividieron la matemática de anclaje 2D/3D y la escritura al DOM.
+- **Paso 3:** `RegionTooltipFactory.js` aisló la creación de elementos HTML, dejando a `RegionTooltipUI` como un orquestador limpio.
+- **Paso 4 (Pipeline de Marcadores):** `MarkerBuilder` se descompuso en `MarkerRegistry` (almacenamiento), `MarkerFactory` (meshes) y `MarkerPositionResolver` (cálculo de esquinas mundiales).
+- **Paso 5 (EventBus & LOD):** `EventBus.js` reemplazó los CustomEvents globales. `CameraStateService.js` eliminó dependencias circulares. Y finalmente, `MarkerManager` se desmembró en `MarkerRaycaster`, `MarkerInteractionState`, y `MarkerLODSystem`.
+
+El código actual está fuertemente acoplado en concepto, pero totalmente desacoplado en implementación mediante Inyección de Dependencias y Arquitectura Orientada a Eventos (Pub/Sub).

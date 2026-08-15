@@ -1,6 +1,7 @@
-import { regionLore, defaultLore } from '../../assets/data/region_lore.js';
+import { LoreResolver } from './LoreResolver.js';
 export class RegionSidePanelUI {
-    constructor(uiContainerId = 'ui') {
+    constructor(eventBus, uiContainerId = 'ui') {
+        this.eventBus = eventBus;
         this.container = document.getElementById(uiContainerId);
         
         // Crear overlay oscuro
@@ -34,20 +35,20 @@ export class RegionSidePanelUI {
         this.panel.appendChild(this.content);
 
         // Eventos
-        window.addEventListener('marker:region-open-panel', this.open.bind(this));
+        this.eventBus.on('marker:region-open-panel', this.open.bind(this));
         
         // Delegación de eventos para sincronizar hover con el mundo 3D
 this.content.addEventListener('mouseover', (e) => {
             const item = e.target.closest('.region-place-item');
             if (item && item.dataset.id) {
-                window.dispatchEvent(new CustomEvent('marker:force-hover', { detail: { id: item.dataset.id } }));
+                this.eventBus.emit('marker:force-hover', { detail: { id: item.dataset.id } });
             }
         });
 
         this.content.addEventListener('mouseout', (e) => {
             const item = e.target.closest('.region-place-item');
             if (item && item.dataset.id) {
-                window.dispatchEvent(new CustomEvent('marker:force-unhover', { detail: { id: item.dataset.id } }));
+                this.eventBus.emit('marker:force-unhover', { detail: { id: item.dataset.id } });
             }
         });
         // Cerrar al clickear fuera (en el overlay)
@@ -60,19 +61,13 @@ this.content.addEventListener('mouseover', (e) => {
         const { name, places } = e.detail;
         this.title.textContent = name;
 
-        // 2. Buscás la data
-        const key = name.toUpperCase();
-        const data = regionLore[key] || defaultLore;
-        
-        // Construir DOM de forma segura (sin interpolación de strings) para evitar XSS
+                // Construir DOM de forma segura (sin interpolación de strings) para evitar XSS
         // si algún nombre de lugar contiene caracteres como < o >
         const contentRoot = document.createDocumentFragment();
 
-        // 3. Creás el contenedor dinámico y le inyectás el extendedDescription
+        // El lore se resuelve en un único lugar (lookup + fallback + detección de vacío)
         const descContainer = document.createElement('div');
-// AGREGAR ESTA LÓGICA DE VALIDACIÓN ACÁ TAMBIÉN:
-        const isExtDescriptionEmpty = data.extendedDescription === "" || data.extendedDescription === "<p></p>";
-        descContainer.innerHTML = isExtDescriptionEmpty ? defaultLore.extendedDescription : data.extendedDescription;
+        descContainer.innerHTML = LoreResolver.getExtendedDescription(name);
         while (descContainer.firstChild) contentRoot.appendChild(descContainer.firstChild);
 
         if (places && places.length > 0) {
@@ -138,6 +133,6 @@ for (const [type, items] of Object.entries(groups)) {
         this.overlay.classList.add('hidden');
         
         // Emitir evento para que la cámara y el focus se restablezcan
-        window.dispatchEvent(new CustomEvent('region-panel-closed'));
+        this.eventBus.emit('region-panel-closed', { detail: {} });
     }
 }

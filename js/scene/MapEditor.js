@@ -4,7 +4,7 @@ import { EditorUI } from '../ui/EditorUI.js';
 import { AssetLoader } from '../utils/AssetLoader.js';
 
 export class MapEditor {
-    constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture, regionMasks, getSurfaceHeight) {
+    constructor(scene, camera, domElement, mapPlaneGroup, mapMaterial, referenceTexture, normalTexture, regionMasks, getSurfaceHeight, eventBus) {
         this.scene = scene;
         this.camera = camera;
         this.domElement = domElement;
@@ -22,7 +22,7 @@ export class MapEditor {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial, this.camera, this.domElement, this.getSurfaceHeight);
+        this.markerManager = new MarkerManager(this.mapPlaneGroup, this.scene, this.mapMaterial, this.camera, this.domElement, this.getSurfaceHeight, eventBus);
 
         this.initStorage();
         this.ui = new EditorUI(this);
@@ -79,7 +79,7 @@ export class MapEditor {
             }
         });
 
-        window.addEventListener('editor:open-inspector', (e) => {
+        eventBus.on('editor:open-inspector', (e) => {
             if (this.enabled && e.detail && e.detail.id) {
                 this.openInspector(e.detail.id);
             }

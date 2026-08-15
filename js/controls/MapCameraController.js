@@ -1,101 +1,36 @@
 import * as THREE from 'three';
+import { CameraStateMachine } from './CameraStateMachine.js';
+import { CameraMathResolver } from './CameraMathResolver.js';
+import { CameraFlightSystem } from './CameraFlightSystem.js';
+import { CameraInputHandler } from './CameraInputHandler.js';
 
 export class MapCameraController {
-    // (REFACTOR E) Catalogo de estados cinematograficos + tabla de transiciones validas.
-    static get CINEMATIC_STATES() { return ['INIT', 'DROP_1', 'WAIT_INPUT', 'DROP_2', 'FLY_TO', 'PLAYING']; }
-    static get _TRANSITIONS() {
-        return {
-            'INIT':       ['DROP_1'],
-            'DROP_1':     ['WAIT_INPUT', 'DROP_2', 'PLAYING'],
-            'WAIT_INPUT': ['DROP_2'],
-            'DROP_2':     ['PLAYING'],
-            'FLY_TO':     ['PLAYING', 'FLY_TO'],
-            'PLAYING':    ['FLY_TO'],
-        };
-    }
-
-    constructor(camera, domElement) {
+    constructor(camera, domElement, eventBus) {
         this.camera = camera;
         this.domElement = domElement;
+        this.eventBus = eventBus;
         this.mapInstance = null;
         
-        // Estado cinemático
-        this.state = 'INIT'; // INIT, DROP_1, WAIT_INPUT, DROP_2, PLAYING, FLY_TO
-
-        // Parámetros de Cámara
+        // Parámetros de Cámara compartidos entre componentes
         this.target = new THREE.Vector3(0, 0, 0);
         this.distance = 250;
         this.minDistance = 25;
         this.maxDistance = 250;
         this.calculatedMaxDistance = 60;
         this.mapAspect = 1.0;
-
-        // Inercia y Paneo
-        this.panVelocity = new THREE.Vector3();
-        this.isDragging = false;
-        this.dragStartScreen = new THREE.Vector2();
-        this.dragStartWorld = new THREE.Vector3();
-        this.dragStartTarget = new THREE.Vector3();
-
-        // Parámetros de Inercia
-        this.friction = 0.85; 
-        
-        // Variables para FLY_TO
-        this._flyProgress = 0;
-        this._flyStartTarget = new THREE.Vector3();
-        this._flyEndTarget = new THREE.Vector3();
-        this._flyStartDist = 0;
-        this._flyEndDist = 0;
-        this._flyStartTime = performance.now();
-        this._flyDuration = 1000;
-
         this.zoomAlpha = 1.0;
 
+        // Compartido para cálculos de hit test
         this.raycaster = new THREE.Raycaster();
         this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-        // Buffers reutilizables para getPointerIntersection — evitan allocations en cada evento wheel/drag
-        this._pointerNDC = new THREE.Vector2();
-        this._intersectionTarget = new THREE.Vector3();
-        this._zoomDelta = new THREE.Vector3(); // Buffer para zoom-to-mouse diff (BUG1: no puede ser el mismo que _intersectionTarget)
-        this._pointBeforeZoom = new THREE.Vector3(); // Copia del punto pre-zoom para comparar con post-zoom
-
-        // Cache del rect del canvas — igual que en MarkerManager
-        this._canvasRect = null; // Se inicializa al primer uso y en resize
-        window.addEventListener('resize', () => {
-            this._canvasRect = this.domElement.getBoundingClientRect();
-        }, { passive: true });
-
         this.camera.position.set(0, 140, 0.1);
 
-        // Bindings
-        this.onPointerDown = this.onPointerDown.bind(this);
-        this.onPointerMove = this.onPointerMove.bind(this);
-        this.onPointerUp = this.onPointerUp.bind(this);
-        this.onPointerCancel = this.onPointerCancel.bind(this);
-        this.onWheel = this.onWheel.bind(this);
-
-        this.domElement.addEventListener('pointerdown', this.onPointerDown);
-        this.domElement.addEventListener('pointermove', this.onPointerMove);
-        window.addEventListener('pointerup', this.onPointerUp); // Captura soltar fuera del canvas
-        window.addEventListener('pointercancel', this.onPointerCancel); // El browser abortó el pointer (gesto/touch)
-        this.domElement.addEventListener('wheel', this.onWheel, { passive: false });
-
-        // Soporte para hacer zoom con las flechas (teclado)
-        window.addEventListener('keydown', (e) => {
-            if (this.state !== 'PLAYING') return;
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                e.preventDefault();
-                const zoomDelta = e.key === 'ArrowUp' ? -15 : 15;
-                this.distance += zoomDelta;
-                this.distance = THREE.MathUtils.clamp(this.distance, this.minDistance, this.maxDistance);
-                this.clampTargetToBounds();
-                this.updateCameraPosition();
-            }
-        });
-
-        // Evitar menú contextual
-        this.domElement.addEventListener('contextmenu', e => e.preventDefault());
+        // Inicializar submódulos
+        this.stateMachine = new CameraStateMachine(this);
+        this.mathResolver = new CameraMathResolver(this);
+        this.flightSystem = new CameraFlightSystem(this);
+        this.inputHandler = new CameraInputHandler(this);
 
         // Lógica del botón de intro
         const removeIdlePrompt = () => {
@@ -105,7 +40,7 @@ export class MapCameraController {
                 const btn = document.getElementById('btn-start');
                 if(btn) btn.style.pointerEvents = 'none';
             }
-            this.transitionTo('DROP_2', { reason: 'start' });
+            this.stateMachine.transitionTo('DROP_2', { reason: 'start' });
         };
 
         setTimeout(() => {
@@ -121,243 +56,11 @@ export class MapCameraController {
     }
 
     playIntro() {
-        this.transitionTo('DROP_1', { reason: 'intro' });
-    }
-
-    /**
-     * (REFACTOR E) Unico punto de transicion de estado cinematografico.
-     * Valida contra la tabla (warn-only: nunca lanza, para no romper runtime) y
-     * conserva el contrato publico: `state` sigue legible por MarkerManager y
-     * los eventos map:ready/map:zoom-out/camera-flight-finished se disparan igual.
-     */
-    transitionTo(newState, { reason = 'auto' } = {}) {
-        const prev = this.state;
-        const states = MapCameraController.CINEMATIC_STATES;
-        const table = MapCameraController._TRANSITIONS;
-        if (!states.includes(newState)) {
-            console.warn('[MapCameraController] estado desconocido: ' + newState + ' (' + reason + ') en ' + prev);
-        }
-        const allowed = table[prev];
-        if (!(allowed && allowed.includes(newState))) {
-            console.warn('[MapCameraController] transicion invalida ' + prev + ' -> ' + newState + ' (' + reason + ')');
-        }
-        this.state = newState;
-        return prev;
+        this.stateMachine.transitionTo('DROP_1', { reason: 'intro' });
     }
 
     updateConstraints(mapAspect) {
-        // (FIX B) Se eliminó el guardia `if (mapAspect === 1.0) return;`. Usaba el
-        // default 1.0 como sentinela y salteaba el cálculo de
-        // calculatedMaxDistance para canvas cuadrados → bounds/zoom quedaban
-        // en el default 60 y maxDistance sin ajustar. Un canvas cuadrado es válido.
-        this.mapAspect = mapAspect;
-        
-        const mapHalfW = 50;
-        const mapHalfH = 50 / mapAspect;
-        const fovRad = THREE.MathUtils.degToRad(this.camera.fov / 2);
-        
-        const maxDistZ = mapHalfH / Math.tan(fovRad);
-        const maxDistX = mapHalfW / (Math.tan(fovRad) * this.camera.aspect);
-        
-        this.calculatedMaxDistance = Math.min(maxDistZ, maxDistX) * 0.99;
-        
-        if (this.state === 'PLAYING') {
-            this.maxDistance = this.calculatedMaxDistance;
-        }
-    }
-
-    // --- INPUT HANDLING ---
-    
-    getPointerIntersection(clientX, clientY) {
-        // Lazy-init del rect (primera vez, o si fue invalidado por resize)
-        if (!this._canvasRect) this._canvasRect = this.domElement.getBoundingClientRect();
-        const rect = this._canvasRect;
-
-        this._pointerNDC.x = ((clientX - rect.left) / rect.width)  * 2 - 1;
-        this._pointerNDC.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
-
-        this.raycaster.setFromCamera(this._pointerNDC, this.camera);
-        const hit = this.raycaster.ray.intersectPlane(this.plane, this._intersectionTarget);
-        return hit ? this._intersectionTarget : null;
-    }
-
-    onPointerDown(e) {
-        // Permitir interrumpir el vuelo
-        if (this.state === 'FLY_TO') this.transitionTo('PLAYING', { reason: 'flight-interrupt' });
-        if (this.state !== 'PLAYING') return;
-        if (e.button !== 0 && e.pointerType !== 'touch') return; // Solo click izquierdo o touch
-
-        this._isPointerDown = true;
-        this.isDragging = false; // Arranca como falso, se vuelve true al superar el umbral
-        this.panVelocity.set(0, 0, 0); // Resetear inercia
-        
-        this.startPointerX = e.clientX;
-        this.startPointerY = e.clientY;
-        this.lastPointerX = e.clientX;
-        this.lastPointerY = e.clientY;
-        
-        this.domElement.setPointerCapture(e.pointerId); // Asegura que move y up lleguen incluso fuera del canvas
-    }
-
-    onPointerMove(e) {
-        if (!this._isPointerDown || this.state !== 'PLAYING') return;
-
-        // Validar si superamos el umbral para ser considerado un arrastre (suprime hover)
-        if (!this.isDragging) {
-            const dist = Math.hypot(e.clientX - this.startPointerX, e.clientY - this.startPointerY);
-            if (dist > 3) {
-                this.isDragging = true;
-                this.domElement.style.cursor = 'grabbing';
-                // Reset lastPointer coordinates when dragging actually starts to avoid a sudden jump
-                this.lastPointerX = e.clientX;
-                this.lastPointerY = e.clientY;
-            }
-        }
-
-        if (!this.isDragging) return;
-
-        // Siempre calculamos el movimiento relativo al último frame para evitar saltos bruscos
-        const movementX = e.clientX - this.lastPointerX;
-        const movementY = e.clientY - this.lastPointerY;
-        
-        this.lastPointerX = e.clientX;
-        this.lastPointerY = e.clientY;
-
-        // Calculamos el ángulo polar actual para escalar correctamente el eje Z
-        let tTilt = 1.0;
-        const tiltRefMax = 180;
-        const distRangeTilt = tiltRefMax - this.minDistance;
-        if (distRangeTilt > 0) {
-            tTilt = (this.distance - this.minDistance) / distRangeTilt;
-            tTilt = THREE.MathUtils.clamp(tTilt, 0, 1);
-        }
-        const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
-        const polarAngle = THREE.MathUtils.lerp(Math.PI / 4.5, Math.PI / 8, easeT); 
-
-        // Escalar la velocidad en base a la distancia para que el arrastre sea 1:1 aproximado
-        const speed = this.distance * 0.0022; 
-        
-        const deltaX = -movementX * speed;
-        // Al estar la cámara inclinada, arrastrar hacia arriba/abajo en la pantalla requiere más movimiento en Z
-        const deltaZ = -movementY * speed / Math.cos(polarAngle);
-
-        this.panVelocity.set(deltaX, 0, deltaZ);
-        this.target.add(this.panVelocity);
-    }
-
-    onPointerUp(e) {
-        // BUG 4 fix: solo procesar botón izquierdo o touch para no cancelar el arrastre con click derecho
-        if (e.button !== 0 && e.pointerType !== 'touch') return;
-        this._isPointerDown = false;
-        this.isDragging = false;
-        this.domElement.style.cursor = 'grab';
-        try {
-            this.domElement.releasePointerCapture(e.pointerId);
-        } catch (err) {}
-    }
-
-    onPointerCancel(e) {
-        // FIX D: el browser abortó el pointer (gesto cancelado, touch fuera del
-        // canvas, etc.). Sin esto, isDragging/_isPointerDown quedan pegados y
-        // el hover de regiones se muere permanentemente hasta el próximo click.
-        if (e.button !== 0 && e.pointerType !== 'touch') return;
-        this._isPointerDown = false;
-        this.isDragging = false;
-        this.panVelocity.set(0, 0, 0);
-        this.domElement.style.cursor = 'grab';
-        try {
-            this.domElement.releasePointerCapture(e.pointerId);
-        } catch (err) {}
-    }
-
-    onWheel(e) {
-        // Permitir interrumpir el vuelo
-        if (this.state === 'FLY_TO') this.transitionTo('PLAYING', { reason: 'flight-interrupt' });
-        if (this.state !== 'PLAYING') {
-            e.preventDefault();
-            return;
-        }
-        e.preventDefault();
-
-        // 1. Dónde apunta el mouse AHORA en el mundo
-        const hit1 = this.getPointerIntersection(e.clientX, e.clientY);
-        if (!hit1) return;
-        // BUG 1 fix: copiar el resultado en un buffer separado ANTES de llamar updateCameraPosition,
-        // que internamente usa el mismo _intersectionTarget y lo sobreescribiría.
-        this._pointBeforeZoom.copy(hit1);
-
-        // 2. Aplicar el zoom (cambiar distancia)
-        const zoomDelta = Math.sign(e.deltaY) * 2.0;
-        this.distance += zoomDelta;
-        this.distance = THREE.MathUtils.clamp(this.distance, this.minDistance, this.maxDistance);
-
-        // 3. Si no moviéramos el target, ¿dónde caería el mouse después del zoom?
-        this.updateCameraPosition();
-        const hit2 = this.getPointerIntersection(e.clientX, e.clientY);
-
-        if (hit2) {
-            // 4. Mover el target para compensar el deslizamiento (Zoom-to-Mouse)
-            // BUG 5 fix: reusar _zoomDelta en lugar de new THREE.Vector3()
-            this._zoomDelta.subVectors(this._pointBeforeZoom, hit2);
-            this.target.add(this._zoomDelta);
-            this.clampTargetToBounds();
-            this.updateCameraPosition();
-        }
-    }
-
-    // --- CÁLCULO FÍSICO DE LA CÁMARA ---
-    
-    updateCameraPosition() {
-
-        // 1. Calcular ángulo polar de forma absolutamente continua basada en la distancia física.
-        // Usamos una referencia fija (180) para que nunca haya saltos cuando cambian los límites jugables.
-        let tTilt = 1.0;
-        const tiltRefMax = 180;
-        const distRangeTilt = tiltRefMax - this.minDistance;
-        if (distRangeTilt > 0) {
-            tTilt = (this.distance - this.minDistance) / distRangeTilt;
-            tTilt = THREE.MathUtils.clamp(tTilt, 0, 1);
-        }
-
-        // El zoomAlpha real (para marcadores y UI) sí se normaliza al área jugable
-        const playableDist = this.calculatedMaxDistance || 60;
-        let tAlpha = 1.0;
-        const distRangeAlpha = playableDist - this.minDistance;
-        if (distRangeAlpha > 0) {
-            tAlpha = (this.distance - this.minDistance) / distRangeAlpha;
-            tAlpha = THREE.MathUtils.clamp(tAlpha, 0, 1);
-        }
-        this.zoomAlpha = tAlpha;
-
-        const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
-        
-        // Nunca se pone 100% cenital (0.01). Tope en Math.PI/8 (22.5 grados) para mantener 3D
-        const polarAngle = THREE.MathUtils.lerp(Math.PI / 4.5, Math.PI / 8, easeT); 
-
-        // 2. Aplicar coordenadas esféricas (Azimuth fijo en 0 -> mira hacia -Z)
-        this.camera.position.x = this.target.x;
-        this.camera.position.y = this.target.y + this.distance * Math.cos(polarAngle);
-        this.camera.position.z = this.target.z + this.distance * Math.sin(polarAngle);
-
-        this.camera.lookAt(this.target);
-    }
-
-    clampTargetToBounds() {
-        const playableDist = this.calculatedMaxDistance || 60;
-        let t = 1.0;
-        const distRange = playableDist - this.minDistance;
-        if (distRange > 0) {
-            t = (this.distance - this.minDistance) / distRange;
-            t = THREE.MathUtils.clamp(t, 0, 1);
-        }
-
-        // Suavizar la restricción en max distance (overview) para permitir panear el mapa
-        const freedom = 1.0 - Math.pow(t, 4.0) * 0.7; 
-        const maxRadiusX = 72 * freedom; 
-        const maxRadiusZ = (56 / this.mapAspect) * freedom;
-
-        this.target.x = THREE.MathUtils.clamp(this.target.x, -maxRadiusX, maxRadiusX);
-        this.target.z = THREE.MathUtils.clamp(this.target.z, -maxRadiusZ, maxRadiusZ);
+        this.mathResolver.updateConstraints(mapAspect);
     }
 
     update(mapAspect) {
@@ -365,168 +68,55 @@ export class MapCameraController {
         const playableDist = this.calculatedMaxDistance || 60;
         const idleDist = playableDist + 15; 
 
-        if (this.state === 'DROP_1') {
-            if (this.distance > idleDist + 0.05) {
-                this.distance = THREE.MathUtils.lerp(this.distance, idleDist, 0.04);
-                
-                const startDist = 250;
-                let scrollProgress = (startDist - this.distance) / (startDist - idleDist);
-                scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0.0, 1.0);
-                
-                if (this.mapInstance) this.mapInstance.updateUnfurl(scrollProgress);
+        // 1. Manejo de estado cinematográfico (DROP_1, WAIT_INPUT, DROP_2)
+        this.stateMachine.update(idleDist, playableDist);
+        
+        // 2. Animación de vuelo a región
+        this.flightSystem.update();
 
-                if (scrollProgress >= 0.95) {
-                    const idlePrompt = document.getElementById('idle-prompt');
-                    if (idlePrompt && !idlePrompt.classList.contains('show-idle')) {
-                        idlePrompt.classList.add('show-idle');
-                    }
-                }
-            } else {
-                this.distance = idleDist;
-                this.maxDistance = idleDist; 
-                this.transitionTo('WAIT_INPUT', { reason: 'intro_complete' });
-                if (this.mapInstance) this.mapInstance.updateUnfurl(1.0);
-                const idlePrompt = document.getElementById('idle-prompt');
-                if (idlePrompt) idlePrompt.classList.add('show-idle');
-            }
+        // 3. Inercia del drag
+        this.inputHandler.updateInertia();
 
-        } else if (this.state === 'DROP_2') {
-            if (this.distance > playableDist + 0.05) {
-                this.distance = THREE.MathUtils.lerp(this.distance, playableDist, 0.12);
-            } else {
-                this.distance = playableDist;
-                this.maxDistance = playableDist; 
-                this.transitionTo('PLAYING', { reason: 'drop2' });
-                const compassUI = document.getElementById('compass');
-                if (compassUI) compassUI.classList.add('show-compass');
-            }
-
-        } else if (this.state === 'FLY_TO') {
-            const now = performance.now();
-            let progress = (now - this._flyStartTime) / this._flyDuration;
-            if (progress > 1.0) progress = 1.0;
-            
-            // Suavizado Ease-In-Out Cuadrático (más cinematográfico)
-            const easeProgress = progress < 0.5 
-                ? 2 * progress * progress 
-                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-            
-            this.distance = THREE.MathUtils.lerp(this._flyStartDist, this._flyEndDist, easeProgress);
-            this.target.copy(this._flyStartTarget).lerp(this._flyEndTarget, easeProgress);
-
-            if (progress === 1.0) {
-                this.transitionTo('PLAYING', { reason: 'flight_end' });
-                window.dispatchEvent(new CustomEvent('camera-flight-finished'));
-                // No forzamos map:ready/_mapReady aquí. Dejamos que el bloque de
-                // detección de estado (abajo) dispare map:ready o map:zoom-out según
-                // closeEnough. Si el vuelo termina a una distancia que aún no es
-                // interactuable, forzar map:ready aquí provocaba un inmediato
-                // map:zoom-out en el mismo frame (flicker de hover/LOD sobre el aterrizaje).
-            }
+        // 4. Asegurarse que no nos pasamos de los bordes
+        if (this.stateMachine.state === 'PLAYING') {
+            this.mathResolver.clampTargetToBounds();
         }
 
-        // --- INERCIA (Damping) ---
-        if (this.state === 'PLAYING') {
-            if (this.isDragging) {
-                // Decay the velocity if pointer is held still (no new move events) to avoid sudden drift on release
-                this.panVelocity.multiplyScalar(this.friction);
-                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
-            } else {
-                // Not dragging: apply inertia to target and decay
-                this.target.add(this.panVelocity);
-                this.panVelocity.multiplyScalar(this.friction);
-                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
-            }
-        }
-
-        if (this.state === 'PLAYING') {
-            this.clampTargetToBounds();
-        }
-
-        // --- DETECCIÓN DE ESTADO INTERACTUABLE (map:ready / map:zoom-out) ---
-        if (this.state === 'PLAYING') {
+        // 5. Emitir eventos (map:ready, map:zoom-out) basados en la altura (zoomAlpha)
+        if (this.stateMachine.state === 'PLAYING') {
             const flyLandingDist = 28;
-            const playableDist = this.calculatedMaxDistance || 60;
-            // (FIX E - histeresis): zoomAlpha no se lerpea y el scroll mueve
-            // distance en saltos de 2.0; un solo umbral hacia a flicker
-            // ready<->zoom-out al hacer zoom en la frontera. Un deadband entre
-            // la entrada y la salida lo estabiliza. El event contract se mantiene.
             const landT = (flyLandingDist - this.minDistance) / (playableDist - this.minDistance);
-            const ZOOM_IN_EPS  = 0.02; // entrada: acercarse lo suficiente
-            const ZOOM_OUT_EPS = 0.05; // salida: alejarse un poco mas (histeresis)
+            const ZOOM_IN_EPS  = 0.02;
+            const ZOOM_OUT_EPS = 0.05;
             const readyThreshold  = landT + ZOOM_IN_EPS;
             const zoomOutThreshold = landT + ZOOM_IN_EPS + ZOOM_OUT_EPS;
             const closeEnough = this.zoomAlpha <= readyThreshold;
             const farEnough   = this.zoomAlpha >= zoomOutThreshold;
             if (closeEnough && !this._mapReady) {
                 this._mapReady = true;
-                window.dispatchEvent(new CustomEvent('map:ready'));
+                this.eventBus.emit('map:ready', { detail: {} });
             } else if (farEnough && this._mapReady) {
                 this._mapReady = false;
-                window.dispatchEvent(new CustomEvent('map:zoom-out'));
+                this.eventBus.emit('map:zoom-out', { detail: {} });
             }
         } else {
             this._mapReady = false;
         }
 
-        this.updateCameraPosition();
+        // 6. Aplicar toda la matemática de cámara al objeto THREE.Camera
+        this.mathResolver.updateCameraPosition();
     }
 
     flyTo(worldPos, offsetX = 0, fullZoom = false, endDistOverride = null) {
-        if (this.state !== 'PLAYING' && this.state !== 'FLY_TO') return;
-
-        // Si ya estamos volando o en PLAYING, capturamos el inicio exacto actual
-        this._flyStartTarget.copy(this.target);
-        this._flyStartDist = this.distance;
-        this._flyStartTime = performance.now();
-
-        // endDistOverride: distancia de destino explícita (p.ej. para encuadrar conjuntos de marcadores).
-        // fullZoom: el vuelo aterriza en el tope de zoom (minDistance).
-        // Sin ninguno: comportamiento previo (conservar la distancia actual si ya es cercana o aterrizar a 28).
-        let endDist;
-        if (endDistOverride != null) {
-            endDist = THREE.MathUtils.clamp(endDistOverride, this.minDistance, this.calculatedMaxDistance || this.maxDistance);
-        } else {
-            endDist = fullZoom ? this.minDistance : (this._flyStartDist <= 35 ? this._flyStartDist : 28);
-        }
-        
         const playableDist = this.calculatedMaxDistance || 60;
-        let tEnd = 1.0;
-        const distRange = playableDist - this.minDistance;
-        if (distRange > 0) {
-            tEnd = (endDist - this.minDistance) / distRange;
-            tEnd = THREE.MathUtils.clamp(tEnd, 0, 1);
-        }
-
-        const freedom = 1.0 - Math.pow(tEnd, 4.0) * 0.7;
-        const maxRadiusX = 72 * freedom;
-        const maxRadiusZ = (56 / (this.mapAspect || 1.0)) * freedom;
-
-        const targetWorldX = worldPos.x + offsetX;
-        const clampedTargetX = THREE.MathUtils.clamp(targetWorldX, -maxRadiusX, maxRadiusX);
-        const clampedTargetZ = THREE.MathUtils.clamp(worldPos.z, -maxRadiusZ, maxRadiusZ);
-
-        this._flyEndTarget.set(clampedTargetX, 0, clampedTargetZ);
-        this._flyEndDist = endDist;
-        
-        // Calcular si ya estamos prácticamente en la posición de destino
-        const travelDistance = this._flyStartTarget.distanceTo(this._flyEndTarget) + Math.abs(this._flyStartDist - this._flyEndDist);
-        if (travelDistance < 0.5) {
-            this._flyDuration = 0; // Viaje instantáneo, no hay que esperar la animación
-        } else {
-            this._flyDuration = 1200; // Mayor duración para un vuelo más fluido (1.2 seg)
-        }
-        
-        this.panVelocity.set(0,0,0);
-        this.isDragging = false;
-        this.transitionTo('FLY_TO', { reason: 'request' });
+        this.flightSystem.flyTo(worldPos, offsetX, fullZoom, endDistOverride, playableDist);
     }
 
     dispose() {
-        this.domElement.removeEventListener('pointerdown', this.onPointerDown);
-        this.domElement.removeEventListener('pointermove', this.onPointerMove);
-        window.removeEventListener('pointerup', this.onPointerUp);
-        window.removeEventListener('pointercancel', this.onPointerCancel);
-        this.domElement.removeEventListener('wheel', this.onWheel);
+        this.inputHandler.dispose();
     }
+
+    // Proxy properties needed by external systems
+    get state() { return this.stateMachine.state; }
+    get isDragging() { return this.inputHandler.isDragging; }
 }

@@ -6,6 +6,8 @@ import { MapCameraController } from './controls/MapCameraController.js';
 import { Compass } from './ui/Compass.js';
 import { ResponsiveManager } from './ResponsiveManager.js';
 import { AppState } from './state/AppState.js';
+import { CameraStateService } from './scene/CameraStateService.js';
+import { EventBus } from './scene/EventBus.js';
 import { MapEditor } from './scene/MapEditor.js?v=2';
 import { RegionTooltipUI } from './ui/RegionTooltipUI.js';
 import { RegionSidePanelUI } from './ui/RegionSidePanelUI.js';
@@ -15,17 +17,20 @@ import { DayNightCycle } from './systems/DayNightCycle.js';
 const appState = new AppState();
 const responsiveManager = new ResponsiveManager();
 const sceneManager = new SceneManager();
+const eventBus = new EventBus();
+const cameraStateService = new CameraStateService();
+
 
 // UI 
-const regionTooltip = new RegionTooltipUI('ui');
-const regionPanel = new RegionSidePanelUI('ui');
+const regionTooltip = new RegionTooltipUI(eventBus, 'ui');
+const regionPanel = new RegionSidePanelUI(eventBus, 'ui');
 
 // NOTA: Cambiamos cómo se instancia el mapa. 
 // No le pasamos los assets todavía.
 const map = new Map(sceneManager.scene, sceneManager.renderer); 
 
 const clouds = new Clouds(sceneManager.scene);
-const cameraController = new MapCameraController(sceneManager.camera, sceneManager.getDomElement());
+const cameraController = new MapCameraController(sceneManager.camera, sceneManager.getDomElement(), eventBus);
 // --- CONECTAMOS EL MAPA AL CONTROLADOR ACÁ ---
 cameraController.setMap(map);
 const compass = new Compass(cameraController);
@@ -47,18 +52,19 @@ async function startApp() {
         assets.referenceTexture, // La textura con nombres plana
         assets.colorTexture,     // La textura 3D normal
         assets.regionMasks,      // Texturas PNG pre-subidas a VRAM
-        map.getSurfaceHeight     // Muestreo de altura de superficie para hitboxes de regiones
+        map.getSurfaceHeight,    // Muestreo de altura de superficie para hitboxes de regiones
+        eventBus
     );
 
     // Click en una región (de lejos) -> dolly de cámara hacia ella hasta el tope de zoom
-    window.addEventListener('marker:region-fly-request', (e) => {
+    eventBus.on('marker:region-fly-request', (e) => {
         // Offset positivo mueve el target a la derecha, por lo que el objeto queda a la izquierda en la pantalla
         // fullZoom=true: el dolly aterriza en el tope de zoom (minDistance)
         cameraController.flyTo(e.detail.worldPos, 10, true); 
     });
 
     // Click en una región (de cerca, en focus) -> encuadrar sus marcadores y abrir panel
-    window.addEventListener('marker:region-open-panel', (e) => {
+    eventBus.on('marker:region-open-panel', (e) => {
         // Si la región tiene marcadores vinculados, encuadramos todos para que entren en pantalla.
         // Si no, nos limitamos a centrar en la región (el panel lo escuchará para abrirse).
         const placePositions = e.detail.placePositions;
@@ -154,6 +160,7 @@ async function startApp() {
         // Actualizar visibilidad de marcadores según el zoom actual (sistema LOD) y el estado de la cámara
         if (appState.isReady) {
             mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
+            cameraStateService.updateFromMarkerManager(mapEditor.markerManager);
             if (isPlaying) {
             dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
             }
