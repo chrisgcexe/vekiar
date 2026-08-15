@@ -109,7 +109,7 @@ export class MarkerBuilder {
                 this._measureCtx = c.getContext('2d');
             }
             // Medir con measureText (misma fuente/spacing/curve/rotación que RegionTexturePainter)
-            const { widthPx, heightPx, offsetPx = 0 } = RegionTexturePainter.measureTextBounds(data, this._measureCtx);
+            const { widthPx, heightPx, straightWidth = widthPx, straightHeight = heightPx, offsetPx = 0 } = RegionTexturePainter.measureTextBounds(data, this._measureCtx);
 
             // Convertir píxeles de textura 4096x4096 a unidades de mundo LOCALES:
             // El terreno mide 100x100 unidades locales y el UV va 0..1 sobre TODO el mapa,
@@ -119,8 +119,13 @@ export class MarkerBuilder {
             // escalado (mapPlaneGroup.scale.y = 1/aspect) que el terreno y el texto, así que el
             // achatamiento por aspect se aplica a ambos por igual y NO debe compensarse aquí.
             const texSize = 4096, mapUnits = 100;
-            let boxWidth = widthPx * (mapUnits / texSize);
-            let boxHeight = heightPx * (mapUnits / texSize);
+            // Usar las dimensiones SIN rotar (straightWidth/straightHeight): el plano ya se
+            // rota abajo con mesh.rotation.z = -rotation, así el rectángulo final coincide con
+            // el texto real. widthPx/heightPx son el AABB del texto rotado; usarlos aquí y rotar
+            // el plano después inflaría la caja (doble rotación) y el tooltip se vería muy
+            // desplazado del texto (ej. "OVARN" a -25°).
+            let boxWidth = straightWidth * (mapUnits / texSize);
+            let boxHeight = straightHeight * (mapUnits / texSize);
 
             // Margen justo (antes 1.3): el collider se adhiere a los límites medidos del texto,
             // evitando holgura/solapamiento entre regiones vecinas.

@@ -177,6 +177,15 @@ export class RegionTexturePainter {
             offsetPx = Math.sign(curveRadius) * (radius * (1 - Math.cos(totalAngle / 2)));
         }
 
+        // Dimensiones SIN rotar (el Mesh ya rota en el mundo con mesh.rotation.z = -rotation).
+        // El hitbox debe medir el texto REAL y no su AABB rotado: si MarkerBuilder usara
+        // widthPx/heightPx (AABB) y después rotara el plano, la caja quedaría inflada por una
+        // doble rotación y el tooltip anclado a su borde superior se vería flotando lejos del
+        // texto (ej. "OVARN" a -25°). straightWidth/straightHeight (del return) son lo que
+        // debe usar la geometría del plano.
+        const innerW = widthPx;
+        const innerH = outH;
+
         if (rotationDeg !== 0) {
             const r = rotationDeg * Math.PI / 180;
             const c = Math.abs(Math.cos(r));
@@ -188,7 +197,7 @@ export class RegionTexturePainter {
             // regiones con ese caso, se aplica a lo largo del eje local para mantener simplicidad.
         }
 
-        return { widthPx, heightPx: outH, offsetPx };
+        return { widthPx, heightPx: outH, offsetPx, straightWidth: innerW, straightHeight: innerH };
     }
 
     _drawText(ctx, data, cx, cy, mType, isGlow) {

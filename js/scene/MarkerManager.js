@@ -337,10 +337,32 @@ export class MarkerManager {
 
                 if (regionId) {
                     const item = this._itemsMap.get(regionId);
-                    
-                    window.dispatchEvent(new CustomEvent('marker:region-hover', {
-                        detail: { name: item.data.name, worldPos: item.worldPos.clone() }
-                    }));
+                    const detail = { name: item.data.name, worldPos: item.worldPos.clone() };
+
+                    // Pasar las 4 esquinas MUNDO del rectángulo rotado del texto (hitbox).
+                    // Con esto el tooltip calcula el AABB real en pantalla y se posiciona
+                    // arriba (o debajo) del texto sin taparlo, aunque esté rotado (ej. "OVARN").
+                    const box = item.mesh && item.mesh.userData && item.mesh.userData.hit;
+                    if (box && this.mapPlaneGroup) {
+                        this.mapPlaneGroup.updateWorldMatrix(true, false);
+                        const cos = Math.cos(box.rot);
+                        const sin = Math.sin(box.rot);
+                        const hw = box.w / 2;
+                        const hh = box.h / 2;
+                        detail.rectCorners = [
+                            [ hw,  hh], [-hw,  hh],
+                            [-hw, -hh], [ hw, -hh]
+                        ].map(([ox, oy]) => {
+                            const p = new THREE.Vector3(
+                                box.cx + ox * cos - oy * sin,
+                                box.cy + ox * sin + oy * cos,
+                                box.zAnchor
+                            );
+                            return this.mapPlaneGroup.localToWorld(p);
+                        });
+                    }
+
+                    window.dispatchEvent(new CustomEvent('marker:region-hover', { detail }));
                 } else {
                     window.dispatchEvent(new CustomEvent('marker:region-unhover'));
                 }

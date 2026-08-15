@@ -160,6 +160,23 @@
     z-index: 11;
 }
 
+/* Variante "debajo del texto": se usa cuando no hay espacio en pantalla arriba del
+   texto rotado (hitbox de región). El ancla empuja el tooltip hacia abajo con 20px
+   de gap y la flecha apunta hacia arriba. */
+.region-tooltip.below {
+    transform: translate(-50%, 20px);
+}
+
+.region-tooltip.below::after {
+    top: -7px;
+    bottom: auto;
+    transform: translateX(-50%) rotate(45deg);
+    border-right: none;
+    border-bottom: none;
+    border-left: 1px solid rgba(200, 180, 100, 0.4);
+    border-top: 1px solid rgba(200, 180, 100, 0.4);
+}
+
 
 
 /* OVERLAY PARA CERRAR EL PANEL */

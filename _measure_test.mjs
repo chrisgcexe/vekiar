@@ -31,11 +31,14 @@ function measureTextBounds(data, ctx) {
     widthPx = (2 * outerR * Math.sin(totalAngle / 2)) + (fSize * 0.3);
     outH = radius * (1 - Math.cos(totalAngle / 2)) + (fSize * 1.0);
   }
+  // Réplica: straightWidth/straightHeight (del return) = dimensiones SIN rotar (ver RegionTexturePainter).
+  const innerW = widthPx;
+  const innerH = outH;
   if (rotationDeg !== 0) {
     const r = rotationDeg * Math.PI / 180; const c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
     const w = widthPx, h = outH; widthPx = w * c + h * s; outH = w * s + h * c;
   }
-  return { widthPx, heightPx: outH };
+  return { widthPx, heightPx: outH, straightWidth: innerW, straightHeight: innerH };
 }
 
 const ctx = makeCtx();
