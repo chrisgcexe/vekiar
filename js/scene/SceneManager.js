@@ -14,7 +14,7 @@ export class SceneManager {
         
         this.renderer.localClippingEnabled = true;
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Optimizado de 2 a 1.5
         this.renderer.setClearColor(0x3a5682);
 
         // Renderer CSS2D: capa DOM encima del canvas WebGL

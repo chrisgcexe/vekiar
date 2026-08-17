@@ -1404,7 +1404,8 @@
         "u": 0.2937,
         "v": 0.6115
       },
-      "fontSize": 35
+      "fontSize": 35,
+      "colorId": "#6A7788"
     },
     {
       "id": "marker_1785901392354",
@@ -1481,7 +1482,8 @@
       },
       "fontSize": 50,
       "rotation": 0,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#FF00FF"
     },
     {
       "id": "marker_1785901505087",
@@ -1770,7 +1772,8 @@
       },
       "fontSize": 25,
       "rotation": 0,
-      "curveRadius": 0
+      "curveRadius": 0,
+      "colorId": "#08FDFE"
     },
     {
       "id": "marker_1786133902122",

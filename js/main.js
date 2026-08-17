@@ -136,8 +136,8 @@ async function startApp() {
             if (_uZoomAlpha) _uZoomAlpha.value = appState.currentIn3DAlpha;
             if (_uTime)      _uTime.value      = appState.time;
 
-            // Escribir displacementScale solo cuando cambió más del 0.2%
-            if (Math.abs(appState.currentIn3DAlpha - _lastDispAlpha) > 0.002) {
+            // Escribir displacementScale solo cuando cambió más del 1.5% (Optimización de GPU)
+            if (Math.abs(appState.currentIn3DAlpha - _lastDispAlpha) > 0.015) {
                 _lastDispAlpha = appState.currentIn3DAlpha;
                 const disp = 3.5 * _lastDispAlpha;
                 map.material.displacementScale = disp;

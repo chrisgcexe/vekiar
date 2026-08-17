@@ -83,8 +83,12 @@ export class MarkerVisualController {
             const activeHoverId = hoveredRegionId || overviewHoveredId;
             if (activeHoverId) {
                 const item = this.registry.getById(activeHoverId);
-                if (item && item.data.colorId) {
-                    this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                if (item) {
+                    if (item.data.colorId) {
+                        this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                    } else {
+                        this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                    }
                     
                     let u = -1, v = -1;
                     if (item.data.uv) { u = item.data.uv.u; v = item.data.uv.v; }
@@ -106,8 +110,12 @@ export class MarkerVisualController {
         if (this.mapMaterial.userData.uFocusedRegionColor) {
             if (focusedRegionId) {
                 const item = this.registry.getById(focusedRegionId);
-                if (item && item.data.colorId) {
-                    this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
+                if (item) {
+                    if (item.data.colorId) {
+                        this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
+                    } else {
+                        this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+                    }
                     
                     let u = -1, v = -1;
                     if (item.data.uv) { u = item.data.uv.u; v = item.data.uv.v; }
