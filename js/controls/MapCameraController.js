@@ -55,8 +55,8 @@ export class MapCameraController {
         this.mapInstance = mapInstance;
     }
 
-    fitToPoints(points, padding = 10) {
-        this.flightSystem.fitToPoints(points, padding);
+    fitToPoints(points, offsetX = 10) {
+        this.flightSystem.fitToPoints(points, offsetX);
     }
 
     playIntro() {

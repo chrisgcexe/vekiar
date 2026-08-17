@@ -58,23 +58,25 @@ async function startApp() {
         eventBus
     );
 
-    // Click en una región (de lejos) -> dolly de cámara hacia ella hasta el tope de zoom
+    // Click en una región -> encuadrar todos sus marcadores directamente (un solo vuelo)
     eventBus.on('marker:region-fly-request', (e) => {
-        // Offset positivo mueve el target a la derecha, por lo que el objeto queda a la izquierda en la pantalla
-        // fullZoom=true: el dolly aterriza en el tope de zoom (minDistance)
-        cameraController.flyTo(e.detail.worldPos, 10, true); 
-    });
-
-    // Click en una región (de cerca, en focus) -> encuadrar sus marcadores y abrir panel
-    eventBus.on('marker:region-open-panel', (e) => {
-        // Si la región tiene marcadores vinculados, encuadramos todos para que entren en pantalla.
-        // Si no, nos limitamos a centrar en la región (el panel lo escuchará para abrirse).
         const placePositions = e.detail.placePositions;
         if (placePositions && placePositions.length) {
-            cameraController.fitToPoints(placePositions, 10);
+            // Incluir también la posición de la región central
+            const points = [...placePositions, e.detail.worldPos];
+            // offsetX = 10 para esquivar el panel lateral que aparecerá
+            cameraController.fitToPoints(points, 10);
         } else {
-            cameraController.flyTo(e.detail.worldPos, 10);
+            // Si la región está vacía, solo vamos a su centro con max zoom
+            cameraController.flyTo(e.detail.worldPos, 10, true); 
         }
+    });
+
+    // Cuando el vuelo termina, MarkerManager emite este evento.
+    // La cámara ya está en su lugar final, así que aquí NO volvemos a volar,
+    // simplemente permitimos que el UI abra el side panel escuchando este evento.
+    eventBus.on('marker:region-open-panel', (e) => {
+        // (El SidePanel escucha este evento por su cuenta y se abre)
     });
     
 

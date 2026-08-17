@@ -49,7 +49,7 @@ export class CameraFlightSystem {
         ctrl.stateMachine.transitionTo('FLY_TO', { reason: 'request' });
     }
 
-    fitToPoints(points, padding = 10) {
+    fitToPoints(points, offsetX = 10) {
         if (!points || points.length === 0) return;
         
         let minX = Infinity, maxX = -Infinity;
@@ -65,10 +65,21 @@ export class CameraFlightSystem {
         const centerX = (minX + maxX) / 2;
         const centerZ = (minZ + maxZ) / 2;
 
+        const sizeX = maxX - minX;
+        const sizeZ = maxZ - minZ;
+
+        // Determinar la distancia de zoom requerida para que los marcadores entren en plano.
+        // Asumiendo un FOV aproximado de la cámara, calculamos la distancia necesaria.
+        // Si están muy juntos, distance será pequeña (y se limitará al minZoom).
+        const maxDist = Math.max(sizeX, sizeZ);
+        // Ajustamos empíricamente este multiplicador para el FOV
+        const requiredDistance = maxDist * 1.5; 
+
         const centerPos = new THREE.Vector3(centerX, 0, centerZ);
-        // Volamos al centro de los marcadores manteniendo el zoom máximo (fullZoom = true)
-        // para evitar el alejamiento excesivo.
-        this.flyTo(centerPos, 0, true);
+        
+        // Offset positivo mueve el target a la derecha, por lo que el mapa se desplaza 
+        // hacia la izquierda en la pantalla, evitando el sidepanel.
+        this.flyTo(centerPos, offsetX, false, requiredDistance);
     }
 
     update() {
