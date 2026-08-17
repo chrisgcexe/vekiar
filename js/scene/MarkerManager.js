@@ -175,7 +175,8 @@ export class MarkerManager {
     }
 
     update(zoomAlpha, cameraState, isDragging = false) {
-        this._visualController.updateFrame(this._mapReady, cameraState, !!this._pendingFocusItem);
+        const pendingFocusId = this._pendingFocusItem ? this._pendingFocusItem.data.id : null;
+        this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId);
         this._lodSystem.update(zoomAlpha, cameraState);
 
         const { hoveredId, changed } = this._raycasterSystem.updateRaycast(cameraState, isDragging);

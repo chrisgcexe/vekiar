@@ -132,6 +132,12 @@ _setupLights() {
         this.css2dRenderer.setSize(width, height);
     }
 
+    async loadMarkersData() {
+        const response = await fetch('./assets/data/vekiar_markers.json?v=' + Date.now());
+        const data = await response.json();
+        this.markerManager.loadData(data);
+    }
+
     render() {
         this.renderer.render(this.scene, this.camera);
         this.css2dRenderer.render(this.scene, this.camera);

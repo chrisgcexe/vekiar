@@ -55,6 +55,10 @@ export class MapCameraController {
         this.mapInstance = mapInstance;
     }
 
+    fitToPoints(points, padding = 10) {
+        this.flightSystem.fitToPoints(points, padding);
+    }
+
     playIntro() {
         this.stateMachine.transitionTo('DROP_1', { reason: 'intro' });
     }

@@ -18,11 +18,14 @@ export class AssetLoader {
         const mapDataPromise      = textureLoader.loadAsync('./assets/images/map_data_R_elevation_B_snow_particles.png');
         const packedMasksPromise  = textureLoader.loadAsync('./assets/images/masks_2_R_river_G_lake_B_snow_A_desert.png');
         const flowmapPromise      = textureLoader.loadAsync('./assets/images/river_flow_directions.png');
-        const regionIdsPromise    = textureLoader.loadAsync('./assets/images/mapa_referencia_regiones.png');
+        const rm0Promise          = textureLoader.loadAsync('./assets/images/region_masks_0.png');
+        const rm1Promise          = textureLoader.loadAsync('./assets/images/region_masks_1.png');
+        const rm2Promise          = textureLoader.loadAsync('./assets/images/region_masks_2.png');
+        const rm3Promise          = textureLoader.loadAsync('./assets/images/region_masks_3.png');
         const mountainMaskPromise = textureLoader.loadAsync('./assets/images/mountain_snow_mask.png');
         // mapa_referencia.jpg (5.9 MB) se carga en lazy — solo cuando el editor la necesita
 
-        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, regionIdsTexture, mountainMaskTexture;
+        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, mountainMaskTexture;
         try {
             [
                 colorTexture,
@@ -30,7 +33,7 @@ export class AssetLoader {
                 mapDataPackedTexture,
                 packedMasksTexture,
                 flowmapTexture,
-                regionIdsTexture,
+                rm0, rm1, rm2, rm3,
                 mountainMaskTexture
             ] = await Promise.all([
                 colorPromise,
@@ -38,23 +41,29 @@ export class AssetLoader {
                 mapDataPromise,
                 packedMasksPromise,
                 flowmapPromise,
-                regionIdsPromise,
+                rm0Promise,
+                rm1Promise,
+                rm2Promise,
+                rm3Promise,
                 mountainMaskPromise
             ]);
         } catch (err) {
-            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, regionIdsTexture, mountainMaskTexture]
+            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, mountainMaskTexture]
                 .forEach(t => t?.dispose());
             ktx2Loader.dispose();
             throw new Error(`AssetLoader: fallo al cargar uno o más assets. Causa: ${err.message}`);
         }
 
         colorTexture.colorSpace   = THREE.SRGBColorSpace;
-        regionIdsTexture.colorSpace = THREE.NoColorSpace; // IDs discretos — no aplicar conversión gamma
-
-        // La mascara de regiones es un ID lookup — sin mipmaps para no mezclar colores en bordes
-        regionIdsTexture.generateMipmaps = false;
-        regionIdsTexture.minFilter = THREE.NearestFilter;
-        regionIdsTexture.magFilter = THREE.NearestFilter;
+        
+        const regionMasksTextures = [rm0, rm1, rm2, rm3];
+        regionMasksTextures.forEach(t => {
+            t.colorSpace = THREE.NoColorSpace;
+            t.generateMipmaps = false;
+            t.minFilter = THREE.LinearFilter;
+            t.magFilter = THREE.LinearFilter;
+            t.needsUpdate = true;
+        });
 
         // La mascara de montañas ya viene pre-blureada — sin mipmaps
         mountainMaskTexture.generateMipmaps = false;
@@ -74,7 +83,7 @@ export class AssetLoader {
             mapDataPackedTexture,
             packedMasksTexture,
             flowmapTexture,
-            regionIdsTexture,
+            regionMasksTextures,
             mountainMaskTexture,
             referenceTexture: null // lazy — usar loadReferenceMap() cuando el editor la necesite
         };

@@ -1,4 +1,4 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 import { 
     mapVertexCommon, 
     mapVertexUv, 
@@ -42,12 +42,15 @@ export class TerrainMaterial {
         material.userData.uRegionOpacity = { value: 0.0 };
         
         // --- UNIFORMS: Hover Político y Texto ---
-        material.userData.tRegionIds = { value: assets.regionIdsTexture };
+        material.userData.regionMasksTextures = assets.regionMasksTextures;
+        material.userData.tHoverMask = { value: assets.regionMasksTextures[0] };
+        material.userData.uHoverChannel = { value: new THREE.Vector4(0, 0, 0, 0) };
+        material.userData.tFocusMask = { value: assets.regionMasksTextures[0] };
+        material.userData.uFocusChannel = { value: new THREE.Vector4(0, 0, 0, 0) };
+        
         material.userData.tReferenceMap = { value: assets.referenceTexture };
-        material.userData.uHoveredRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uHoverRegionAlpha = { value: 0.0 };
         material.userData.uHoverTextAlpha = { value: 0.0 };
-        material.userData.uFocusedRegionColor = { value: new THREE.Color(-1, -1, -1) };
         material.userData.uFocusedRegionAlpha = { value: 0.0 };
         
         material.userData.uHoverTextUV = { value: new THREE.Vector3(-1, -1, 1) };
@@ -70,12 +73,14 @@ export class TerrainMaterial {
             shader.uniforms.tRegionTextGlow = material.userData.tRegionTextGlow;
             shader.uniforms.uRegionOpacity = material.userData.uRegionOpacity;
             
-            shader.uniforms.tRegionIds = material.userData.tRegionIds;
+            shader.uniforms.tHoverMask = material.userData.tHoverMask;
+            shader.uniforms.uHoverChannel = material.userData.uHoverChannel;
+            shader.uniforms.tFocusMask = material.userData.tFocusMask;
+            shader.uniforms.uFocusChannel = material.userData.uFocusChannel;
+            
             shader.uniforms.tReferenceMap = material.userData.tReferenceMap;
-            shader.uniforms.uHoveredRegionColor = material.userData.uHoveredRegionColor;
             shader.uniforms.uHoverRegionAlpha = material.userData.uHoverRegionAlpha;
             shader.uniforms.uHoverTextAlpha = material.userData.uHoverTextAlpha;
-            shader.uniforms.uFocusedRegionColor = material.userData.uFocusedRegionColor;
             shader.uniforms.uFocusedRegionAlpha = material.userData.uFocusedRegionAlpha;
             
             shader.uniforms.uHoverTextUV = material.userData.uHoverTextUV;
@@ -83,7 +88,7 @@ export class TerrainMaterial {
             shader.uniforms.uOverviewMode = material.userData.uOverviewMode;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tRegionIds;\nuniform sampler2D tReferenceMap;\nuniform vec3 uHoveredRegionColor;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform vec3 uFocusedRegionColor;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tHoverMask;\nuniform vec4 uHoverChannel;\nuniform sampler2D tFocusMask;\nuniform vec4 uFocusChannel;\nuniform sampler2D tReferenceMap;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

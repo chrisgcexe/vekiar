@@ -74,6 +74,18 @@ export class MapEditor {
         if (saved) {
             try {
                 this.markers = JSON.parse(saved);
+
+                // VALIDACIÓN: Si los marcadores guardados no tienen maskTexture, son de una versión vieja.
+                // Ignoramos el localStorage para obligar a cargar el JSON actualizado.
+                const hasNewMasks = this.markers.some(m => m.type === 'region' && m.maskTexture);
+                if (!hasNewMasks) {
+                    console.log("[EDITOR] Marcadores antiguos detectados en LocalStorage. Forzando actualización...");
+                    this.markers = [];
+                    localStorage.removeItem('vekiar_custom_markers');
+                    await this.loadDefaultMarkers();
+                    return;
+                }
+
                 this.markers.forEach(m => {
                     if (!m.type) m.type = 'otro';
                     if (m.position === undefined) {

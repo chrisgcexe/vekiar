@@ -96,33 +96,24 @@ ${waterFragmentChunk}
 ${landColorAdjustmentChunk}
 
 // --- FOCUS POLÍTICO (ILUMINACIÓN CON BLOOM DORADO) ---
-// Como ahora la imagen ya tiene el desenfoque gaussiano perfecto, 
-// la máscara nos regala el efecto "Bloom" totalmente gratis y suave.
+// Extraemos la máscara con un dot product muy preciso
+float regionPixelAlpha = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel) * uFocusedRegionAlpha;
 
-// 1. Leemos el color de la textura desenfocada
-vec3 regionPixel = texture2D(tRegionIds, vGlobalPos).rgb;
-float dist = distance(regionPixel, uFocusedRegionColor);
+// Según indicaciones, el terreno solo se ilumina con focus, no con hover.
+float combinedAlpha = regionPixelAlpha;
 
-// 2. Para lograr ese difuminado "precioso" idéntico al de las letras (shadowBlur),
-// necesitamos que la luz caiga con una curva exponencial (como se disipa la luz en la vida real).
-float baseMask = 1.0 - smoothstep(0.05, 0.45, dist);
-
-// 3. Aplicamos una curvatura matemática (pow) para que el halo exterior se desvanezca
-// como un resplandor de neón o shadowBlur.
+// Ajustamos la intensidad y la curva del bloom. Las máscaras ya traen la silueta y bordes
+float baseMask = combinedAlpha;
 float glow = pow(baseMask, 1.5); 
-
-// 4. Mantenemos el interior apenas un poco más suave (restamos solo 40%) 
-// para que no compita con la letra, pero que SÍ se note el relleno general.
-float center = 1.0 - smoothstep(0.0, 0.2, dist);
+float center = 1.0 - smoothstep(0.0, 0.2, 1.0 - combinedAlpha);
 float finalMask = glow * (1.0 - center * 0.4);
 
-// 5. Color Dorado y Pulso (Ajustado para ser el MISMO amarillo pigmentado de la sombra de las letras)
-// Letras usan rgba(255, 200, 50) -> vec3(1.0, 0.78, 0.20)
+// 5. Color Dorado y Pulso
 vec3 bloomColor = vec3(1.0, 0.78, 0.2);
 float pulse = sin(uTime * 2.5) * 0.15 + 0.85; 
 
 // 6. Intensidad calibrada: El hermoso difuminado brilla, el centro acompaña.
-float bloomIntensity = finalMask * uFocusedRegionAlpha * 0.25 * pulse;
+float bloomIntensity = finalMask * 0.25 * pulse;
 
 gl_FragColor.rgb += bloomColor * bloomIntensity;
 

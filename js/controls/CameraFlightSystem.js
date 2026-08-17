@@ -49,6 +49,28 @@ export class CameraFlightSystem {
         ctrl.stateMachine.transitionTo('FLY_TO', { reason: 'request' });
     }
 
+    fitToPoints(points, padding = 10) {
+        if (!points || points.length === 0) return;
+        
+        let minX = Infinity, maxX = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        points.forEach(p => {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.z < minZ) minZ = p.z;
+            if (p.z > maxZ) maxZ = p.z;
+        });
+
+        const centerX = (minX + maxX) / 2;
+        const centerZ = (minZ + maxZ) / 2;
+
+        const centerPos = new THREE.Vector3(centerX, 0, centerZ);
+        // Volamos al centro de los marcadores manteniendo el zoom máximo (fullZoom = true)
+        // para evitar el alejamiento excesivo.
+        this.flyTo(centerPos, 0, true);
+    }
+
     update() {
         const ctrl = this.controller;
         if (ctrl.stateMachine.state !== 'FLY_TO') return;

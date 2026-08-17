@@ -76,18 +76,23 @@ export class MarkerVisualController {
         
         const hoveredRegionId = this.state.getHoveredRegionId();
         const overviewHoveredId = this.state._overviewHoveredId;
-        const focusedRegionId = this.state.getFocusedRegionId();
+        const focusedRegionId = this.state.getFocusedRegionId() || this._pendingFocusId;
 
         // Hover shader logic
-        if (this.mapMaterial.userData.uHoveredRegionColor) {
+        if (this.mapMaterial.userData.tHoverMask) {
             const activeHoverId = hoveredRegionId || overviewHoveredId;
             if (activeHoverId) {
                 const item = this.registry.getById(activeHoverId);
                 if (item) {
-                    if (item.data.colorId) {
-                        this.mapMaterial.userData.uHoveredRegionColor.value.setStyle(item.data.colorId);
+                    if (item.data.maskTexture && item.data.maskChannel) {
+                        const maskIdx = parseInt(item.data.maskTexture.replace("region_masks_", "").replace(".png", ""));
+                        const textures = this.mapMaterial.userData.regionMasksTextures;
+                        if (textures && textures[maskIdx]) {
+                            this.mapMaterial.userData.tHoverMask.value = textures[maskIdx];
+                            this.mapMaterial.userData.uHoverChannel.value.fromArray(item.data.maskChannel);
+                        }
                     } else {
-                        this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                        this.mapMaterial.userData.uHoverChannel.value.set(0, 0, 0, 0);
                     }
                     
                     let u = -1, v = -1;
@@ -97,24 +102,27 @@ export class MarkerVisualController {
                     const width = item.data.textWidthUV || 0.15;
                     this._hoverTextUVTarget.set(u, v, width);
                 } else {
-                    this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
+                    // Mantenemos la UV y el canal anterior para que el fade out tenga la forma correcta.
+                    // uHoverTextAlpha / uHoverRegionAlpha se encargan de ocultarlo.
                     this._hoverTextUVTarget.set(-1, -1, 1);
                 }
             } else {
-                this.mapMaterial.userData.uHoveredRegionColor.value.setRGB(-1, -1, -1);
                 this._hoverTextUVTarget.set(-1, -1, 1);
             }
         }
         
         // Focus shader logic
-        if (this.mapMaterial.userData.uFocusedRegionColor) {
+        if (this.mapMaterial.userData.tFocusMask) {
             if (focusedRegionId) {
                 const item = this.registry.getById(focusedRegionId);
                 if (item) {
-                    if (item.data.colorId) {
-                        this.mapMaterial.userData.uFocusedRegionColor.value.setStyle(item.data.colorId);
-                    } else {
-                        this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
+                    if (item.data.maskTexture && item.data.maskChannel) {
+                        const maskIdx = parseInt(item.data.maskTexture.replace("region_masks_", "").replace(".png", ""));
+                        const textures = this.mapMaterial.userData.regionMasksTextures;
+                        if (textures && textures[maskIdx]) {
+                            this.mapMaterial.userData.tFocusMask.value = textures[maskIdx];
+                            this.mapMaterial.userData.uFocusChannel.value.fromArray(item.data.maskChannel);
+                        }
                     }
                     
                     let u = -1, v = -1;
@@ -125,23 +133,21 @@ export class MarkerVisualController {
                     if (this.mapMaterial.userData.uFocusTextUV) {
                         this.mapMaterial.userData.uFocusTextUV.value.set(u, v, width);
                     }
-                } else {
-                    this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
-                    if (this.mapMaterial.userData.uFocusTextUV) {
-                        this.mapMaterial.userData.uFocusTextUV.value.set(-1, -1, 1);
-                    }
-                }
-            } else {
-                this.mapMaterial.userData.uFocusedRegionColor.value.setRGB(-1, -1, -1);
-                if (this.mapMaterial.userData.uFocusTextUV) {
-                    this.mapMaterial.userData.uFocusTextUV.value.set(-1, -1, 1);
                 }
             }
+            // NO limpiamos uFocusChannel ni uFocusTextUV aquí.
+            // Queremos que el shader siga teniendo la máscara y UV viejas mientras 
+            // uFocusedRegionAlpha hace lerp lentamente a 0 para que sea un FADE OUT suave.
         }
     }
 
     // Llamar cada frame
-    updateFrame(mapReady, cameraState, hasPendingFocus) {
+    updateFrame(mapReady, cameraState, pendingFocusId) {
+        if (this._pendingFocusId !== pendingFocusId) {
+            this._pendingFocusId = pendingFocusId;
+            this._updateShaderRegionColor();
+        }
+        
         this._checkStateChanges();
 
         const isCameraReady = (cameraState === 'PLAYING' || cameraState === 'FLY_TO');
@@ -187,7 +193,7 @@ export class MarkerVisualController {
         }
 
         if (this.mapMaterial && this.mapMaterial.userData.uFocusedRegionAlpha) {
-            const targetFocusAlpha = (this.state.getFocusedRegionId() !== null || hasPendingFocus) ? 1.0 : 0.0;
+            const targetFocusAlpha = (this.state.getFocusedRegionId() !== null || !!pendingFocusId) ? 1.0 : 0.0;
             this.mapMaterial.userData.uFocusedRegionAlpha.value = THREE.MathUtils.lerp(
                 this.mapMaterial.userData.uFocusedRegionAlpha.value, targetFocusAlpha, 0.15
             );
