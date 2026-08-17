@@ -55,6 +55,9 @@ export class MarkerManager {
                 if (hoveredMeshId) {
                     const item = this._registry.getById(hoveredMeshId);
                     if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
+                        // En estado overview, las regiones no son interactivas
+                        if (!this._mapReady) return;
+
                         const regionName = item.data.name;
                         const placePositions = this._items
                             .filter(i => i.data.region === regionName
@@ -203,7 +206,8 @@ export class MarkerManager {
                         this.eventBus.emit('marker:region-hover', { detail });
                     }
                 } else {
-                    this._interactionState.setOverviewHover(hoveredId);
+                    // En estado overview, no hay hover (bug fix: regiones no interactivas)
+                    this._interactionState.setOverviewHover(null);
                 }
             } else if (!hoveredId || (item && item.type !== 'region')) {
                 if (this._mapReady) {

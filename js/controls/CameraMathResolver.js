@@ -33,7 +33,9 @@ export class CameraMathResolver {
             t = THREE.MathUtils.clamp(t, 0, 1);
         }
 
-        const freedom = 1.0 - Math.pow(t, 4.0) * 0.7; 
+        // Al cambiar de 0.7 a 1.0, cuando t=1 (máximo zoom out), freedom=0.
+        // Esto forza a que el target se centre perfectamente en (0,0) y no se pueda panear a los bordes.
+        const freedom = 1.0 - Math.pow(t, 4.0); 
         const maxRadiusX = 72 * freedom; 
         const maxRadiusZ = (56 / (ctrl.mapAspect || 1.0)) * freedom;
 
@@ -64,16 +66,25 @@ export class CameraMathResolver {
         }
     }
 
-    updateCameraPosition() {
+    getPolarAngle(distance) {
         const ctrl = this.controller;
         let tTilt = 1.0;
-        const tiltRefMax = 180;
+        // Corregimos tiltRefMax: antes era 180 por lo que el lerp nunca llegaba al final en el zoom normal (60)
+        const tiltRefMax = ctrl.calculatedMaxDistance || 60; 
         const distRangeTilt = tiltRefMax - ctrl.minDistance;
         if (distRangeTilt > 0) {
-            tTilt = (ctrl.distance - ctrl.minDistance) / distRangeTilt;
+            tTilt = (distance - ctrl.minDistance) / distRangeTilt;
             tTilt = THREE.MathUtils.clamp(tTilt, 0, 1);
         }
 
+        const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
+        // Tope zoom in: ~51.4º (PI/3.5)
+        // Tope zoom out: 22.5º (PI/8) (Menos cenital, con un poco de contrapicado)
+        return THREE.MathUtils.lerp(Math.PI / 3.5, Math.PI / 8, easeT);
+    }
+
+    updateCameraPosition() {
+        const ctrl = this.controller;
         const playableDist = ctrl.calculatedMaxDistance || 60;
         let tAlpha = 1.0;
         const distRangeAlpha = playableDist - ctrl.minDistance;
@@ -83,8 +94,7 @@ export class CameraMathResolver {
         }
         ctrl.zoomAlpha = tAlpha;
 
-        const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
-        const polarAngle = THREE.MathUtils.lerp(Math.PI / 4.5, Math.PI / 8, easeT); 
+        const polarAngle = this.getPolarAngle(ctrl.distance);
 
         ctrl.camera.position.x = ctrl.target.x;
         ctrl.camera.position.y = ctrl.target.y + ctrl.distance * Math.cos(polarAngle);

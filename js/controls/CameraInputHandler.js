@@ -79,15 +79,7 @@ export class CameraInputHandler {
 
         const { movementX, movementY } = e.detail;
 
-        let tTilt = 1.0;
-        const tiltRefMax = 180;
-        const distRangeTilt = tiltRefMax - ctrl.minDistance;
-        if (distRangeTilt > 0) {
-            tTilt = (ctrl.distance - ctrl.minDistance) / distRangeTilt;
-            tTilt = THREE.MathUtils.clamp(tTilt, 0, 1);
-        }
-        const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
-        const polarAngle = THREE.MathUtils.lerp(Math.PI / 4.5, Math.PI / 8, easeT); 
+        const polarAngle = ctrl.mathResolver.getPolarAngle(ctrl.distance);
 
         // Matemáticas para un Paneo 1:1 con el cursor
         const fovRad = THREE.MathUtils.degToRad(ctrl.camera.fov / 2);
@@ -136,9 +128,8 @@ export class CameraInputHandler {
         const hit = this.getPointerIntersection(clientX, clientY);
         
         if (hit) {
-            // Volar al punto con una distancia de zoom cómoda (60% entre min y max)
-            const targetDist = ctrl.minDistance + (ctrl.maxDistance - ctrl.minDistance) * 0.4;
-            ctrl.flyTo(hit, 0, false, targetDist);
+            // Volar al punto con el zoom al máximo (tope de zoom in)
+            ctrl.flyTo(hit, 0, false, ctrl.minDistance);
         }
     }
 
