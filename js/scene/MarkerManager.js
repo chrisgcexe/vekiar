@@ -179,7 +179,7 @@ export class MarkerManager {
         this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId);
         this._lodSystem.update(zoomAlpha, cameraState);
 
-        const { hoveredId, changed } = this._raycasterSystem.updateRaycast(cameraState, isDragging);
+        const { hoveredId, changed } = this._raycasterSystem.updateRaycast(cameraState, isDragging, this._mapReady);
         
         if (changed) {
             const item = this._registry.getById(hoveredId);

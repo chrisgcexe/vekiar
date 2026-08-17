@@ -138,15 +138,19 @@ export class MarkerRaycaster {
         return Math.abs(dx) <= hit.w / 2 && Math.abs(dy) <= hit.h / 2;
     }
 
-    // Devuelve un objeto { hoveredId, changed }
-    updateRaycast(cameraState, isDragging) {
-        if (!this.camera || cameraState !== 'PLAYING' || isDragging) {
+    updateRaycast(cameraState, isDragging = false, mapReady = true) {
+        if (!this.raycaster || !this.camera || isDragging) {
+            if (this.interactionState.hoveredMeshId !== null) {
+                this.interactionState.hoveredMeshId = null;
+                if (this.domElement) this.domElement.style.cursor = 'grab';
+                return { hoveredId: null, changed: true };
+            }
             return { hoveredId: null, changed: false };
         }
 
         const now = performance.now();
-        if (this._lastRaycastTime && now - this._lastRaycastTime <= 50) {
-            return { hoveredId: this.interactionState.hoveredMeshId, changed: false }; // Throttling
+        if (now - this._lastRaycastTime < 30) {
+            return { hoveredId: this.interactionState.hoveredMeshId, changed: false };
         }
 
         this._lastRaycastTime = now;
@@ -178,11 +182,13 @@ export class MarkerRaycaster {
                 newHoveredMeshId = this._forcedHoverId;
             }
             
+            if (this.domElement) {
+                const isInteractive = newHoveredMeshId && !this._forcedHoverId && cameraState === 'PLAYING' && mapReady;
+                this.domElement.style.cursor = isInteractive ? 'pointer' : 'grab';
+            }
+
             if (this.interactionState.hoveredMeshId !== newHoveredMeshId) {
                 this.interactionState.hoveredMeshId = newHoveredMeshId;
-                if (this.domElement) {
-                    this.domElement.style.cursor = newHoveredMeshId && !this._forcedHoverId ? 'pointer' : 'grab';
-                }
                 return { hoveredId: newHoveredMeshId, changed: true };
             }
         }
