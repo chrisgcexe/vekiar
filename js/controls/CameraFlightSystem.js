@@ -26,16 +26,9 @@ export class CameraFlightSystem {
             endDist = fullZoom ? ctrl.minDistance : (this._flyStartDist <= 35 ? this._flyStartDist : 28);
         }
         
-        let tEnd = 1.0;
-        const distRange = playableDist - ctrl.minDistance;
-        if (distRange > 0) {
-            tEnd = (endDist - ctrl.minDistance) / distRange;
-            tEnd = THREE.MathUtils.clamp(tEnd, 0, 1);
-        }
-
-        const freedom = 1.0 - Math.pow(tEnd, 4.0) * 0.7;
-        const maxRadiusX = 72 * freedom;
-        const maxRadiusZ = (56 / (ctrl.mapAspect || 1.0)) * freedom;
+        const bounds = ctrl.mathResolver.getBoundsForDistance(endDist);
+        const maxRadiusX = bounds.x;
+        const maxRadiusZ = bounds.z;
 
         const targetWorldX = worldPos.x + offsetX;
         const clampedTargetX = THREE.MathUtils.clamp(targetWorldX, -maxRadiusX, maxRadiusX);

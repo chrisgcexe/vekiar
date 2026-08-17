@@ -28,32 +28,13 @@ export class MapEditor {
         this.ui = new EditorUI(this);
         this.ui.create();
 
-        this._mouseDownPos = new THREE.Vector2(-1000, -1000);
-        
-        this.domElement.addEventListener('pointerdown', (e) => {
-            this._mouseDownPos.set(e.clientX, e.clientY);
+        eventBus.on('input:click', (e) => {
+            this.onLeftClick(e.detail); // e.detail tiene clientX, clientY
         });
 
-        this.domElement.addEventListener('pointerup', (e) => {
-            const dx = e.clientX - this._mouseDownPos.x;
-            const dy = e.clientY - this._mouseDownPos.y;
-            if (Math.sqrt(dx * dx + dy * dy) > 5) return; // Fue un paneo, ignorar
-
-            if (e.button === 0) { // Clic izquierdo
-                this.onLeftClick(e);
-            }
+        eventBus.on('input:right-click', (e) => {
+            this.onRightClick(e.detail);
         });
-
-        this.domElement.addEventListener('contextmenu', (e) => {
-            e.preventDefault(); // Siempre prevenir el menú nativo en el canvas
-
-            const dx = e.clientX - this._mouseDownPos.x;
-            const dy = e.clientY - this._mouseDownPos.y;
-            if (Math.sqrt(dx * dx + dy * dy) > 5) return; // Fue un paneo (con clic derecho), ignorar
-
-            this.onRightClick(e);
-        });
-        
         window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'e') {
                 this.enabled = !this.enabled;
@@ -142,7 +123,6 @@ export class MapEditor {
 
     onLeftClick(event) {
         if (!this.enabled) return;
-        if (event.target.closest('#map-editor-panel') || event.target.closest('#map-inspector-panel')) return;
 
         const rect = this.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -162,7 +142,6 @@ export class MapEditor {
 
     onRightClick(event) {
         if (!this.enabled) return;
-        if (event.target.closest('#map-editor-panel') || event.target.closest('#map-inspector-panel')) return;
 
         const rect = this.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;

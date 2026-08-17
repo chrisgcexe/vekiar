@@ -63,7 +63,7 @@ export class MapCameraController {
         this.mathResolver.updateConstraints(mapAspect);
     }
 
-    update(mapAspect) {
+    update(mapAspect, delta = 0.016) {
         this.mapAspect = mapAspect;
         const playableDist = this.calculatedMaxDistance || 60;
         const idleDist = playableDist + 15; 
@@ -75,11 +75,11 @@ export class MapCameraController {
         this.flightSystem.update();
 
         // 3. Inercia del drag
-        this.inputHandler.updateInertia();
+        this.inputHandler.updateInertia(delta);
 
         // 4. Asegurarse que no nos pasamos de los bordes
         if (this.stateMachine.state === 'PLAYING') {
-            this.mathResolver.clampTargetToBounds();
+            this.mathResolver.clampTargetToBounds(delta);
         }
 
         // 5. Emitir eventos (map:ready, map:zoom-out) basados en la altura (zoomAlpha)

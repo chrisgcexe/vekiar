@@ -4,49 +4,50 @@ export class CameraInputHandler {
     constructor(controller) {
         this.controller = controller;
         this.panVelocity = new THREE.Vector3();
+        this._accumulatedPan = new THREE.Vector3(); // Para calcular velocidad real
         this.isDragging = false;
         
-        this._isPointerDown = false;
-        this.startPointerX = 0;
-        this.startPointerY = 0;
-        this.lastPointerX = 0;
-        this.lastPointerY = 0;
-        this.friction = 0.85;
+        // Fricción exponencial por segundo (~10.0 es similar a 0.85 por frame a 60fps)
+        this.friction = 10.0;
+
+        this.targetDistance = null;
+        this.isZooming = false;
+        this.zoomClientX = 0;
+        this.zoomClientY = 0;
 
         this._pointerNDC = new THREE.Vector2();
         this._intersectionTarget = new THREE.Vector3();
         this._zoomDelta = new THREE.Vector3(); 
         this._pointBeforeZoom = new THREE.Vector3();
 
-        this.onPointerDown = this.onPointerDown.bind(this);
-        this.onPointerMove = this.onPointerMove.bind(this);
-        this.onPointerUp = this.onPointerUp.bind(this);
-        this.onPointerCancel = this.onPointerCancel.bind(this);
-        this.onWheel = this.onWheel.bind(this);
+        this.onPanStart = this.onPanStart.bind(this);
+        this.onPanMove = this.onPanMove.bind(this);
+        this.onPanEnd = this.onPanEnd.bind(this);
+        this.onZoom = this.onZoom.bind(this);
         this.onKeyDown = this.onKeyDown.bind(this);
+        this.onDoubleClick = this.onDoubleClick.bind(this);
 
-        const domElement = this.controller.domElement;
-        if (domElement) {
-            domElement.addEventListener('pointerdown', this.onPointerDown);
-            domElement.addEventListener('pointermove', this.onPointerMove);
-            window.addEventListener('pointerup', this.onPointerUp); 
-            window.addEventListener('pointercancel', this.onPointerCancel); 
-            domElement.addEventListener('wheel', this.onWheel, { passive: false });
-            window.addEventListener('keydown', this.onKeyDown);
-            domElement.addEventListener('contextmenu', e => e.preventDefault());
+        const eventBus = this.controller.eventBus;
+        if (eventBus) {
+            eventBus.on('input:pan-start', this.onPanStart);
+            eventBus.on('input:pan-move', this.onPanMove);
+            eventBus.on('input:pan-end', this.onPanEnd);
+            eventBus.on('input:zoom', this.onZoom);
+            eventBus.on('input:double-click', this.onDoubleClick);
         }
+        window.addEventListener('keydown', this.onKeyDown);
     }
 
     dispose() {
-        const domElement = this.controller.domElement;
-        if (domElement) {
-            domElement.removeEventListener('pointerdown', this.onPointerDown);
-            domElement.removeEventListener('pointermove', this.onPointerMove);
-            window.removeEventListener('pointerup', this.onPointerUp);
-            window.removeEventListener('pointercancel', this.onPointerCancel);
-            domElement.removeEventListener('wheel', this.onWheel);
-            window.removeEventListener('keydown', this.onKeyDown);
+        const eventBus = this.controller.eventBus;
+        if (eventBus) {
+            eventBus.off('input:pan-start', this.onPanStart);
+            eventBus.off('input:pan-move', this.onPanMove);
+            eventBus.off('input:pan-end', this.onPanEnd);
+            eventBus.off('input:zoom', this.onZoom);
+            eventBus.off('input:double-click', this.onDoubleClick);
         }
+        window.removeEventListener('keydown', this.onKeyDown);
     }
 
     getPointerIntersection(clientX, clientY) {
@@ -62,45 +63,21 @@ export class CameraInputHandler {
         return hit ? this._intersectionTarget : null;
     }
 
-    onPointerDown(e) {
+    onPanStart(e) {
         const ctrl = this.controller;
         if (ctrl.stateMachine.state === 'FLY_TO') ctrl.stateMachine.transitionTo('PLAYING', { reason: 'flight-interrupt' });
         if (ctrl.stateMachine.state !== 'PLAYING') return;
-        if (e.button !== 0 && e.pointerType !== 'touch') return; 
 
-        this._isPointerDown = true;
-        this.isDragging = false; 
-        this.panVelocity.set(0, 0, 0); 
-        
-        this.startPointerX = e.clientX;
-        this.startPointerY = e.clientY;
-        this.lastPointerX = e.clientX;
-        this.lastPointerY = e.clientY;
-        
-        ctrl.domElement.setPointerCapture(e.pointerId); 
+        this.isDragging = true;
+        this.panVelocity.set(0, 0, 0);
+        this._accumulatedPan.set(0, 0, 0);
     }
 
-    onPointerMove(e) {
+    onPanMove(e) {
         const ctrl = this.controller;
-        if (!this._isPointerDown || ctrl.stateMachine.state !== 'PLAYING') return;
+        if (ctrl.stateMachine.state !== 'PLAYING' || !this.isDragging) return;
 
-        if (!this.isDragging) {
-            const dist = Math.hypot(e.clientX - this.startPointerX, e.clientY - this.startPointerY);
-            if (dist > 3) {
-                this.isDragging = true;
-                ctrl.domElement.style.cursor = 'grabbing';
-                this.lastPointerX = e.clientX;
-                this.lastPointerY = e.clientY;
-            }
-        }
-
-        if (!this.isDragging) return;
-
-        const movementX = e.clientX - this.lastPointerX;
-        const movementY = e.clientY - this.lastPointerY;
-        
-        this.lastPointerX = e.clientX;
-        this.lastPointerY = e.clientY;
+        const { movementX, movementY } = e.detail;
 
         let tTilt = 1.0;
         const tiltRefMax = 180;
@@ -112,61 +89,56 @@ export class CameraInputHandler {
         const easeT = -(Math.cos(Math.PI * tTilt) - 1) / 2; 
         const polarAngle = THREE.MathUtils.lerp(Math.PI / 4.5, Math.PI / 8, easeT); 
 
-        const speed = ctrl.distance * 0.0022; 
+        // Matemáticas para un Paneo 1:1 con el cursor
+        const fovRad = THREE.MathUtils.degToRad(ctrl.camera.fov / 2);
+        const screenHeight = ctrl.domElement.clientHeight || window.innerHeight;
+        const speed = (Math.tan(fovRad) * ctrl.distance * 2) / screenHeight;
         
         const deltaX = -movementX * speed;
         const deltaZ = -movementY * speed / Math.cos(polarAngle);
 
-        this.panVelocity.set(deltaX, 0, deltaZ);
-        ctrl.target.add(this.panVelocity);
+        const frameOffset = new THREE.Vector3(deltaX, 0, deltaZ);
+        ctrl.target.add(frameOffset);
+        
+        // Acumular para calcular la velocidad real en el update()
+        this._accumulatedPan.add(frameOffset);
     }
 
-    onPointerUp(e) {
-        if (e.button !== 0 && e.pointerType !== 'touch') return;
-        this._isPointerDown = false;
+    onPanEnd(e) {
         this.isDragging = false;
-        if (this.controller.domElement) {
-            this.controller.domElement.style.cursor = 'grab';
-            try { this.controller.domElement.releasePointerCapture(e.pointerId); } catch (err) {}
-        }
     }
 
-    onPointerCancel(e) {
-        if (e.button !== 0 && e.pointerType !== 'touch') return;
-        this._isPointerDown = false;
-        this.isDragging = false;
-        this.panVelocity.set(0, 0, 0);
-        if (this.controller.domElement) {
-            this.controller.domElement.style.cursor = 'grab';
-            try { this.controller.domElement.releasePointerCapture(e.pointerId); } catch (err) {}
-        }
-    }
-
-    onWheel(e) {
+    onZoom(e) {
         const ctrl = this.controller;
         if (ctrl.stateMachine.state === 'FLY_TO') ctrl.stateMachine.transitionTo('PLAYING', { reason: 'flight-interrupt' });
-        if (ctrl.stateMachine.state !== 'PLAYING') {
-            e.preventDefault();
-            return;
-        }
-        e.preventDefault();
+        if (ctrl.stateMachine.state !== 'PLAYING') return;
 
-        const hit1 = this.getPointerIntersection(e.clientX, e.clientY);
-        if (!hit1) return;
-        this._pointBeforeZoom.copy(hit1);
+        const { deltaY, clientX, clientY } = e.detail;
 
-        const zoomDelta = Math.sign(e.deltaY) * 2.0;
-        ctrl.distance += zoomDelta;
-        ctrl.distance = THREE.MathUtils.clamp(ctrl.distance, ctrl.minDistance, ctrl.maxDistance);
+        if (this.targetDistance === null) this.targetDistance = ctrl.distance;
 
-        ctrl.mathResolver.updateCameraPosition();
-        const hit2 = this.getPointerIntersection(e.clientX, e.clientY);
+        // Usamos el deltaY nativo escalado. Trackpads envían valores pequeños muy rápido (inercia nativa).
+        const zoomDelta = deltaY * 0.03; 
+        
+        this.targetDistance += zoomDelta;
+        this.targetDistance = THREE.MathUtils.clamp(this.targetDistance, ctrl.minDistance, ctrl.maxDistance);
 
-        if (hit2) {
-            this._zoomDelta.subVectors(this._pointBeforeZoom, hit2);
-            ctrl.target.add(this._zoomDelta);
-            ctrl.mathResolver.clampTargetToBounds();
-            ctrl.mathResolver.updateCameraPosition();
+        this.isZooming = true;
+        this.zoomClientX = clientX;
+        this.zoomClientY = clientY;
+    }
+
+    onDoubleClick(e) {
+        const ctrl = this.controller;
+        if (ctrl.stateMachine.state !== 'PLAYING') return;
+        
+        const { clientX, clientY } = e.detail;
+        const hit = this.getPointerIntersection(clientX, clientY);
+        
+        if (hit) {
+            // Volar al punto con una distancia de zoom cómoda (60% entre min y max)
+            const targetDist = ctrl.minDistance + (ctrl.maxDistance - ctrl.minDistance) * 0.4;
+            ctrl.flyTo(hit, 0, false, targetDist);
         }
     }
 
@@ -183,17 +155,56 @@ export class CameraInputHandler {
         }
     }
 
-    updateInertia() {
+    updateInertia(delta = 0.016) {
         const ctrl = this.controller;
-        if (ctrl.stateMachine.state === 'PLAYING') {
-            if (this.isDragging) {
-                this.panVelocity.multiplyScalar(this.friction);
-                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
-            } else {
-                ctrl.target.add(this.panVelocity);
-                this.panVelocity.multiplyScalar(this.friction);
-                if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
+        
+        if (ctrl.stateMachine.state !== 'PLAYING') {
+            this.targetDistance = ctrl.distance; // Sync al estar en cinemática
+            return;
+        }
+
+        if (this.targetDistance === null) this.targetDistance = ctrl.distance;
+
+        // Inercia y cálculo de velocidad de paneo
+        if (this.isDragging) {
+            // Velocidad instantánea en este frame (unidades / segundo)
+            const currentVelocity = this._accumulatedPan.clone().divideScalar(delta);
+            this._accumulatedPan.set(0, 0, 0);
+
+            // Filtro pasa-bajos (Low-Pass Filter) para suavizar micro-tirones del mouse
+            this.panVelocity.lerp(currentVelocity, 12.0 * delta);
+        } else {
+            // Aplicar inercia basada en la velocidad filtrada
+            ctrl.target.addScaledVector(this.panVelocity, delta);
+            
+            // Decaimiento exponencial (fricción)
+            const damping = Math.exp(-this.friction * delta);
+            this.panVelocity.multiplyScalar(damping);
+            if (this.panVelocity.lengthSq() < 0.0001) this.panVelocity.set(0, 0, 0);
+        }
+
+        // Smooth Zoom Lerping con anclaje al cursor
+        if (Math.abs(ctrl.distance - this.targetDistance) > 0.01) {
+            let hitBefore = null;
+            if (this.isZooming) {
+                hitBefore = this.getPointerIntersection(this.zoomClientX, this.zoomClientY);
+                if (hitBefore) this._pointBeforeZoom.copy(hitBefore);
             }
+
+            ctrl.distance = THREE.MathUtils.lerp(ctrl.distance, this.targetDistance, 12.0 * delta);
+            ctrl.mathResolver.updateCameraPosition();
+
+            if (hitBefore) {
+                const hitAfter = this.getPointerIntersection(this.zoomClientX, this.zoomClientY);
+                if (hitAfter) {
+                    this._zoomDelta.subVectors(this._pointBeforeZoom, hitAfter);
+                    ctrl.target.add(this._zoomDelta);
+                    // clampTargetToBounds lo llama MapCameraController después de esto
+                    ctrl.mathResolver.updateCameraPosition();
+                }
+            }
+        } else {
+            this.isZooming = false;
         }
     }
 }

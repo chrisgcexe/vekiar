@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SceneManager } from './scene/SceneManager.js';
 import { Map } from './scene/Map.js';
 import { Clouds } from './scene/Clouds.js';
+import { GlobalInputManager } from './controls/GlobalInputManager.js';
 import { MapCameraController } from './controls/MapCameraController.js';
 import { Compass } from './ui/Compass.js';
 import { ResponsiveManager } from './ResponsiveManager.js';
@@ -30,6 +31,7 @@ const regionPanel = new RegionSidePanelUI(eventBus, 'ui');
 const map = new Map(sceneManager.scene, sceneManager.renderer); 
 
 const clouds = new Clouds(sceneManager.scene);
+const globalInput = new GlobalInputManager(sceneManager.getDomElement(), eventBus);
 const cameraController = new MapCameraController(sceneManager.camera, sceneManager.getDomElement(), eventBus);
 // --- CONECTAMOS EL MAPA AL CONTROLADOR ACÁ ---
 cameraController.setMap(map);
@@ -98,7 +100,7 @@ async function startApp() {
         const delta = clock.getDelta();
 
         const aspect = map.aspect || 1.0; 
-        cameraController.update(aspect);
+        cameraController.update(aspect, delta);
         appState.update(timeMs, cameraController, map, sceneManager.camera); 
 
         const target = cameraController.target;

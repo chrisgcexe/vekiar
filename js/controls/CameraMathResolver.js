@@ -23,22 +23,45 @@ export class CameraMathResolver {
         }
     }
 
-    clampTargetToBounds() {
+    getBoundsForDistance(distance) {
         const ctrl = this.controller;
         const playableDist = ctrl.calculatedMaxDistance || 60;
         let t = 1.0;
         const distRange = playableDist - ctrl.minDistance;
         if (distRange > 0) {
-            t = (ctrl.distance - ctrl.minDistance) / distRange;
+            t = (distance - ctrl.minDistance) / distRange;
             t = THREE.MathUtils.clamp(t, 0, 1);
         }
 
         const freedom = 1.0 - Math.pow(t, 4.0) * 0.7; 
         const maxRadiusX = 72 * freedom; 
-        const maxRadiusZ = (56 / ctrl.mapAspect) * freedom;
+        const maxRadiusZ = (56 / (ctrl.mapAspect || 1.0)) * freedom;
 
-        ctrl.target.x = THREE.MathUtils.clamp(ctrl.target.x, -maxRadiusX, maxRadiusX);
-        ctrl.target.z = THREE.MathUtils.clamp(ctrl.target.z, -maxRadiusZ, maxRadiusZ);
+        return { x: maxRadiusX, z: maxRadiusZ };
+    }
+
+    clampTargetToBounds(delta = 0.016) {
+        const ctrl = this.controller;
+        const bounds = this.getBoundsForDistance(ctrl.distance);
+        const maxRadiusX = bounds.x;
+        const maxRadiusZ = bounds.z;
+
+        const isDragging = ctrl.isDragging;
+        
+        if (isDragging) {
+            // Límite de "Gomita" (Rubber band)
+            const rubberLimitX = maxRadiusX + 15;
+            const rubberLimitZ = maxRadiusZ + 15;
+            ctrl.target.x = THREE.MathUtils.clamp(ctrl.target.x, -rubberLimitX, rubberLimitX);
+            ctrl.target.z = THREE.MathUtils.clamp(ctrl.target.z, -rubberLimitZ, rubberLimitZ);
+        } else {
+            // Lerp de vuelta a los bordes legales suavemente (Efecto resorte)
+            const springForce = 12.0 * delta;
+            if (ctrl.target.x > maxRadiusX) ctrl.target.x = THREE.MathUtils.lerp(ctrl.target.x, maxRadiusX, springForce);
+            if (ctrl.target.x < -maxRadiusX) ctrl.target.x = THREE.MathUtils.lerp(ctrl.target.x, -maxRadiusX, springForce);
+            if (ctrl.target.z > maxRadiusZ) ctrl.target.z = THREE.MathUtils.lerp(ctrl.target.z, maxRadiusZ, springForce);
+            if (ctrl.target.z < -maxRadiusZ) ctrl.target.z = THREE.MathUtils.lerp(ctrl.target.z, -maxRadiusZ, springForce);
+        }
     }
 
     updateCameraPosition() {

@@ -3,6 +3,7 @@ import { MarkerBuilder } from './MarkerBuilder.js';
 import { MarkerRegistry } from './MarkerRegistry.js';
 import { RegionTexturePainter } from './RegionTexturePainter.js';
 import { MarkerInteractionState } from './MarkerInteractionState.js';
+import { MarkerVisualController } from './MarkerVisualController.js';
 import { MarkerLODSystem } from './MarkerLODSystem.js';
 import { MarkerRaycaster } from './MarkerRaycaster.js';
 
@@ -20,7 +21,8 @@ export class MarkerManager {
         this.eventBus = eventBus;
         
         this._registry = new MarkerRegistry();
-        this._interactionState = new MarkerInteractionState(this._registry, mapMaterial);
+        this._interactionState = new MarkerInteractionState(this._registry);
+        this._visualController = new MarkerVisualController(this._registry, this.mapMaterial, this._interactionState);
         this._lodSystem = new MarkerLODSystem(this._registry, this._interactionState);
         
         this._mapReady = false;
@@ -48,14 +50,7 @@ export class MarkerManager {
 
     _setupEventListeners() {
         if (this.domElement) {
-            this.domElement.addEventListener('pointerup', (e) => {
-                const dx = e.clientX - this._raycasterSystem.mouseDownPos.x;
-                const dy = e.clientY - this._raycasterSystem.mouseDownPos.y;
-                if (Math.sqrt(dx * dx + dy * dy) > 5) return; // Fue un paneo, ignorar
-
-                const editorPanel = document.getElementById('map-editor-panel');
-                if (editorPanel && editorPanel.style.display !== 'none') return;
-                
+            this.eventBus.on('input:click', (e) => {
                 const hoveredMeshId = this._interactionState.hoveredMeshId;
                 if (hoveredMeshId) {
                     const item = this._registry.getById(hoveredMeshId);
@@ -119,7 +114,6 @@ export class MarkerManager {
             }
             if (this._interactionState.hoveredMeshId !== null) {
                 this._interactionState.hoveredMeshId = null;
-                this._interactionState.updateMarkerStates();
             }
         });
 
@@ -178,7 +172,7 @@ export class MarkerManager {
     }
 
     update(zoomAlpha, cameraState, isDragging = false) {
-        this._interactionState.updateFrame(this._mapReady, cameraState, !!this._pendingFocusItem);
+        this._visualController.updateFrame(this._mapReady, cameraState, !!this._pendingFocusItem);
         this._lodSystem.update(zoomAlpha, cameraState);
 
         const { hoveredId, changed } = this._raycasterSystem.updateRaycast(cameraState, isDragging);
@@ -220,13 +214,11 @@ export class MarkerManager {
                     this._interactionState.setOverviewHover(null);
                 }
             }
-            this._interactionState.updateMarkerStates();
         } else if (!this.camera || cameraState !== 'PLAYING' || isDragging) {
             if (this._interactionState.hoveredMeshId !== null) {
                 this._interactionState.hoveredMeshId = null;
                 this._interactionState.setOverviewHover(null);
                 const hadHover = this._interactionState.setHoveredRegion(null);
-                this._interactionState.updateMarkerStates();
                 
                 if (hadHover && !this._pendingFocusItem) {
                     this.eventBus.emit('marker:region-unhover', { detail: {} });
