@@ -40,6 +40,8 @@ uniform sampler2D tMapDataPacked;
 uniform sampler2D tPackedMasks;
 uniform sampler2D tFlowMap;
 uniform vec2 uMountainCenter;
+uniform vec2 uCloudShadowOffset;
+uniform float uCloudShadowDensity;
 
 float fbm(vec2 p) {
     return texture2D(tNoise, p * 0.03).r;
@@ -147,6 +149,36 @@ gl_FragColor.rgb *= (1.0 - outsideDimming * 0.15);
 vec3 addedGlow = divineGold * glowPower * 0.30;
 
 gl_FragColor.rgb += addedGlow;
+
+// --- EFECTO DE SUELO MOJADO Y GOTAS DE LLUVIA (Ripples) ---
+// 1. Suelo mojado (oscurece la tierra, haciendo que parezca húmeda)
+// Se desvanece suavemente cuando alejamos la cámara a OVERVIEW (uZoomAlpha)
+float visibleRain = uRainIntensity * smoothstep(0.0, 0.5, uZoomAlpha);
+gl_FragColor.rgb *= mix(1.0, 0.65, visibleRain * (1.0 - smoothstep(1.5, 2.5, vHeight)));
+
+// 2. Ondulaciones de gotas de agua hiper-optimizadas
+if (visibleRain > 0.0) {
+    vec2 ripUV = vGlobalPos * 250.0; // Densidad de las gotas
+    float ripNoise = hash(floor(ripUV)); // Posición aleatoria
+    vec2 ripLocal = fract(ripUV) - vec2(0.5); 
+    
+    // Desfasar el centro de la gota usando ruido
+    ripLocal += (vec2(hash(floor(ripUV)+1.0), hash(floor(ripUV)+2.0)) - 0.5) * 0.5;
+    float ripDist = length(ripLocal);
+    
+    // Anillo animado
+    float ripTime = fract(uTime * (1.5 + ripNoise) + ripNoise * 10.0);
+    float ripRing = smoothstep(ripTime - 0.1, ripTime, ripDist) * smoothstep(ripTime + 0.05, ripTime, ripDist);
+    
+    // Suavizar al final de la expansión
+    ripRing *= (1.0 - ripTime);
+    
+    // Las gotas solo aparecen en partes bajas y llanas (no en las montañas verticales)
+    float ripAlpha = ripRing * visibleRain * smoothstep(2.0, 0.0, vHeight);
+    
+    // Darle brillo como un reflejo especular del cielo gris
+    gl_FragColor.rgb += vec3(0.2, 0.25, 0.3) * ripAlpha;
+}
 
 // --- TEXTOS DE REGION PROYECTADOS ---
 vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);

@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export class DayNightCycle {
     constructor(durationMinutes = 5, timeScale = 1) {
         this.durationSeconds = durationMinutes * 60;
@@ -30,15 +32,21 @@ export class DayNightCycle {
         sunLight.position.z = Math.sin(angle) * radius * 0.5 + (radius * 0.5 * offsetZ);
 
         const sunHeightFactor = Math.sin(angle);
-
-        // --- LÍMITES DE ILUMINACIÓN (INTENSIDAD) ---
+        
         const targetSunIntensity = sunHeightFactor * 1.0 + 0.4;
-        // Subimos el mínimo de 0.35 a 0.45 para que la luz de luna sea todavía más clara
-        sunLight.intensity = Math.max(0.45, Math.min(targetSunIntensity, 1.2));
-
         const normalizedFactor = (sunHeightFactor + 1) / 2;
-        // Subimos el mínimo de 0.45 a 0.55 para aclarar aún más el mapa en la noche profunda
-        ambientLight.intensity = Math.max(0.55, Math.min(0.55 + normalizedFactor * 0.15, 0.70));
+
+        // --- MODIFICADOR DE CLIMA (TORMENTAS / NUBES) ---
+        // this.weatherDimmer va de 0.0 (Despejado) a 1.0 (Tormenta fuerte)
+        const dimmer = this.weatherDimmer || 0.0;
+        
+        // En tormenta, la luz del sol (sombras duras) casi desaparece y la luz ambiental (luz difusa) toma el control
+        const sunIntensityBase = Math.max(0.45, Math.min(targetSunIntensity, 1.2));
+        sunLight.intensity = THREE.MathUtils.lerp(sunIntensityBase, sunIntensityBase * 0.15, dimmer);
+        
+        const ambientIntensityBase = Math.max(0.55, Math.min(0.55 + normalizedFactor * 0.15, 0.70));
+        // Mantenemos la luz ambiental un poco más alta en tormentas diurnas para compensar la falta de sol directo
+        ambientLight.intensity = THREE.MathUtils.lerp(ambientIntensityBase, ambientIntensityBase * 1.1, dimmer);
         
         // --- TEMPERATURA DE COLOR ---
         let sr, sg, sb; // Sun RGB
@@ -50,10 +58,10 @@ export class DayNightCycle {
             
             // Desde Atardecer (Naranja) hacia Mediodía (Blanco MÁS cálido/amarillento: 1.0, 0.90, 0.75)
             sr = 1.0;
-            sg = 0.55 + (0.35 * t); // Llega a 0.90
-            sb = 0.15 + (0.60 * t); // Llega a 0.75
+            sg = 0.55 + (0.35 * t);
+            sb = 0.15 + (0.60 * t);
             
-            // Ambient desde Atardecer hacia Mediodía (Ligeramente más cálido: 0.50, 0.50, 0.55)
+            // Ambient desde Atardecer hacia Mediodía
             ar = 0.35 + (0.15 * t);
             ag = 0.25 + (0.25 * t);
             ab = 0.30 + (0.25 * t);
@@ -61,19 +69,61 @@ export class DayNightCycle {
             // Noche profunda al Horizonte (-1.0 -> 0.0)
             const t = 1.0 + Math.max(sunHeightFactor, -1.0); 
             
-            // Desde Noche (Azul místico/luna: 0.30, 0.50, 0.90) hacia Atardecer (Naranja: 1.0, 0.55, 0.15)
+            // Desde Noche hacia Atardecer
             sr = 0.30 + (0.70 * t);
             sg = 0.50 + (0.05 * t);
             sb = 0.90 - (0.75 * t);
             
-            // Ambient desde Noche (Azul purpúreo claro: 0.15, 0.25, 0.45) hacia Atardecer (0.35, 0.25, 0.30)
+            // Ambient
             ar = 0.15 + (0.20 * t);
             ag = 0.25 + (0.00 * t);
             ab = 0.45 - (0.15 * t);
         }
         
-        if (sunLight.color) sunLight.color.setRGB(sr, sg, sb);
-        if (ambientLight.color) ambientLight.color.setRGB(ar, ag, ab);
+        // --- APLICAR EFECTO DEL CLIMA SOBRE EL COLOR ---
+        // En días nublados o tormenta, todo se vuelve grisáceo/azulado y se pierde la calidez del sol
+        const stormR = 0.45;
+        const stormG = 0.50;
+        const stormB = 0.55;
+        
+        // Interpolar los colores hacia el gris plomizo de la tormenta (solo si es de día, de noche ya es azul)
+        const stormEffect = dimmer * Math.max(0.0, sunHeightFactor); // Solo afecta cuando el sol está arriba
+        
+        sr = THREE.MathUtils.lerp(sr, stormR * 1.2, stormEffect);
+        sg = THREE.MathUtils.lerp(sg, stormG * 1.2, stormEffect);
+        sb = THREE.MathUtils.lerp(sb, stormB * 1.2, stormEffect);
+        
+        ar = THREE.MathUtils.lerp(ar, stormR * 0.8, stormEffect);
+        ag = THREE.MathUtils.lerp(ag, stormG * 0.8, stormEffect);
+        ab = THREE.MathUtils.lerp(ab, stormB * 0.8, stormEffect);
+        
+        // --- MODIFICADOR TÉRMICO (DÍAS FRÍOS Y CALUROSOS) ---
+        // Base = 20°C. Calor = +35°C (+15), Frío = +5°C (-15).
+        const temp = this.weatherTemperature !== undefined ? this.weatherTemperature : 20.0;
+        
+        // thermalFactor va de -1.0 (Frío Extremo) a +1.0 (Calor Extremo)
+        let thermalFactor = (temp - 20.0) / 15.0; 
+        thermalFactor = Math.max(-1.0, Math.min(thermalFactor, 1.0));
+        
+        // Solo afecta durante el día y disminuye si hay tormenta
+        const dayThermal = thermalFactor * Math.max(0.0, sunHeightFactor) * (1.0 - stormEffect);
+        
+        if (dayThermal > 0.0) {
+            // Días de calor: Luz más fuerte y amarillenta (pero sutil, no sepia exagerado)
+            sunLight.intensity += dayThermal * 0.2; // Hasta +0.2 de intensidad
+            sr += dayThermal * 0.15; // Un poco más de rojo
+            sg += dayThermal * 0.05;
+            sb -= dayThermal * 0.15; // Menos azul (más cálido)
+        } else if (dayThermal < 0.0) {
+            // Días de frío: Luz levemente más pálida y azulada/celeste
+            sunLight.intensity += dayThermal * 0.15; // Hasta -0.15 de intensidad
+            sr += dayThermal * 0.10; // Menos rojo (dayThermal es negativo, así que resta)
+            sg -= dayThermal * 0.05; 
+            sb -= dayThermal * 0.15; // Más azul (dayThermal es negativo, resta un negativo -> suma)
+        }
+        
+        if (sunLight.color) sunLight.color.setRGB(Math.max(0, Math.min(sr, 1)), Math.max(0, Math.min(sg, 1)), Math.max(0, Math.min(sb, 1)));
+        if (ambientLight.color) ambientLight.color.setRGB(Math.max(0, Math.min(ar, 1)), Math.max(0, Math.min(ag, 1)), Math.max(0, Math.min(ab, 1)));
 
         return progress;
     }

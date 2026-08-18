@@ -12,6 +12,8 @@ uniform float uTime;
 uniform vec3 uColor;
 uniform vec2 uTargetUv;
 uniform float uOpacity; // <-- Nuevo uniform
+uniform vec2 uCloudOffset;
+uniform float uCloudDensity;
 
 // Función Random
 float random(vec2 st) {
@@ -46,24 +48,29 @@ void main() {
     // Nubes más pequeñas y detalladas
     vec2 st = vUv * 6.0; 
     
-    // Movimiento MUCHO más rápido para que se note
-    st.x += uTime * 0.08;
-    st.y -= uTime * 0.04;
+    // Movimiento reactivo al viento
+    st += uCloudOffset;
 
     // Generar la forma de la nube
     float n = fbm(st);
     
-    // Contraste más alto para que parezcan cúmulos reales de nubes y no niebla plana
-    float alpha = smoothstep(0.4, 0.65, n);
+    // Contraste dinámico: uCloudDensity hace las nubes más espesas (0.0 = pocas nubes, 1.0 = tormenta ciega)
+    float cloudThreshold = mix(0.5, 0.2, uCloudDensity);
+    float alpha = smoothstep(cloudThreshold, cloudThreshold + 0.25, n);
+    
+    // En tormentas densas, oscurecer el color base de las nubes (grises)
+    vec3 cloudColor = mix(uColor, vec3(0.4, 0.45, 0.5), uCloudDensity);
     
     // Efecto "Fog of War": El centro objetivo está libre de nubes (0.0), y se espesan hacia los bordes (1.0)
+    // Cuando hay mucha densidad, el hueco central se reduce
+    float gapSize = mix(0.20, 0.08, uCloudDensity);
     float distToTarget = distance(vUv, uTargetUv);
-    float fogOfWar = smoothstep(0.05, 0.20, distToTarget);
+    float fogOfWar = smoothstep(0.05, gapSize, distToTarget);
     
     // Difuminar suavemente los bordes absolutos del plano para que no se vea el corte cuadrado
     float edgeFade = 1.0 - smoothstep(0.4, 0.5, distance(vUv, vec2(0.5)));
     
     // Multiplicamos por uOpacity para controlar el fundido de entrada de forma interna
-    gl_FragColor = vec4(uColor, alpha * fogOfWar * edgeFade * 0.45 * uOpacity);
+    gl_FragColor = vec4(cloudColor, alpha * fogOfWar * edgeFade * 0.45 * uOpacity);
 }
 `;

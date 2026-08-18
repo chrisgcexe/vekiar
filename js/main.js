@@ -13,6 +13,7 @@ import { MapEditor } from './scene/MapEditor.js?v=2';
 import { RegionTooltipUI } from './ui/RegionTooltipUI.js';
 import { RegionSidePanelUI } from './ui/RegionSidePanelUI.js';
 import { DayNightCycle } from './systems/DayNightCycle.js';
+import { DynamicWeatherManager } from './systems/Weather/DynamicWeatherManager.js';
 
 // 1. Instanciamos las clases base
 const appState = new AppState();
@@ -44,7 +45,58 @@ async function startApp() {
     // Llamamos a la inicialización una única vez y guardamos los assets
     const assets = await sceneManager.initializeVekiar(appState, map, cameraController);
 
-    // --- INICIALIZAMOS EL EDITOR DE MARCADORES ---
+    // --- INICIALIZAMOS EL CLIMA DINÁMICO ---
+    const dynamicWeatherManager = new DynamicWeatherManager(
+        sceneManager.scene,
+        sceneManager.camera,
+        sceneManager.renderer,
+        assets,
+        map.material,
+        map.aspect || 1.0,
+        clouds,
+        dayNightCycle
+    );
+    dynamicWeatherManager.init();
+    // DEBUG: Controles manuales de clima por teclado
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') {
+            console.log("DEBUG CLIMA: Lloviendo fuerte...");
+            dynamicWeatherManager.weatherService.debugSetWeather("Rain", 100, 1.0, 15);
+            if(dynamicWeatherManager.systems.wind) dynamicWeatherManager.systems.wind.setVector(15, 90);
+            if(dynamicWeatherManager.systems.rain) dynamicWeatherManager.systems.rain.setWind(1.0, 0.0);
+        } else if (e.key === 't' || e.key === 'T') {
+            console.log("DEBUG CLIMA: Tormenta eléctrica (Relámpagos)...");
+            // Condition = "Thunderstorm" activa el StormSystem
+            dynamicWeatherManager.weatherService.debugSetWeather("Thunderstorm", 100, 1.0, 25);
+            if(dynamicWeatherManager.systems.wind) dynamicWeatherManager.systems.wind.setVector(25, 90);
+            if(dynamicWeatherManager.systems.rain) dynamicWeatherManager.systems.rain.setWind(1.5, 0.0);
+        } else if (e.key === 'c' || e.key === 'C') {
+            console.log("DEBUG CLIMA: Despejando el cielo...");
+            dynamicWeatherManager.weatherService.debugSetWeather("Clear", 10, 0.0, 2, 20); // Temp 20
+            if(dynamicWeatherManager.systems.rain) dynamicWeatherManager.systems.rain.setWind(0.0, 0.0);
+        } else if (e.key === 'h' || e.key === 'H') {
+            console.log("DEBUG CLIMA: Calor Extremo (Ola de Calor)...");
+            // Mantenemos lo que haya, solo subimos temperatura
+            dynamicWeatherManager.weatherService.debugSetTemperature(38);
+        } else if (e.key === 'f' || e.key === 'F') {
+            console.log("DEBUG CLIMA: Frío Extremo (Helada)...");
+            // Mantenemos lo que haya, solo bajamos temperatura
+            dynamicWeatherManager.weatherService.debugSetTemperature(0);
+        } else if (e.key === 'n' || e.key === 'N') {
+            console.log("DEBUG CLIMA: Día muy nublado y ventoso (Para probar Sombras)...");
+            // Muchas nubes (80%), nada de lluvia, viento fuerte (30 km/h)
+            dynamicWeatherManager.weatherService.debugSetWeather("Clouds", 80, 0.0, 30);
+            if(dynamicWeatherManager.systems.wind) dynamicWeatherManager.systems.wind.setVector(30, 45);
+            if(dynamicWeatherManager.systems.rain) dynamicWeatherManager.systems.rain.setWind(0.0, 0.0);
+        } else if (e.key === 'm' || e.key === 'M') {
+            console.log("DEBUG CLIMA: Día parcialmente nublado (Medium)...");
+            // Nubes medias (35%), sin lluvia, viento tranquilo (12 km/h)
+            dynamicWeatherManager.weatherService.debugSetWeather("Clouds", 35, 0.0, 12);
+            if(dynamicWeatherManager.systems.wind) dynamicWeatherManager.systems.wind.setVector(12, 110);
+            if(dynamicWeatherManager.systems.rain) dynamicWeatherManager.systems.rain.setWind(0.0, 0.0);
+        }
+    });
+    
     const mapEditor = new MapEditor(
         sceneManager.scene,
         sceneManager.camera,
@@ -120,7 +172,7 @@ async function startApp() {
         }
 
         if (clouds.material && clouds.material.uniforms.uOpacity.value > 0.001) {
-            clouds.update(target, appState.time);
+            clouds.update(target, appState.time, delta);
         }
         
         if (cameraController.state !== 'FLY_TO') {
@@ -165,13 +217,18 @@ async function startApp() {
         if (appState.isReady) {
             mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
             cameraStateService.updateFromMarkerManager(mapEditor.markerManager);
+            
+            // Actualizamos los sistemas meteorológicos
+            dynamicWeatherManager.update(delta, timeMs * 0.001);
+            
             if (isPlaying) {
                 dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
                 
-                // Throttling de la actualización de sombras (aprox 30 fps para sombras)
-                // Conserva el rendimiento al evitar renderizar sombras 60 veces por seg.
+                // Throttling de la actualización de sombras (aprox 60 fps para máxima fluidez)
+                // Usamos 0.016 para asegurar que las sombras se muevan con perfecta suavidad,
+                // protegiendo solo a usuarios con monitores de 144Hz o 240Hz.
                 _timeSinceLastShadowUpdate += delta;
-                if (_timeSinceLastShadowUpdate > 0.033) {
+                if (_timeSinceLastShadowUpdate > 0.016) {
                     sceneManager.renderer.shadowMap.needsUpdate = true;
                     _timeSinceLastShadowUpdate = 0;
                 }

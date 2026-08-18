@@ -42,22 +42,7 @@ export class MapEditor {
                 if (panel) panel.style.display = this.enabled ? 'block' : 'none';
                 console.log(`%c[EDITOR] Modo Edición: ${this.enabled ? 'ACTIVADO' : 'APAGADO'}`, 'color: #a5d6a7; font-weight: bold;');
             }
-            
-            if (e.key.toLowerCase() === 't') {
-                this.isReferenceView = !this.isReferenceView;
-                
-                if (this.isReferenceView && !this.referenceTexture) {
-                    // Lazy-load: primera vez que se aprieta T (5.9 MB diferidos hasta este momento)
-                    AssetLoader.loadReferenceMap().then(tex => {
-                        this.referenceTexture = tex;
-                        this.mapMaterial.map = tex;
-                        this.mapMaterial.needsUpdate = true;
-                    });
-                } else {
-                    this.mapMaterial.map = this.isReferenceView ? this.referenceTexture : this.normalTexture;
-                    this.mapMaterial.needsUpdate = true;
-                }
-            }
+            // La tecla 'T' ha sido reasignada a Thunderstorm en main.js
         });
 
         eventBus.on('editor:open-inspector', (e) => {

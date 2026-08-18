@@ -125,7 +125,7 @@ if (aridZone > 0.01) {
     float zoomFadeHeat = smoothstep(0.3, 0.8, uZoomAlpha);
     float finalHeatAlpha = clamp(aridZone * zoomFadeHeat, 0.0, 1.0);
 
-    // Distorsionamos todo junto antes de mandarlo al motor de iluminación
+// Distorsionamos todo junto antes de mandarlo al motor de iluminación
     diffuseColor.rgb = mix(currentTerrain, heatWarp * heatTint, finalHeatAlpha);
 }    
 `;
@@ -136,6 +136,31 @@ export const landColorAdjustmentChunk = `
 float luminance = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 gl_FragColor.rgb = mix(vec3(luminance), gl_FragColor.rgb, 1.18);
 gl_FragColor.rgb *= 1.05;
+
+// === 3. SOMBRAS DE NUBES GLOBALES (Viento y Clima) ===
+// uCloudShadowDensity va de 0.0 a 1.0. Las aplicamos aquí para que oscurezcan también el océano
+if (uCloudShadowDensity > 0.05) {
+    // Escala grande y moviéndose con el offset de nubes real
+    vec2 cloudUv = vGlobalPos * 15.0 + (uCloudShadowOffset * 0.8); 
+    
+    // Generar el patrón fractal más suave
+    float n1 = fbm(cloudUv);
+    float n2 = fbm(cloudUv * 2.0 - uTime * 0.02); 
+    float cloudNoise = (n1 * 0.7) + (n2 * 0.3);
+    
+    // Umbral más relajado para que las sombras sean más sutiles y bordes difuminados
+    float threshold = 1.0 - (uCloudShadowDensity * 0.7 + 0.1); 
+    float shadowMask = smoothstep(threshold - 0.2, threshold + 0.2, cloudNoise);
+    
+    // Tinte de la sombra (Multiplicar por este valor. 1.0 = nada, 0.6 = más oscuro)
+    vec3 shadowColor = vec3(0.55, 0.60, 0.70);
+    
+    // Factor final (máximo 0.45 de fuerza en lugar de 0.75)
+    float shadowStrength = shadowMask * 0.45 * uZoomAlpha;
+    
+    // Multiplicar orgánicamente el resultado final de la pantalla (Blend Multiply)
+    gl_FragColor.rgb *= mix(vec3(1.0), shadowColor, shadowStrength);
+}
 
 // === SOMBRA DE CONTACTO DE LOS ROLLOS LATERALES (Más profunda y amplia) ===
 // Ampliamos el rango de 0.08 a 0.18 para que la sombra se adentre más en el mapa
