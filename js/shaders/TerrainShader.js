@@ -95,55 +95,64 @@ export const mapDitheringFragment = `
 ${waterFragmentChunk}
 ${landColorAdjustmentChunk}
 
-// --- FOCUS POLÍTICO (ILUMINACIÓN CON BLOOM DORADO) ---
-// Extraemos la máscara con un dot product muy preciso
+// --- FOCUS POLÍTICO (LUZ DIVINA CON VOLUMEN Y RIQUEZA) ---
+// Extraemos la máscara original
 float regionPixelAlpha = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel) * uFocusedRegionAlpha;
 
-// Según indicaciones, el terreno solo se ilumina con focus, no con hover.
-float combinedAlpha = regionPixelAlpha;
+// 1. Ruido orgánico para darle un aura mágica y viva (más notoria y fluida)
+float auraNoise = fbm(vGlobalPos * 12.0 - vec2(uTime * 0.08, uTime * 0.04));
 
-// Ajustamos la intensidad y la curva del bloom. Las máscaras ya traen la silueta y bordes
-float baseMask = combinedAlpha;
-float glow = pow(baseMask, 1.5); 
-float center = 1.0 - smoothstep(0.0, 0.2, 1.0 - combinedAlpha);
-float finalMask = glow * (1.0 - center * 0.4);
+// 2. Hacemos que la luz emane desde el centro y se desvanezca más suavemente
+float softGlow = pow(regionPixelAlpha, 1.5);
 
-// 5. Color Dorado y Pulso
-vec3 bloomColor = vec3(1.0, 0.78, 0.2);
-float pulse = sin(uTime * 2.5) * 0.15 + 0.85; 
+// 3. Modulación EXTREMA por altura: los valles brillan poco (15%), 
+// las cumbres brillan al máximo (100%). Al usar esto, la luz NUNCA se verá plana
+// aunque usemos luz pura (aditiva) de noche.
+float heightMod = mix(0.15, 1.0, smoothstep(0.0, 2.5, vHeight));
 
-// 6. Intensidad calibrada: El hermoso difuminado brilla, el centro acompaña.
-float bloomIntensity = finalMask * 0.25 * pulse;
+// 4. Color Divino: Oro puro y rico
+vec3 divineGold = vec3(1.0, 0.82, 0.35);
 
-gl_FragColor.rgb += bloomColor * bloomIntensity;
+// 5. Pulso celestial con auraNoise visible. 
+// La luz late, fluye y cambia con el ruido para sentirse verdaderamente mágica.
+float pulse = sin(uTime * 1.5 + auraNoise * 4.0) * 0.25 + 0.75;
 
-// --- TEXTOS DE REGION PROYECTADOS ---
-// Hover identico en todos los modos (overview y juego): las texturas de region se
-// muestrean en su posicion natural (sin agrandar) y el texto bajo el cursor se ilumina
-// con el mismo brillo de siempre, desde el momento en que aparece el overview.
-vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);
-vec4 regionTextGlow = texture2D(tRegionTextGlow, vGlobalPos);
-
-// uHoverTextUV.z es el ancho del texto en unidades UV. 
-// Usamos length() con escala desigual para crear una máscara elíptica
-float distHoverText = length(vec2(
-    (vGlobalPos.x - uHoverTextUV.x) / max(uHoverTextUV.z * 0.6, 0.02),
-    (vGlobalPos.y - uHoverTextUV.y) / 0.05
-));
+// --- MÁSCARAS DE TEXTO ---
 float distFocusText = length(vec2(
     (vGlobalPos.x - uFocusTextUV.x) / max(uFocusTextUV.z * 0.6, 0.02),
     (vGlobalPos.y - uFocusTextUV.y) / 0.05
 ));
-
-// Smoothstep para tener un borde suave. 
-// Si la distancia es mayor a 1.2, isHoveredText es 0.
-float isHoveredText = 1.0 - smoothstep(0.7, 1.2, distHoverText);
 float isFocusedText = 1.0 - smoothstep(0.7, 1.2, distFocusText);
 
-// Hover y focus se iluminan por separado:
-// - uHoverTextAlpha enciende el texto bajo el cursor (fade suave) en overview y juego.
-// - uFocusedRegionAlpha enciende la región del focus desde el click hasta cerrar la
-//   ventana (persiste, sin apagarse y volver a encenderse).
+float distHoverText = length(vec2(
+    (vGlobalPos.x - uHoverTextUV.x) / max(uHoverTextUV.z * 0.6, 0.02),
+    (vGlobalPos.y - uHoverTextUV.y) / 0.05
+));
+float isHoveredText = 1.0 - smoothstep(0.7, 1.2, distHoverText);
+
+// Intensidad general del brillo mágico
+float glowPower = softGlow * heightMod * pulse;
+
+// --- OSCURECIMIENTO DEL ENTORNO (Vignette de Focus) ---
+float rawFocusMask = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel);
+// Oscurecemos hasta un 10% todo el mapa que NO sea la región activa
+float outsideDimming = (1.0 - rawFocusMask) * uFocusedRegionAlpha;
+gl_FragColor.rgb *= (1.0 - outsideDimming * 0.10);
+
+// 6. LUZ PURA Y AUTÓNOMA: En lugar de multiplicar por el color del terreno 
+// (lo cual hace que no se vea de noche porque el terreno es negro), sumamos luz aditiva pura.
+// Como la luz ya está esculpida por la altura de las montañas (heightMod), 
+// se verá increíblemente 3D y voluminosa de noche y de día.
+// Se reduce la intensidad a 0.25 para que sea un brillo más sutil y elegante.
+vec3 addedGlow = divineGold * glowPower * 0.25;
+
+gl_FragColor.rgb += addedGlow;
+
+// --- TEXTOS DE REGION PROYECTADOS ---
+vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);
+vec4 regionTextGlow = texture2D(tRegionTextGlow, vGlobalPos);
+
+// RESTAURADO: El texto vuelve a brillar intensamente en amarillo cuando la región está enfocada.
 float textGlowMask = clamp(isHoveredText * uHoverTextAlpha + isFocusedText * uFocusedRegionAlpha, 0.0, 1.0);
 
 // Mezclar texto base y texto con brillo
