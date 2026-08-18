@@ -135,16 +135,16 @@ float glowPower = softGlow * heightMod * pulse;
 
 // --- OSCURECIMIENTO DEL ENTORNO (Vignette de Focus) ---
 float rawFocusMask = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel);
-// Oscurecemos hasta un 10% todo el mapa que NO sea la región activa
+// Oscurecemos hasta un 15% todo el mapa que NO sea la región activa
 float outsideDimming = (1.0 - rawFocusMask) * uFocusedRegionAlpha;
-gl_FragColor.rgb *= (1.0 - outsideDimming * 0.10);
+gl_FragColor.rgb *= (1.0 - outsideDimming * 0.15);
 
 // 6. LUZ PURA Y AUTÓNOMA: En lugar de multiplicar por el color del terreno 
 // (lo cual hace que no se vea de noche porque el terreno es negro), sumamos luz aditiva pura.
 // Como la luz ya está esculpida por la altura de las montañas (heightMod), 
 // se verá increíblemente 3D y voluminosa de noche y de día.
-// Se reduce la intensidad a 0.25 para que sea un brillo más sutil y elegante.
-vec3 addedGlow = divineGold * glowPower * 0.25;
+// Se reduce la intensidad a 0.30 para que sea un brillo más sutil y elegante.
+vec3 addedGlow = divineGold * glowPower * 0.30;
 
 gl_FragColor.rgb += addedGlow;
 

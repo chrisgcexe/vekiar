@@ -36,7 +36,7 @@ const cameraController = new MapCameraController(sceneManager.camera, sceneManag
 // --- CONECTAMOS EL MAPA AL CONTROLADOR ACÁ ---
 cameraController.setMap(map);
 const compass = new Compass(cameraController);
-const dayNightCycle = new DayNightCycle(5, 10);
+const dayNightCycle = new DayNightCycle(5, 7); // 5 minutos de ciclo, 7x más rápido que la vida real
 
 
 // 2. Función Principal Asíncrona
