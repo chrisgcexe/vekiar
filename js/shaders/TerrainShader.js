@@ -149,6 +149,17 @@ float textGlowMask = clamp(isHoveredText * uHoverTextAlpha + isFocusedText * uFo
 // Mezclar texto base y texto con brillo
 vec4 finalRegionText = mix(regionTextNormal, regionTextGlow, textGlowMask);
 
+// --- AJUSTE DE VISIBILIDAD NOCTURNA ---
+// Calculamos cuán oscuro está el terreno bajo el texto
+float bgLuminance = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+// nightFactor = 1.0 si es de noche (muy oscuro), 0.0 si es de día
+float nightFactor = 1.0 - smoothstep(0.05, 0.25, bgLuminance);
+
+// Color claro (pergamino/dorado pálido) para que contraste contra la noche
+vec3 nightTextColor = vec3(0.85, 0.75, 0.60);
+// Solo aclaramos el texto normal (si no está brillando ya por el hover/focus)
+finalRegionText.rgb = mix(finalRegionText.rgb, nightTextColor, nightFactor * (1.0 - textGlowMask));
+
 // Mezclar el texto final con el terreno
 gl_FragColor.rgb = mix(gl_FragColor.rgb, finalRegionText.rgb, finalRegionText.a * 0.85 * uRegionOpacity);
 `;

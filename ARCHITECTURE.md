@@ -127,52 +127,68 @@ graph TD
 ```
 
 ### Orden de instanciaciÃ³n en `main.js`
+    G --> H["AssetLoader.loadVekiarAssets() — Carga paralela de 5 texturas"]
+    H --> I["Map.build(assets) — Lanza mapWorker.js en hilo separado"]
+    I --> J["mapWorker.js — Convierte canal R (heightmap) en 64 chunks de geometría 3D con normales suavizadas"]
+    J --> K["Map.js recibe geometría — Arma LODs + clipping planes. mapGroup.rotation.x = -PI/2"]
+    K --> L["TerrainMaterial.create() — MeshStandardMaterial + onBeforeCompile"]
+    L --> M["Sistemas iniciados — Ocean, Land, Snow, PermafrostMist"]
+    M --> N["Loader fade-out — cameraController.playIntro() + appState.setTerrainReady()"]
+    N --> O["MapEditor.initLoadedMarkers() — MarkerManager.renderAll()"]
+    O --> P["animate() loop — rAF continuo"]
+```
+
+### Orden de instanciación en `main.js`
 
 ```
-1. AppState          â solo inicializa propiedades, sin side effects
-2. ResponsiveManager â escucha window resize, notifica por callback
-3. SceneManager      â crea scene, WebGLRenderer, CSS2DRenderer, monta en DOM
-4. Map               â constructor vacÃ­o (no carga nada todavÃ­a)
-5. Clouds            â geometrÃ­a de nubes decorativas
-6. CameraController  â OrbitControls, estado INIT, limita movimiento
-7. RaycasterBounds   â clampea pan proyectando el frustum al plano Y=0
-8. Compass           â lee el Ã¡ngulo de OrbitControls, actualiza el div del DOM
+1. AppState          — solo inicializa propiedades, sin side effects
+2. ResponsiveManager — escucha window resize, notifica por callback
+3. SceneManager      — crea scene, WebGLRenderer, CSS2DRenderer, monta en DOM
+4. Map               — constructor vacío (no carga nada todavía)
+5. Clouds            — geometría de nubes decorativas
+6. CameraController  — OrbitControls, estado INIT, limita movimiento
+7. RaycasterBounds   — clampea el pan proyectando el frustum al plano Y=0
+8. Compass           — lee el ángulo de OrbitControls, actualiza el div del DOM
 ```
 
-DespuÃ©s de `startApp()` (async):
+Después de `startApp()` (async):
 ```
-9.  AssetLoader.loadVekiarAssets()     â await, carga las 5 texturas en paralelo
-10. Map.build(assets)                  â await, espera que el Worker termine
-11. MapEditor instanciado              â recibe scene, camera, mapPlane, materiales
-12. mapEditor.initLoadedMarkers()      â renderAll() de marcadores guardados en localStorage
-13. animate() arranca                  â bucle rAF desde aquÃ­ en adelante
+9.  AssetLoader.loadVekiarAssets()     — await, carga las 5 texturas en paralelo
+10. Map.build(assets)                  — await, espera que el Worker termine
+11. MapEditor instanciado              — recibe scene, camera, mapPlane, materiales
+12. mapEditor.initLoadedMarkers()      — renderAll() de marcadores guardados en localStorage
+13. animate() arranca                  — bucle rAF desde aquí en adelante
 ```
 
 ---
 
-## 4. MÃ¡quina de Estados de la CÃ¡mara
+## 4. Máquina de Estados de la Cámara y Navegación
 
-`CameraController` tiene una mÃ¡quina de estados que controla la **intro cinemÃ¡tica** antes de entregar el control al usuario.
+`CameraController` tiene una máquina de estados que controla la **intro cinemática** antes de entregar el control al usuario, y un sistema de vuelo (`CameraFlightSystem`) para navegar a puntos de interés.
 
 ```
-INIT ââplayIntro()âââº DROP_1 ââllegÃ³ a idleDistâââº WAIT_INPUT ââbtn-startâââº DROP_2 ââllegÃ³ a playableDistâââº PLAYING
+INIT ──playIntro()──► DROP_1 ──llegó a idleDist──► WAIT_INPUT ──btn-start──► DROP_2 ──llegó a playableDist──► PLAYING
 ```
 
-| Estado | DescripciÃ³n | Controles |
+| Estado | Descripción | Controles |
 |---|---|---|
 | `INIT` | Estado inicial antes de que cargue el mapa | Todo bloqueado |
-| `DROP_1` | CÃ¡mara cae de Y=140 a `idleDist`. El mapa se desenvuelve (`updateUnfurl`) sincronizado al progreso de la caÃ­da | Zoom y pan desactivados |
-| `WAIT_INPUT` | CÃ¡mara fija en `idleDist`. Se muestra el prompt "Explorar VÃ©kiar" | Solo aparece el botÃ³n |
-| `DROP_2` | Al presionar el botÃ³n, cÃ¡mara cae a `playableDist` | Zoom desactivado durante la caÃ­da |
-| `PLAYING` | Control total entregado al usuario | Pan + zoom activos. Se muestra la brÃºjula. |
+| `DROP_1` | Cámara cae de Y=140 a `idleDist`. El mapa se desenvuelve (`updateUnfurl`) sincronizado al progreso de la caída | Zoom y pan desactivados |
+| `WAIT_INPUT` | Cámara fija en `idleDist`. Se muestra el prompt "Explorar Vékiar" | Solo aparece el botón |
+| `DROP_2` | Al presionar el botón, cámara cae a `playableDist` | Zoom desactivado durante la caída |
+| `PLAYING` | Control total entregado al usuario | Pan + zoom activos. Se muestra la brújula. |
 
 ### Variables clave de `CameraController`
 
-- **`zoomAlpha`** (`0.0` = mÃ¡ximo zoom in, `1.0` = mÃ¡ximo zoom out): calculado cada frame como `(dist - minDist) / (maxDist - minDist)`. Todos los sistemas lo consumen para blending.
-- **`calculatedMaxDistance`**: calculado a partir del FOV y el aspect del mapa para que en zoom mÃ¡ximo la cÃ¡mara justo cubra el mapa sin ver vacÃ­o.
-- **Ãngulo polar**: se lockea dinÃ¡micamente. Zoom cerca â perspectiva isomÃ©trica (`PI/4.5`). Zoom lejos â top-down (`0.01`). TransiciÃ³n con `easeInOut`.
+- **`zoomAlpha`** (`0.0` = máximo zoom in, `1.0` = máximo zoom out): calculado cada frame como `(dist - minDist) / (maxDist - minDist)`. Todos los sistemas lo consumen para blending.
+- **`isMapReady` / Eventos `map:ready` y `map:zoom-out`**: La cámara evalúa constantemente `zoomAlpha` frente a un umbral empírico (~0.43). Cuando la cámara cruza este umbral hacia adentro, dispara `map:ready` (haciendo que las regiones se vuelvan interactivas). Cuando el usuario hace "scroll out" y sale del umbral, dispara `map:zoom-out` (bloqueando clics y hover para entrar en estado **Overview puro**).
+- **Ángulo polar**: se lockea dinámicamente. Zoom cerca → perspectiva isométrica (`PI/4.5`). Zoom lejos → top-down (`0.01`). Transición con `easeInOut`.
 
-### RestricciÃ³n de Pan (`RaycasterBounds`)
+### Vuelo Dinámico (`fitToPoints`)
+
+En lugar de recalcular un "zoom óptimo" (que a menudo empujaba la cámara hacia un zoom out no deseado cuando los marcadores estaban muy separados), el método `fitToPoints` ahora ejecuta un paneo inteligente. La cámara se traslada a la **coordenada baricéntrica** de los puntos de interés aplicando un offset en X para no chocar visualmente con paneles laterales (`RegionSidePanelUI`), todo esto manteniendo obligatoriamente el nivel de zoom máximo (`fullZoom = true`), resultando en una navegación veloz y sin saltos abruptos en el eje Z.
+
+### Restricción de Pan (`RaycasterBounds`)
 
 Cada frame, `RaycasterBounds` proyecta los 4 vÃ©rtices de la pantalla contra el plano `Y=0`. Si el frustum se sale del borde del mapa, aplica un `delta` al target y a la posiciÃ³n de la cÃ¡mara para empujarlo de vuelta. Opera en paralelo con `CameraController.update()`.
 
@@ -226,11 +242,14 @@ El mapa no usa modelos `.obj`. La geometrÃ­a, el color y todas las mÃ¡scaras
 
 | Textura | Canal R | Canal G | Canal B | Canal A |
 |---|---|---|---|---|
-| `base_color_map.jpg` | Color base RGB | â | â | â |
-| `map_data_R_elevation_B_snow_particles.png` | **Heightmap** (eleva vÃ©rtices) | â | **MÃ¡scara de partÃ­culas de nieve** (spawn mask) | â |
-| `masks_1_R_river_G_lake_B_snow.png` | **RÃ­os** | **Lagos** | **Nieve acumulada** (shader de suelo) | Libre |
-| `water_noise_distortion.jpg` | Ruido de distorsiÃ³n | â | â | â |
-| `river_flow_directions.png` | DirecciÃ³n de flujo X | DirecciÃ³n de flujo Y | â | â |
+| `base_color_map.jpg` | Color base RGB | — | — | — |
+| `map_data_R_elevation_B_snow_particles.png` | **Heightmap** (eleva vértices) | — | **Máscara de partículas de nieve** (spawn mask) | — |
+| `masks_1_R_river_G_lake_B_snow.png` | **Ríos** | **Lagos** | **Nieve acumulada** (shader de suelo) | Libre |
+| `water_noise_distortion.jpg` | Ruido de distorsión | — | — | — |
+| `river_flow_directions.png` | Dirección de flujo X | Dirección de flujo Y | — | — |
+| `assets/region_masks/*_mask.png` | **Región N** | **Región N+1** | **Región N+2** | — |
+
+> **TIP**: El sistema de máscaras de regiones (`regionMasks`) lee múltiples texturas PNG, en las que cada canal RGB delimita el área territorial de una región específica. El `TerrainShader` utiliza el producto punto (`dot()`) entre el vector de color extraído del texel y un vector codificado que representa el canal activo. Así, al iluminar una región, la GPU simplemente interpola el canal deseado sin necesidad de texturas extra para estado activo.
 
 > **TIP**: El canal A de `masks_1` estÃ¡ **libre y disponible** para agregar una quinta mÃ¡scara sin agregar un fetch extra.
 
@@ -298,10 +317,11 @@ material.userData.uTime.value = appState.time;
 El manejo de marcadores se divide ahora en un ecosistema de clases para respetar el principio de responsabilidad única (Single Responsibility Principle):
 
 1. **`MarkerManager.js`**: Coordinador central (Facade). Su única responsabilidad es instanciar los submódulos y enlazarlos al `EventBus`.
-2. **`MarkerRaycaster.js`**: Motor matemático y de eventos DOM. Calcula intersecciones 3D/2D para detectar clics y hovers.
-3. **`MarkerInteractionState.js`**: Máquina de estados. Mantiene la memoria de qué región brilla o está seleccionada, e inyecta esto al shader.
+2. **`MarkerRaycaster.js`**: Motor matemático y de eventos DOM. Calcula intersecciones 3D/2D para detectar clics y hovers. Utiliza la bandera estricta `mapReady` para desactivar forzosamente el cursor de interacción ("manito" o pointer) cuando la cámara está muy lejos en el estado de *Overview puro*.
+3. **`MarkerInteractionState.js`**: Máquina de estados. Mantiene la memoria de qué región brilla o está seleccionada, e inyecta esto al shader (con lerp continuo en `uFocusedRegionAlpha`).
 4. **`MarkerLODSystem.js`**: Nivel de Detalle. Oculta etiquetas y desvanece íconos de ciudades basado en la altura de la cámara (`zoomAlpha`).
-5. **`MarkerBuilder.js`**, **`MarkerFactory.js`**, **`MarkerPositionResolver.js`**: Trío encargado de construir visualmente los meshes 3D y etiquetas HTML.
+5. **`MarkerVisualController.js`**: Responsable de la transición visual (fade) de los nombres gigantes de las regiones. Cuando una región está enfocada, mantiene su etiqueta visible. Si se cierra el panel (`ui:sidepanel-closed`), desvanece suavemente la etiqueta en sincronía con el decaimiento de la luz del shader del terreno.
+6. **`MarkerBuilder.js`**, **`MarkerFactory.js`**, **`MarkerPositionResolver.js`**: Trío encargado de construir visualmente los meshes 3D y etiquetas HTML.
 6. **`MarkerRegistry.js`**: Base de datos en memoria para acceso rápido (`O(1)`) a los marcadores.
 7. **`RegionTexturePainter.js`**: Escribe los nombres gigantes de las regiones en la textura 4K.
 
@@ -427,8 +447,6 @@ python -m http.server 8080
 npx serve .
 ```
 
-O usar la extensiÃ³n **Live Server** de VS Code (clic derecho en `index.html` â "Open with Live Server").
-
 > **CAUTION**: Abrir `index.html` con `file://` rompe Web Workers (CORS). Siempre usar servidor HTTP.
 
 ---
@@ -445,34 +463,37 @@ El grupo principal del mapa estÃ¡ rotado 90Â° en X. Las coordenadas guardada
 `AppState.isReady` es `false` hasta que el Worker termina y el loader desaparece. Todos los sistemas que dependan de la geometrÃ­a deben checkear `appState.isReady` antes de operar para evitar errores de NaN en el primer frame.
 
 ### Planos de clipping en materiales secundarios
-Los materiales del ocÃ©ano, rÃ­os, lagos y la niebla de permafrost deben recibir los mismos `clippingPlanes` que el material principal del terreno. Si se agrega un nuevo material de capa, recordar inyectarle `clipLeft` y `clipRight` de `Map.js`.
+Los materiales del océano, ríos, lagos y la niebla de permafrost deben recibir los mismos `clippingPlanes` que el material principal del terreno. Si se agrega un nuevo material de capa, recordar inyectarle `clipLeft` y `clipRight` de `Map.js`.
 
 ### LODs y frustum culling
-Los 64 chunks son instancias de `THREE.LOD`. `AppState.update()` llama a `lod.update(camera)` por cada chunk cada frame. El frustum culling lo hace Three.js automÃ¡ticamente. No agregar cÃ³digo de culling manual.
+Los 64 chunks son instancias de `THREE.LOD`. `AppState.update()` llama a `lod.update(camera)` por cada chunk cada frame. El frustum culling lo hace Three.js automáticamente. No agregar código de culling manual.
 
 ### `CSS2DRenderer` y el orden del DOM
-El `domElement` del `CSS2DRenderer` se monta en `document.body` en el constructor de `SceneManager`. Si se agrega algÃºn overlay HTML que deba ir encima de los labels, ponerle un `z-index` explÃ­cito en CSS.
- 
- # #   S e c u e n c i a   d e   I n i c i o   y   A n i m a c i ó n   ( D o l l y )  
- 1 .   A l   c a r g a r   l a   p á g i n a ,   s e   m u e s t r a   e l   b o t ó n   ' C o m e n z a r '   ( \ # i d l e - p r o m p t \ )   s o b r e   e l   m a p a   e s t á t i c o .  
- 2 .   A l   h a c e r   c l i c k   e n   e l   b o t ó n ,   c o m i e n z a   l a   a n i m a c i ó n   d e   e n t r a d a   ( D o l l y ) .  
- 3 .   L a   c á m a r a   d e s c i e n d e   y   s e   p o s i c i o n a   e n   e l   m a p a .  
- 4 .   S O L O   u n a   v e z   q u e   l a   a n i m a c i ó n   d e   D o l l y   f i n a l i z a   y   e l   u s u a r i o   t i e n e   c o n t r o l ,   s e   r e v e l a n   l o s   e l e m e n t o s   i n t e r a c t i v o s   d e   U I   ( e t i q u e t a s   C S S 2 D ,   t o o l t i p s   d e   h o v e r ,   m a r c a d o r e s ,   e t c . ) .  
- 
-### Flujo de InteracciÃ³n y Clicks (State Machine)
+El `domElement` del `CSS2DRenderer` se monta en `document.body` en el constructor de `SceneManager`. Si se agrega algún overlay HTML que deba ir encima de los labels, ponerle un `z-index` explícito en CSS.
 
-Para evitar comportamientos conflictivos al hacer click, el sistema respeta el nivel de zoom actual de la cÃ¡mara (zoomAlpha) y emite eventos diferenciados:
+### Secuencia de Inicio y Animación (Dolly)
+1. Al cargar la página, se muestra el botón 'Comenzar' (`#idle-prompt`) sobre el mapa estático.
+2. Al hacer click en el botón, comienza la animación de entrada (Dolly).
+3. La cámara desciende y se posiciona en el mapa.
+4. SOLO una vez que la animación de Dolly finaliza y el usuario tiene control, se revelan los elementos interactivos de UI (etiquetas CSS2D, tooltips de hover, marcadores, etc.).
 
-1. **Estado MAP_GENERAL (Zoom Lejos, zoomAlpha > 0.6)**
-   - **Visibilidad:** Regiones, mares y ocÃ©anos. (Los marcadores menores estÃ¡n ocultos).
-   - **Click en una regiÃ³n:** Emite marker:region-fly-request. La cÃ¡mara inicia un vuelo suave (flyTo) hacia la regiÃ³n.
-   - **Importante:** Durante este vuelo, la regiÃ³n NO se marca como enfocada (focused) y NO se abre el panel lateral, para no confundir al usuario tapando la pantalla durante la navegaciÃ³n panorÃ¡mica.
+### Flujo de Interacción y Clicks (State Machine)
 
-2. **Estado MAP_DETALLE (Zoom Cerca, zoomAlpha <= 0.6)**
-   - **Visibilidad:** Aparecen los marcadores menores (isla, lago, otro). Si hay una regiÃ³n enfocada, los marcadores otro ajenos a esa regiÃ³n se desvanecen.
-   - **Click en una regiÃ³n:** Emite marker:region-open-panel. 
-   - **Resultado:** La regiÃ³n ahora SÃ se marca como enfocada (cambia de color en el shader), la cÃ¡mara se re-centra ligeramente, y se abre la ventana lateral de informaciÃ³n (RegionSidePanelUI).
+Para evitar comportamientos conflictivos al hacer click, el sistema respeta estrictamente el estado del mapa (`mapReady`), derivado del nivel de zoom actual (`zoomAlpha`), y emite eventos diferenciados:
 
+1. **Estado OVERVIEW / MAP_GENERAL (`!mapReady`, `zoomAlpha > 0.43`)**
+   - **Visibilidad:** Regiones, mares y océanos. Los marcadores menores están ocultos.
+   - **Interactividad bloqueada:** El cursor NO cambia a "manito" (se mantiene en `grab`). El usuario puede hacer pan y zoom, pero no interactuar con regiones.
+   - **Click en una región:** No tiene efecto directo (la validación `mapReady` lo impide) a menos que se trate de un click "forzado" desde un UI externo. Lo ideal es que el usuario haga zoom-in hasta cruzar el umbral.
+
+2. **Estado INTERACTIVO / MAP_DETALLE (`mapReady`, `zoomAlpha <= 0.43`)**
+   - **Visibilidad:** Aparecen los marcadores menores (isla, lago, otro). Las regiones muestran el cursor "pointer" (dedito) al hacer hover.
+   - **Click en una región:**
+     1. El `MarkerManager` emite `marker:region-focus` y la región se ilumina.
+     2. Se recuperan todos los marcadores secundarios pertenecientes a la región.
+     3. El `MarkerManager` emite `marker:region-fly-request` con todos los puntos.
+     4. La cámara ejecuta un `fitToPoints`: Mantiene el máximo nivel de zoom (zoom in), se traslada al centro de gravedad de los puntos y aplica un `offsetX` horizontal para acomodar el panel lateral sin hacer "zoom out".
+     5. Al finalizar el vuelo, se emite `marker:region-open-panel` y el `RegionSidePanelUI` se abre para mostrar la información, mientras el texto gigante de la región se desvanece suavemente para no obstruir la vista.
 
 ## 12. Arquitectura de UI y refactorización por responsabilidades (en curso)
 

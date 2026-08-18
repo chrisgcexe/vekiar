@@ -92,7 +92,7 @@ async function startApp() {
 
     // 4. Arrancamos el Bucle Principal
     // Cache de referencias a uniforms (evita lookup por string key en userData cada frame)
-    let _uZoomAlpha = null, _uTime = null, _lastDispAlpha = -1;
+    let _uZoomAlpha = null, _uTime = null, _lastDispAlpha = -1, _timeSinceLastShadowUpdate = 0;
 
     const clock = new THREE.Clock();
 
@@ -166,7 +166,15 @@ async function startApp() {
             mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
             cameraStateService.updateFromMarkerManager(mapEditor.markerManager);
             if (isPlaying) {
-            dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
+                dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
+                
+                // Throttling de la actualización de sombras (aprox 30 fps para sombras)
+                // Conserva el rendimiento al evitar renderizar sombras 60 veces por seg.
+                _timeSinceLastShadowUpdate += delta;
+                if (_timeSinceLastShadowUpdate > 0.033) {
+                    sceneManager.renderer.shadowMap.needsUpdate = true;
+                    _timeSinceLastShadowUpdate = 0;
+                }
             }
         }
 
