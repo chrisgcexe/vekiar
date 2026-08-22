@@ -56,6 +56,14 @@ export class RegionTooltipUI {
         this.eventBus.on('region-panel-closed', () => {
             this.isDisabled = false;
         });
+
+        this.eventBus.on('marker:continent-open-panel', () => {
+            this.isDisabled = true;
+            this.onUnhover();
+        });
+        this.eventBus.on('continent-panel-closed', () => {
+            this.isDisabled = false;
+        });
     }
 
     onHover(e) {

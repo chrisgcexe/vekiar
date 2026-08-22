@@ -39,7 +39,10 @@ export class TerrainMaterial {
         material.userData.uRollX = { value: 50.1 }; 
         material.userData.tRegionText = { value: null };
         material.userData.tRegionTextGlow = { value: null };
+        material.userData.tSubRegionText = { value: null };
+        material.userData.tSubRegionTextGlow = { value: null };
         material.userData.uRegionOpacity = { value: 0.0 };
+        material.userData.uMicroTextAlpha = { value: 0.0 };
         
         // --- UNIFORMS: Hover Político y Texto ---
         material.userData.regionMasksTextures = assets.regionMasksTextures;
@@ -74,7 +77,10 @@ export class TerrainMaterial {
             shader.uniforms.uRollX = material.userData.uRollX;
             shader.uniforms.tRegionText = material.userData.tRegionText;
             shader.uniforms.tRegionTextGlow = material.userData.tRegionTextGlow;
+            shader.uniforms.tSubRegionText = material.userData.tSubRegionText;
+            shader.uniforms.tSubRegionTextGlow = material.userData.tSubRegionTextGlow;
             shader.uniforms.uRegionOpacity = material.userData.uRegionOpacity;
+            shader.uniforms.uMicroTextAlpha = material.userData.uMicroTextAlpha;
             
             shader.uniforms.tHoverMask = material.userData.tHoverMask;
             shader.uniforms.uHoverChannel = material.userData.uHoverChannel;
@@ -94,7 +100,7 @@ export class TerrainMaterial {
             shader.uniforms.uCloudShadowDensity = material.userData.uCloudShadowDensity;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRainIntensity;\nuniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform float uRegionOpacity;\nuniform sampler2D tHoverMask;\nuniform vec4 uHoverChannel;\nuniform sampler2D tFocusMask;\nuniform vec4 uFocusChannel;\nuniform sampler2D tReferenceMap;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRainIntensity;\nuniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform sampler2D tSubRegionText;\nuniform sampler2D tSubRegionTextGlow;\nuniform float uRegionOpacity;\nuniform float uMicroTextAlpha;\nuniform sampler2D tHoverMask;\nuniform vec4 uHoverChannel;\nuniform sampler2D tFocusMask;\nuniform vec4 uFocusChannel;\nuniform sampler2D tReferenceMap;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform sampler2D tMountainMask;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

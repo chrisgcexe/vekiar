@@ -205,7 +205,7 @@ export class MarkerFactory {
      * @returns {CSS2DObject|null} null para regiones/mareas (no usan labels CSS2D)
      */
     createTextLabel(message, type, id) {
-        if (['region', 'mar', 'oceano'].includes(type)) {
+        if (['continent', 'region', 'mar', 'oceano'].includes(type)) {
             return null;
         }
 

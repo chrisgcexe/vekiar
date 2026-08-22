@@ -22,10 +22,11 @@ export class AssetLoader {
         const rm1Promise          = textureLoader.loadAsync('./assets/images/region_masks_1.png');
         const rm2Promise          = textureLoader.loadAsync('./assets/images/region_masks_2.png');
         const rm3Promise          = textureLoader.loadAsync('./assets/images/region_masks_3.png');
+        const rm4Promise          = textureLoader.loadAsync('./assets/images/region_masks_4.png');
         const mountainMaskPromise = textureLoader.loadAsync('./assets/images/mountain_snow_mask.png');
         // mapa_referencia.jpg (5.9 MB) se carga en lazy — solo cuando el editor la necesita
 
-        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, mountainMaskTexture;
+        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture;
         try {
             [
                 colorTexture,
@@ -33,7 +34,7 @@ export class AssetLoader {
                 mapDataPackedTexture,
                 packedMasksTexture,
                 flowmapTexture,
-                rm0, rm1, rm2, rm3,
+                rm0, rm1, rm2, rm3, rm4,
                 mountainMaskTexture
             ] = await Promise.all([
                 colorPromise,
@@ -45,10 +46,11 @@ export class AssetLoader {
                 rm1Promise,
                 rm2Promise,
                 rm3Promise,
+                rm4Promise,
                 mountainMaskPromise
             ]);
         } catch (err) {
-            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, mountainMaskTexture]
+            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture]
                 .forEach(t => t?.dispose());
             ktx2Loader.dispose();
             throw new Error(`AssetLoader: fallo al cargar uno o más assets. Causa: ${err.message}`);
@@ -56,7 +58,7 @@ export class AssetLoader {
 
         colorTexture.colorSpace   = THREE.SRGBColorSpace;
         
-        const regionMasksTextures = [rm0, rm1, rm2, rm3];
+        const regionMasksTextures = [rm0, rm1, rm2, rm3, rm4];
         regionMasksTextures.forEach(t => {
             t.colorSpace = THREE.NoColorSpace;
             t.generateMipmaps = false;

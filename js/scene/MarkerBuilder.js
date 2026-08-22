@@ -43,7 +43,7 @@ export class MarkerBuilder {
         const pos = new THREE.Vector3(posX, posY, posZ);
 
         let mesh = null;
-        const isTextSurface = ['region', 'mar', 'oceano'].includes(markerType);
+        const isTextSurface = ['continent', 'region', 'mar', 'oceano'].includes(markerType);
 
         // --- Icono 3D ---
         if (!isTextSurface && shape !== 'text') {
@@ -51,7 +51,7 @@ export class MarkerBuilder {
             mesh = result.mesh;
             this.manager.markersGroup.add(mesh);
 
-        } else if (markerType === 'region') {
+        } else if (markerType === 'region' || markerType === 'continent') {
             const result = this.factory.createRegionHitbox({ data, markerType, pos, rotation: data.rotation });
             mesh = result.mesh;
             this.manager.markersGroup.add(mesh);

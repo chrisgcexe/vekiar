@@ -6,6 +6,7 @@ import { MarkerInteractionState } from './MarkerInteractionState.js';
 import { MarkerVisualController } from './MarkerVisualController.js';
 import { MarkerLODSystem } from './MarkerLODSystem.js';
 import { MarkerRaycaster } from './MarkerRaycaster.js';
+import { ContinentRules } from './ContinentRules.js';
 
 export class MarkerManager {
     get _items() { return this._registry.getAll(); }
@@ -23,7 +24,12 @@ export class MarkerManager {
         this._registry = new MarkerRegistry();
         this._interactionState = new MarkerInteractionState(this._registry);
         this._visualController = new MarkerVisualController(this._registry, this.mapMaterial, this._interactionState);
-        this._lodSystem = new MarkerLODSystem(this._registry, this._interactionState);
+        this.texturePainter = new RegionTexturePainter(mapMaterial);
+        
+        this._lodSystem = new MarkerLODSystem(this._registry, this._interactionState, mapMaterial);
+
+        // Debug state
+        this._debugHitboxesVisible = false;
         
         this._mapReady = false;
         
@@ -42,7 +48,6 @@ export class MarkerManager {
             this._registry, getSurfaceHeight, this._interactionState
         );
 
-        this.texturePainter = new RegionTexturePainter(mapMaterial);
         this.builder = new MarkerBuilder(this);
 
         this._setupEventListeners();
@@ -54,21 +59,38 @@ export class MarkerManager {
                 const hoveredMeshId = this._interactionState.hoveredMeshId;
                 if (hoveredMeshId) {
                     const item = this._registry.getById(hoveredMeshId);
-                    if (item && ['region', 'mar', 'oceano'].includes(item.type)) {
-                        // En estado overview, las regiones no son interactivas
-                        if (!this._mapReady) return;
+                    if (item && ['continent', 'region'].includes(item.type)) {
+                        const isOverviewClick = !this._mapReady;
+                        if (!this._mapReady) {
+                            if (item.type === 'continent') {
+                                // Transition to PLAYING directly
+                                this.eventBus.emit('ui:start-requested', { detail: {} });
+                            } else {
+                                return;
+                            }
+                        }
 
                         const regionName = item.data.name;
-                        const placePositions = this._items
-                            .filter(i => i.data.region === regionName
-                                && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type))
-                            .map(i => i.worldPos.clone());
+                        let placePositions = [];
+                        if (item.type === 'continent') {
+                            const rules = ContinentRules.getRulesFor(regionName);
+                            placePositions = this._items
+                                .filter(i => i.data.continent === regionName && rules.allowedTypesInPanel.includes(i.type))
+                                .map(i => i.worldPos.clone());
+                        } else {
+                            placePositions = this._items
+                                .filter(i => (i.data.region === regionName || i.data.continent === regionName)
+                                    && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type))
+                                .map(i => i.worldPos.clone());
+                        }
 
                         this.eventBus.emit('marker:region-fly-request', {
                             detail: {
                                 worldPos: item.worldPos.clone(),
                                 name: item.data.name,
-                                placePositions: placePositions.length ? placePositions : null
+                                placePositions: placePositions.length ? placePositions : null,
+                                itemType: item.type,
+                                isOverviewClick: isOverviewClick
                             }
                         });
 
@@ -138,16 +160,30 @@ export class MarkerManager {
             }
         });
 
+        this.eventBus.on('continent-panel-closed', () => {
+            if (this._interactionState.getFocusedRegionId() !== null) {
+                this._interactionState.setFocusedRegion(null);
+            }
+        });
+
         this.eventBus.on('camera-flight-finished', () => {
             if (this._pendingFocusItem) {
                 const item = this._pendingFocusItem;
                 this._interactionState.setFocusedRegion(item.data.id);
                 
                 const regionName = item.data.name;
-                const placesInRegion = this._items
-                    .filter(i => i.data.region === regionName && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type));
+                let placesInRegion = [];
+                if (item.type === 'continent') {
+                    const rules = ContinentRules.getRulesFor(regionName);
+                    placesInRegion = this._items
+                        .filter(i => i.data.continent === regionName && rules.allowedTypesInPanel.includes(i.type));
+                } else {
+                    placesInRegion = this._items
+                        .filter(i => (i.data.region === regionName || i.data.continent === regionName) && ['otro', 'isla', 'lago', 'rio', 'ciudad', 'pueblo'].includes(i.type));
+                }
 
-                this.eventBus.emit('marker:region-open-panel', {
+                const eventName = item.type === 'continent' ? 'marker:continent-open-panel' : 'marker:region-open-panel';
+                this.eventBus.emit(eventName, {
                     detail: { 
                         worldPos: item.worldPos.clone(), 
                         name: item.data.name,
@@ -172,6 +208,11 @@ export class MarkerManager {
                 });
             }
         });
+
+        window.addEventListener('map:lod-text-change', (e) => {
+            const lodLevel = e.detail.lod;
+            this.texturePainter.initTextures(this._items.map(i => i.data), true, lodLevel);
+        });
     }
 
     update(zoomAlpha, cameraState, isDragging = false) {
@@ -183,7 +224,7 @@ export class MarkerManager {
         
         if (changed) {
             const item = this._registry.getById(hoveredId);
-            if (item && item.type === 'region') {
+            if (item && (item.type === 'region' || item.type === 'continent')) {
                 if (this._mapReady) {
                     if (this._interactionState.setHoveredRegion(hoveredId)) {
                         const detail = { name: item.data.name, worldPos: item.worldPos.clone() };
@@ -207,10 +248,13 @@ export class MarkerManager {
                         this.eventBus.emit('marker:region-hover', { detail });
                     }
                 } else {
-                    // En estado overview, no hay hover (bug fix: regiones no interactivas)
-                    this._interactionState.setOverviewHover(null);
+                    if (item.type === 'continent') {
+                        this._interactionState.setOverviewHover(hoveredId);
+                    } else {
+                        this._interactionState.setOverviewHover(null);
+                    }
                 }
-            } else if (!hoveredId || (item && item.type !== 'region')) {
+            } else if (!hoveredId || (item && item.type !== 'region' && item.type !== 'continent')) {
                 if (this._mapReady) {
                     if (this._interactionState.setHoveredRegion(null)) {
                         this.eventBus.emit('marker:region-unhover', { detail: {} });

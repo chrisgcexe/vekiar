@@ -141,14 +141,16 @@ float rawFocusMask = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel);
 float outsideDimming = (1.0 - rawFocusMask) * uFocusedRegionAlpha;
 gl_FragColor.rgb *= (1.0 - outsideDimming * 0.15);
 
-// 6. LUZ PURA Y AUTÓNOMA: En lugar de multiplicar por el color del terreno 
-// (lo cual hace que no se vea de noche porque el terreno es negro), sumamos luz aditiva pura.
-// Como la luz ya está esculpida por la altura de las montañas (heightMod), 
-// se verá increíblemente 3D y voluminosa de noche y de día.
-// Se reduce la intensidad a 0.30 para que sea un brillo más sutil y elegante.
+// 6. LUZ PURA Y AUTÓNOMA (Focus)
 vec3 addedGlow = divineGold * glowPower * 0.30;
-
 gl_FragColor.rgb += addedGlow;
+
+// --- HOVER ILUMINACIÓN (Especial para Continentes en Overview) ---
+float rawHoverMask = dot(texture2D(tHoverMask, vGlobalPos), uHoverChannel);
+float hoverAlpha = rawHoverMask * uHoverRegionAlpha * uOverviewMode;
+// Agregamos un brillo dorado suave al terreno para el hover
+vec3 hoverGlow = divineGold * 0.15 * hoverAlpha * heightMod;
+gl_FragColor.rgb += hoverGlow;
 
 // --- EFECTO DE SUELO MOJADO Y GOTAS DE LLUVIA (Ripples) ---
 // 1. Suelo mojado (oscurece la tierra, haciendo que parezca húmeda)
@@ -181,8 +183,14 @@ if (visibleRain > 0.0) {
 }
 
 // --- TEXTOS DE REGION PROYECTADOS ---
-vec4 regionTextNormal = texture2D(tRegionText, vGlobalPos);
-vec4 regionTextGlow = texture2D(tRegionTextGlow, vGlobalPos);
+vec4 macroNormal = texture2D(tRegionText, vGlobalPos);
+vec4 macroGlow = texture2D(tRegionTextGlow, vGlobalPos);
+vec4 microNormal = texture2D(tSubRegionText, vGlobalPos);
+vec4 microGlow = texture2D(tSubRegionTextGlow, vGlobalPos);
+
+// Combine macro and micro based on uMicroTextAlpha
+vec4 regionTextNormal = clamp(macroNormal + microNormal * uMicroTextAlpha, 0.0, 1.0);
+vec4 regionTextGlow = clamp(macroGlow + microGlow * uMicroTextAlpha, 0.0, 1.0);
 
 // RESTAURADO: El texto vuelve a brillar intensamente en amarillo cuando la región está enfocada.
 float textGlowMask = clamp(isHoveredText * uHoverTextAlpha + isFocusedText * uFocusedRegionAlpha, 0.0, 1.0);

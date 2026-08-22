@@ -61,9 +61,11 @@ export class MapEditor {
                 this.markers = JSON.parse(saved);
 
                 // VALIDACIÓN: Si los marcadores guardados no tienen maskTexture, son de una versión vieja.
-                // Ignoramos el localStorage para obligar a cargar el JSON actualizado.
-                const hasNewMasks = this.markers.some(m => m.type === 'region' && m.maskTexture);
-                if (!hasNewMasks) {
+                // O si Islas Muertas no tiene asignado el continente IREVIE, ignoramos el localStorage.
+                const hasContinentMask4 = this.markers.some(m => m.type === 'continent' && m.maskTexture === 'region_masks_4.png');
+                const hasContinentType = this.markers.some(m => m.type === 'continent');
+                const hasIrevieIsla = this.markers.some(m => m.name === 'ISLAS MUERTAS' && m.continent === 'IREVIE');
+                if (!hasContinentMask4 || !hasContinentType || !hasIrevieIsla) {
                     console.log("[EDITOR] Marcadores antiguos detectados en LocalStorage. Forzando actualización...");
                     this.markers = [];
                     localStorage.removeItem('vekiar_custom_markers');
@@ -93,10 +95,12 @@ export class MapEditor {
     async loadDefaultMarkers() {
         try {
             console.log("%c[EDITOR] Cargando marcadores por defecto desde JSON...", "color: #b0bec5; font-style: italic;");
-            const response = await fetch('assets/data/vekiar_markers.json?t=' + new Date().getTime());
+            // Force cache bypass with timestamp
+            const response = await fetch('assets/data/vekiar_markers_v2.json?t=' + new Date().getTime());
             if (response.ok) {
                 const data = await response.json();
                 this.markers = data.markers || [];
+                localStorage.setItem('vekiar_markers_v4', JSON.stringify(data));
                 // Unificar coordenadas viejas (x, y, z) a objeto position para compatibilidad
                 this.markers.forEach(m => {
                     if (!m.type) m.type = 'otro';
@@ -228,7 +232,7 @@ export class MapEditor {
             document.getElementById('insp-v').value = 0.5;
         }
 
-        const isTextSurface = ['region', 'mar', 'oceano'].includes(String(markerData.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim());
+        const isTextSurface = ['continent', 'region', 'mar', 'oceano'].includes(String(markerData.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim());
         const displays = document.querySelectorAll('.region-only');
         displays.forEach(el => el.style.display = isTextSurface ? 'flex' : 'none');
 

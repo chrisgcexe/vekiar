@@ -10,6 +10,15 @@ export class RegionTexturePainter {
         this.glowCanvas = null;
         this.glowCtx = null;
         this.glowTexture = null;
+
+        this.subNormalCanvas = null;
+        this.subNormalCtx = null;
+        this.subNormalTexture = null;
+
+        this.subGlowCanvas = null;
+        this.subGlowCtx = null;
+        this.subGlowTexture = null;
+
         this.isInitialized = false;
     }
 
@@ -25,22 +34,28 @@ export class RegionTexturePainter {
 
         this._initCanvases();
 
-        const nw = this.normalCanvas.width;
-        const nh = this.normalCanvas.height;
+        const nw = 4096;
+        const nh = 4096;
 
         this.normalCtx.clearRect(0, 0, nw, nh);
         this.glowCtx.clearRect(0, 0, nw, nh);
+        this.subNormalCtx.clearRect(0, 0, nw, nh);
+        this.subGlowCtx.clearRect(0, 0, nw, nh);
 
         // Estilos base compartidos
         this.normalCtx.textAlign = 'center';
         this.normalCtx.textBaseline = 'middle';
-        
         this.glowCtx.textAlign = 'center';
         this.glowCtx.textBaseline = 'middle';
+        
+        this.subNormalCtx.textAlign = 'center';
+        this.subNormalCtx.textBaseline = 'middle';
+        this.subGlowCtx.textAlign = 'center';
+        this.subGlowCtx.textBaseline = 'middle';
 
         markersList.forEach(data => {
             const mType = String(data.type || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            const isTextSurface = ['region', 'mar', 'oceano'].includes(mType);
+            const isTextSurface = ['continent', 'region', 'mar', 'oceano'].includes(mType);
             
             if (!isTextSurface) return;
 
@@ -61,11 +76,15 @@ export class RegionTexturePainter {
                 const cx = u * nw;
                 const cy = (1.0 - v) * nh;
 
+                const isMacro = (data.level === 'continent' || mType === 'oceano');
+                const targetNormalCtx = isMacro ? this.normalCtx : this.subNormalCtx;
+                const targetGlowCtx = isMacro ? this.glowCtx : this.subGlowCtx;
+
                 // Dibujar versión normal
-                this._drawText(this.normalCtx, data, cx, cy, mType, false);
+                this._drawText(targetNormalCtx, data, cx, cy, mType, false);
                 
                 // Dibujar versión glow y guardar el ancho estimado del texto en UV
-                const tw = this._drawText(this.glowCtx, data, cx, cy, mType, true);
+                const tw = this._drawText(targetGlowCtx, data, cx, cy, mType, true);
                 
                 // Guardamos el ancho (textWidthUV) en la data para pasarlo luego al shader
                 data.textWidthUV = tw / nw; 
@@ -74,11 +93,13 @@ export class RegionTexturePainter {
 
         this.normalTexture.needsUpdate = true;
         this.glowTexture.needsUpdate = true;
+        this.subNormalTexture.needsUpdate = true;
+        this.subGlowTexture.needsUpdate = true;
         this.isInitialized = true;
     }
 
     _initCanvases() {
-        // Textura Normal
+        // Textura Normal (Macro)
         this.normalCanvas = document.createElement('canvas');
         this.normalCanvas.width = 4096;
         this.normalCanvas.height = 4096;
@@ -87,7 +108,7 @@ export class RegionTexturePainter {
         this.normalTexture.anisotropy = 4;
         this.normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
-        // Textura con Brillo (Glow)
+        // Textura con Brillo (Macro Glow)
         this.glowCanvas = document.createElement('canvas');
         this.glowCanvas.width = 4096;
         this.glowCanvas.height = 4096;
@@ -96,6 +117,24 @@ export class RegionTexturePainter {
         this.glowTexture.anisotropy = 4;
         this.glowTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
+        // Textura Normal (Micro - Regiones)
+        this.subNormalCanvas = document.createElement('canvas');
+        this.subNormalCanvas.width = 4096;
+        this.subNormalCanvas.height = 4096;
+        this.subNormalCtx = this.subNormalCanvas.getContext('2d');
+        this.subNormalTexture = new THREE.CanvasTexture(this.subNormalCanvas);
+        this.subNormalTexture.anisotropy = 4;
+        this.subNormalTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+        // Textura Glow (Micro - Regiones)
+        this.subGlowCanvas = document.createElement('canvas');
+        this.subGlowCanvas.width = 4096;
+        this.subGlowCanvas.height = 4096;
+        this.subGlowCtx = this.subGlowCanvas.getContext('2d');
+        this.subGlowTexture = new THREE.CanvasTexture(this.subGlowCanvas);
+        this.subGlowTexture.anisotropy = 4;
+        this.subGlowTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
         // Asignar texturas al material del terreno
         if (this.mapMaterial.userData.tRegionText) {
             this.mapMaterial.userData.tRegionText.value = this.normalTexture;
@@ -103,20 +142,31 @@ export class RegionTexturePainter {
         if (this.mapMaterial.userData.tRegionTextGlow) {
             this.mapMaterial.userData.tRegionTextGlow.value = this.glowTexture;
         }
+        if (this.mapMaterial.userData.tSubRegionText) {
+            this.mapMaterial.userData.tSubRegionText.value = this.subNormalTexture;
+        }
+        if (this.mapMaterial.userData.tSubRegionTextGlow) {
+            this.mapMaterial.userData.tSubRegionTextGlow.value = this.subGlowTexture;
+        }
     }
 
     /**
-     * Libera las dos texturas 4K de la VRAM del GPU.
-     * Llamar antes de re-instanciar o cuando el mapa se destruye.
+     * Libera las texturas 4K de la VRAM del GPU.
      */
     dispose() {
         if (this.normalTexture) { this.normalTexture.dispose(); this.normalTexture = null; }
         if (this.glowTexture)   { this.glowTexture.dispose();   this.glowTexture   = null; }
+        if (this.subNormalTexture) { this.subNormalTexture.dispose(); this.subNormalTexture = null; }
+        if (this.subGlowTexture)   { this.subGlowTexture.dispose();   this.subGlowTexture   = null; }
         this.normalCanvas = null;
         this.normalCtx    = null;
         this.glowCanvas   = null;
         this.glowCtx      = null;
-            this.isInitialized = false;
+        this.subNormalCanvas = null;
+        this.subNormalCtx    = null;
+        this.subGlowCanvas   = null;
+        this.subGlowCtx      = null;
+        this.isInitialized = false;
     }
 
     /**

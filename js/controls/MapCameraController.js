@@ -43,6 +43,8 @@ export class MapCameraController {
             this.stateMachine.transitionTo('DROP_2', { reason: 'start' });
         };
 
+        this.eventBus.on('ui:start-requested', removeIdlePrompt);
+
         setTimeout(() => {
             const startBtn = document.getElementById('btn-start');
             if (startBtn) {
@@ -55,8 +57,12 @@ export class MapCameraController {
         this.mapInstance = mapInstance;
     }
 
-    fitToPoints(points, offsetX = 10) {
-        this.flightSystem.fitToPoints(points, offsetX);
+    fitToPoints(points, offsetX = 10, fullZoom = true) {
+        this.flightSystem.fitToPoints(points, offsetX, fullZoom);
+    }
+
+    flyTo(worldPos, offsetX = 0, fullZoom = false) {
+        this.flightSystem.flyTo(worldPos, offsetX, fullZoom);
     }
 
     playIntro() {

@@ -15,8 +15,7 @@ export class CameraMathResolver {
         
         const maxDistZ = mapHalfH / Math.tan(fovRad);
         const maxDistX = mapHalfW / (Math.tan(fovRad) * ctrl.camera.aspect);
-        
-        ctrl.calculatedMaxDistance = Math.min(maxDistZ, maxDistX) * 0.99;
+        ctrl.calculatedMaxDistance = Math.min(maxDistZ, maxDistX) * 1.15;
         
         if (ctrl.stateMachine.state === 'PLAYING') {
             ctrl.maxDistance = ctrl.calculatedMaxDistance;

@@ -133,7 +133,7 @@ _setupLights() {
     }
 
     async loadMarkersData() {
-        const response = await fetch('./assets/data/vekiar_markers.json?v=' + Date.now());
+        const response = await fetch('./assets/data/vekiar_markers_v2.json?v=' + Date.now());
         const data = await response.json();
         this.markerManager.loadData(data);
     }

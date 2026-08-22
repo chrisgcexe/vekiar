@@ -6,8 +6,8 @@ export class CameraStateMachine {
         return {
             'INIT':       ['DROP_1'],
             'DROP_1':     ['WAIT_INPUT', 'DROP_2', 'PLAYING'],
-            'WAIT_INPUT': ['DROP_2'],
-            'DROP_2':     ['PLAYING'],
+            'WAIT_INPUT': ['DROP_2', 'FLY_TO'],
+            'DROP_2':     ['PLAYING', 'FLY_TO'],
             'FLY_TO':     ['PLAYING', 'FLY_TO'],
             'PLAYING':    ['FLY_TO'],
         };

@@ -13,7 +13,8 @@ export class CameraFlightSystem {
 
     flyTo(worldPos, offsetX = 0, fullZoom = false, endDistOverride = null, playableDist) {
         const ctrl = this.controller;
-        if (ctrl.stateMachine.state !== 'PLAYING' && ctrl.stateMachine.state !== 'FLY_TO') return;
+        const allowedStates = ['PLAYING', 'FLY_TO', 'WAIT_INPUT', 'DROP_2'];
+        if (!allowedStates.includes(ctrl.stateMachine.state)) return;
 
         this._flyStartTarget.copy(ctrl.target);
         this._flyStartDist = ctrl.distance;
@@ -49,7 +50,7 @@ export class CameraFlightSystem {
         ctrl.stateMachine.transitionTo('FLY_TO', { reason: 'request' });
     }
 
-    fitToPoints(points, offsetX = 0) {
+    fitToPoints(points, offsetX = 0, fullZoom = true) {
         if (!points || points.length === 0) return;
 
         let minX = Infinity, minZ = Infinity;
@@ -63,15 +64,19 @@ export class CameraFlightSystem {
         });
 
         const centerX = (minX + maxX) / 2;
-        const centerZ = (minZ + maxZ) / 2;
+        // Mover el centro un poco hacia el sur (abajo) para que no se corte el texto inferior (OVARN)
+        const maxSpan = Math.max(maxX - minX, maxZ - minZ);
+        const centerZ = ((minZ + maxZ) / 2) + (maxSpan * 0.1); 
 
         const centerPos = new THREE.Vector3(centerX, 0, centerZ);
         
-        // El usuario solicitó explícitamente:
-        // "desde el nivel de zoom maximo, no hace un zoom out y se mueve"
-        // "directamente el movimiento que tiene que hacer es que los marcadores otros entren en plano"
-        // Volamos al centro con el offsetX (para esquivar el panel) y en "fullZoom" (zoom máximo = más cercano).
-        this.flyTo(centerPos, offsetX, true);
+        if (fullZoom) {
+            this.flyTo(centerPos, offsetX, true);
+        } else {
+            // Alejar un pelín más la cámara (1.3 en vez de 1.2)
+            const calculatedDist = Math.max(this.controller.minDistance, maxSpan * 1.3);
+            this.flyTo(centerPos, offsetX, false, calculatedDist);
+        }
     }
 
     update() {

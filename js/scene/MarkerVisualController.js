@@ -84,7 +84,17 @@ export class MarkerVisualController {
             if (activeHoverId) {
                 const item = this.registry.getById(activeHoverId);
                 if (item) {
-                    if (item.data.maskTexture && item.data.maskChannel) {
+                    
+                    // LÓGICA NUEVA: Si el continente está enfocado, no prendemos la máscara de terreno de las regiones
+                    let isContinentFocused = false;
+                    if (focusedRegionId) {
+                        const focusedItem = this.registry.getById(focusedRegionId);
+                        if (focusedItem && focusedItem.type === 'continent') {
+                            isContinentFocused = true;
+                        }
+                    }
+
+                    if (item.data.maskTexture && item.data.maskChannel && !isContinentFocused) {
                         const maskIdx = parseInt(item.data.maskTexture.replace("region_masks_", "").replace(".png", ""));
                         const textures = this.mapMaterial.userData.regionMasksTextures;
                         if (textures && textures[maskIdx]) {

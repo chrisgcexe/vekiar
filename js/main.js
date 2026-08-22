@@ -12,6 +12,7 @@ import { EventBus } from './scene/EventBus.js';
 import { MapEditor } from './scene/MapEditor.js?v=2';
 import { RegionTooltipUI } from './ui/RegionTooltipUI.js';
 import { RegionSidePanelUI } from './ui/RegionSidePanelUI.js';
+import { ContinentSidePanelUI } from './ui/ContinentSidePanelUI.js';
 import { DayNightCycle } from './systems/DayNightCycle.js';
 import { DynamicWeatherManager } from './systems/Weather/DynamicWeatherManager.js';
 
@@ -26,6 +27,7 @@ const cameraStateService = new CameraStateService();
 // UI 
 const regionTooltip = new RegionTooltipUI(eventBus, 'ui');
 const regionPanel = new RegionSidePanelUI(eventBus, 'ui');
+const continentPanel = new ContinentSidePanelUI(eventBus, 'ui');
 
 // NOTA: Cambiamos cómo se instancia el mapa. 
 // No le pasamos los assets todavía.
@@ -110,17 +112,24 @@ async function startApp() {
         eventBus
     );
 
-    // Click en una región -> encuadrar todos sus marcadores directamente (un solo vuelo)
+    // Click en una región o continente -> encuadrar o volar
     eventBus.on('marker:region-fly-request', (e) => {
-        const placePositions = e.detail.placePositions;
-        if (placePositions && placePositions.length) {
-            // Incluir también la posición de la región central
-            const points = [...placePositions, e.detail.worldPos];
-            // offsetX = 10 para esquivar el panel lateral que aparecerá
-            cameraController.fitToPoints(points, 10);
+        const { placePositions, itemType, worldPos, isOverviewClick } = e.detail;
+        if (itemType === 'continent') {
+            if (isOverviewClick) {
+                // En Overview: Zoom in a tope (dolly)
+                cameraController.flyTo(worldPos, 10, true);
+            } else {
+                // En Playing: Encuadrar (zoom out) el continente
+                const points = [...placePositions, worldPos];
+                cameraController.fitToPoints(points, 10, false);
+            }
+        } else if (placePositions && placePositions.length) {
+            const points = [...placePositions, worldPos];
+            // offsetX = 10 para esquivar el panel lateral
+            cameraController.fitToPoints(points, 10, true);
         } else {
-            // Si la región está vacía, solo vamos a su centro con max zoom
-            cameraController.flyTo(e.detail.worldPos, 10, true); 
+            cameraController.flyTo(worldPos, 10, true); 
         }
     });
 
@@ -131,6 +140,14 @@ async function startApp() {
         // (El SidePanel escucha este evento por su cuenta y se abre)
     });
     
+    // Click en un elemento del sidepanel -> Paneo de la cámara sin cambiar el zoom
+    eventBus.on('ui:sidepanel-item-clicked', (e) => {
+        const id = e.detail.id;
+        const item = mapEditor.markerManager._registry.getById(id);
+        if (item) {
+            cameraController.flyTo(item.worldPos, 10, false, cameraController.distance);
+        }
+    });
 
 
     // 3. Conexión de Eventos

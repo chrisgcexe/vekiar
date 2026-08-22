@@ -98,7 +98,8 @@ export class MarkerRaycaster {
         let bestId = null, bestArea = Infinity;
 
         for (const item of this.registry.getAll()) {
-            if (item.type !== 'region') continue;
+            // Solo nos interesan regiones o continentes para la distancia
+            if (item.type !== 'region' && item.type !== 'continent') continue;
             const mesh = item.mesh;
             if (!mesh || !mesh.userData || !mesh.userData.hit) continue;
             const hit = mesh.userData.hit;
@@ -170,7 +171,7 @@ export class MarkerRaycaster {
             for (let i = 0; i < this._intersectsBuffer.length; i++) {
                 const obj = this._intersectsBuffer[i].object;
                 if (obj.visible && obj.userData && obj.userData.id
-                    && !(obj.userData.isHitbox === true && obj.userData.type === 'region')) {
+                    && !(obj.userData.isHitbox === true && (obj.userData.type === 'region' || obj.userData.type === 'continent'))) {
                     newHoveredMeshId = obj.userData.id;
                     break;
                 }
@@ -183,7 +184,17 @@ export class MarkerRaycaster {
             }
             
             if (this.domElement) {
-                const isInteractive = newHoveredMeshId && !this._forcedHoverId && cameraState === 'PLAYING' && mapReady;
+                let isInteractive = false;
+                if (newHoveredMeshId && !this._forcedHoverId) {
+                    if (cameraState === 'PLAYING' && mapReady) {
+                        isInteractive = true;
+                    } else {
+                        const item = this.registry.getById(newHoveredMeshId);
+                        if (item && item.type === 'continent') {
+                            isInteractive = true;
+                        }
+                    }
+                }
                 this.domElement.style.cursor = isInteractive ? 'pointer' : 'grab';
             }
 
