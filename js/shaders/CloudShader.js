@@ -7,6 +7,7 @@ void main() {
 `;
 
 export const cloudFragmentShader = `
+precision mediump float;
 varying vec2 vUv;
 uniform float uTime;
 uniform vec3 uColor;
@@ -61,11 +62,11 @@ void main() {
     // En tormentas densas, oscurecer el color base de las nubes (grises)
     vec3 cloudColor = mix(uColor, vec3(0.4, 0.45, 0.5), uCloudDensity);
     
-    // Efecto "Fog of War": El centro objetivo está libre de nubes (0.0), y se espesan hacia los bordes (1.0)
-    // Cuando hay mucha densidad, el hueco central se reduce
-    float gapSize = mix(0.20, 0.08, uCloudDensity);
+    // Efecto "Fog of War": El centro objetivo está libre de nubes, y se espesan hacia los bordes
+    // Aumentamos el gapSize para hacer el ojo mucho más grande y difuso
+    float gapSize = mix(0.35, 0.25, uCloudDensity);
     float distToTarget = distance(vUv, uTargetUv);
-    float fogOfWar = smoothstep(0.05, gapSize, distToTarget);
+    float fogOfWar = smoothstep(0.02, gapSize, distToTarget);
     
     // Difuminar suavemente los bordes absolutos del plano para que no se vea el corte cuadrado
     float edgeFade = 1.0 - smoothstep(0.4, 0.5, distance(vUv, vec2(0.5)));

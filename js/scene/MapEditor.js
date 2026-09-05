@@ -40,6 +40,7 @@ export class MapEditor {
                 this.enabled = !this.enabled;
                 const panel = document.getElementById('map-editor-panel');
                 if (panel) panel.style.display = this.enabled ? 'block' : 'none';
+                if (typeof this.updateBrushState === 'function') this.updateBrushState();
                 console.log(`%c[EDITOR] Modo Edición: ${this.enabled ? 'ACTIVADO' : 'APAGADO'}`, 'color: #a5d6a7; font-weight: bold;');
             }
             // La tecla 'T' ha sido reasignada a Thunderstorm en main.js
@@ -48,6 +49,42 @@ export class MapEditor {
         eventBus.on('editor:open-inspector', (e) => {
             if (this.enabled && e.detail && e.detail.id) {
                 this.openInspector(e.detail.id);
+            }
+        });
+
+        // Bloquear el drag de la cámara al hacer click con el pincel y permitir pintar con un solo click
+        this.domElement.addEventListener('pointerdown', (e) => {
+            if (this.enabled && this.currentShape === 'brush') {
+                e.stopImmediatePropagation();
+                if (e.button === 0 || e.button === 2) {
+                    const isErasing = (e.button === 2);
+                    const rect = this.domElement.getBoundingClientRect();
+                    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+                    const intersects = this.raycaster.intersectObject(this.mapPlaneGroup, true);
+                    if (intersects.length > 0 && intersects[0].uv) {
+                        this.paintOnMask(intersects[0].uv.x, intersects[0].uv.y, isErasing);
+                    }
+                }
+            }
+        }, { capture: true });
+
+        // Evento de pintura continua (arrastrar) sin mover la cámara, soporta click derecho para borrar
+        this.domElement.addEventListener('pointermove', (e) => {
+            if (!this.enabled || this.currentShape !== 'brush') return;
+            if (e.buttons !== 1 && e.buttons !== 2) return;
+            
+            e.stopImmediatePropagation(); // Evitar que el evento suba al window (GlobalInputManager)
+            const isErasing = (e.buttons === 2);
+            
+            const rect = this.domElement.getBoundingClientRect();
+            this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObject(this.mapPlaneGroup, true);
+            if (intersects.length > 0 && intersects[0].uv) {
+                this.paintOnMask(intersects[0].uv.x, intersects[0].uv.y, isErasing);
             }
         });
     }
@@ -131,6 +168,10 @@ export class MapEditor {
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
         
+        if (this.currentShape === 'brush') {
+            return;
+        }
+        
         const markerIntersects = this.raycaster.intersectObjects(this.markerManager.markersGroup.children, true);
         const hitMarker = markerIntersects.find(hit => hit.object.userData && hit.object.userData.id);
 
@@ -142,7 +183,7 @@ export class MapEditor {
     }
 
     onRightClick(event) {
-        if (!this.enabled) return;
+        if (!this.enabled || this.currentShape === 'brush') return;
 
         const rect = this.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -172,6 +213,71 @@ export class MapEditor {
                 this.openInspector(newId);
             }
         }
+    }
+
+    // --- NUEVO: PINTOR DE MÁSCARA ---
+    paintOnMask(u, v, isErasing = false) {
+        if (!this.mapMaterial || !this.mapMaterial.userData.tCustomMask) return;
+        
+        const tex = this.mapMaterial.userData.tCustomMask.value;
+        const canvas = tex.image;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Coordenadas en píxeles (v invertido según estándar WebGL vs Canvas)
+        const x = u * canvas.width;
+        const y = (1.0 - v) * canvas.height;
+        
+        // Configuramos la operación de composición
+        ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+        
+        // Dibujamos un círculo suave (brocha)
+        const radius = 25; // Tamaño del pincel (px sobre 1024)
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        
+        if (isErasing) {
+            // destination-out borra en base al alfa del pincel
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else {
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Restaurar para evitar bugs en otras operaciones
+        ctx.globalCompositeOperation = 'source-over';
+        
+        tex.needsUpdate = true;
+    }
+
+    updateBrushState() {
+        if (this.mapMaterial && this.mapMaterial.userData.uIsPaintingMask) {
+            this.mapMaterial.userData.uIsPaintingMask.value = (this.enabled && this.currentShape === 'brush') ? 1.0 : 0.0;
+        }
+    }
+
+    exportMaskToPNG() {
+        if (!this.mapMaterial || !this.mapMaterial.userData.tCustomMask) return;
+        const tex = this.mapMaterial.userData.tCustomMask.value;
+        const canvas = tex.image;
+        if (!canvas) {
+            console.warn("No hay canvas para exportar");
+            return;
+        }
+        
+        const url = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'custom_mask.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        console.log("%c[EDITOR] Máscara PNG exportada con éxito.", "color: #0277bd; font-weight: bold;");
     }
 
     createNewMarker(localPoint, uv) {

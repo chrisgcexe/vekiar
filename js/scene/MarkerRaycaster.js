@@ -164,6 +164,15 @@ export class MarkerRaycaster {
             let newHoveredMeshId = null;
             this.raycaster.setFromCamera(this.mouse, this.camera);
 
+            // --- RASTREO GLOBAL DEL CURSOR (Rayo 3D Matemático) ---
+            // Optimizador WebGL: Evitamos instanciar nuevos objetos (clone) en el loop crítico
+            if (!this.interactionState.rayOrigin) {
+                this.interactionState.rayOrigin = new THREE.Vector3();
+                this.interactionState.rayDir = new THREE.Vector3();
+            }
+            this.interactionState.rayOrigin.copy(this.raycaster.ray.origin);
+            this.interactionState.rayDir.copy(this.raycaster.ray.direction);
+
             const regionAtPointerId = this._regionAtPointer(this.raycaster);
 
             this._intersectsBuffer.length = 0;

@@ -241,11 +241,11 @@ async function startApp() {
             if (isPlaying) {
                 dayNightCycle.update(delta, sceneManager.sunLight, sceneManager.ambientLight);
                 
-                // Throttling de la actualización de sombras (aprox 60 fps para máxima fluidez)
-                // Usamos 0.016 para asegurar que las sombras se muevan con perfecta suavidad,
-                // protegiendo solo a usuarios con monitores de 144Hz o 240Hz.
+                // Throttling de la actualización de sombras (10 fps para máxima fluidez vs rendimiento)
+                // Usamos 0.1 (100ms) porque el sol se mueve a velocidad glacial en ciclos de 5 minutos,
+                // logrando ahorrar aproximadamente un 85% de carga gráfica sin pérdida visual perceptible.
                 _timeSinceLastShadowUpdate += delta;
-                if (_timeSinceLastShadowUpdate > 0.016) {
+                if (_timeSinceLastShadowUpdate > 0.1) {
                     sceneManager.renderer.shadowMap.needsUpdate = true;
                     _timeSinceLastShadowUpdate = 0;
                 }

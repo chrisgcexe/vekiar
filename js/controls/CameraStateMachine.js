@@ -9,7 +9,7 @@ export class CameraStateMachine {
             'WAIT_INPUT': ['DROP_2', 'FLY_TO'],
             'DROP_2':     ['PLAYING', 'FLY_TO'],
             'FLY_TO':     ['PLAYING', 'FLY_TO'],
-            'PLAYING':    ['FLY_TO'],
+            'PLAYING':    ['FLY_TO', 'DROP_2'],
         };
     }
 

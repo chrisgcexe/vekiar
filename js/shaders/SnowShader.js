@@ -65,6 +65,7 @@ void main() {
 `;
 
 export const snowParticleFragment = `
+precision mediump float;
 varying float vAlphaFade;
 
 void main() {

@@ -42,6 +42,7 @@ void main() {
 `;
 
 const rainFragmentShader = `
+precision mediump float;
 uniform vec3 uColor;
 uniform float uOpacityMultiplier;
 uniform float uZoomAlpha;

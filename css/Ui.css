@@ -696,3 +696,86 @@
     position: relative;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
+
+/* ==========================================================================
+   GODRAYS 2D OVERLAY (Apunta al continente)
+   ========================================================================== */
+.ui-godrays-container {
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.ui-godrays-container.visible {
+    opacity: 1;
+}
+
+.ui-godrays-wrapper, .ui-godrays-sharp-wrapper {
+    position: absolute;
+    bottom: 20px;
+    left: -250px;
+    width: 500px;
+    height: 3000px;
+    transform-origin: bottom center;
+    /* Perspectiva y rotación general de la luz */
+    transform: perspective(800px) rotateX(30deg) rotate(-15deg);
+    
+    mix-blend-mode: color-dodge;
+    opacity: 0.5;
+    
+    /* Difuminar bordes izquierdo y derecho del contenedor */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+.ui-godrays-wrapper {
+    /* El blur maestro junta los haces dorados en un aura cohesiva */
+    filter: blur(8px) contrast(1.2);
+}
+
+.ui-godrays-sharp-wrapper {
+    /* Los haces afilados tienen un ínfimo blur (1px) para suavizar los bordes duros de los píxeles */
+    opacity: 0.4; 
+    filter: blur(2px);
+}
+
+.ui-godray-beam {
+    position: absolute;
+    bottom: 0;
+    /* Cada haz difuso tiene su gradiente core brillante y se apaga progresivamente */
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255, 242, 160, 0.9) 10%,
+        rgba(255, 242, 160, 0.6) 30%,
+        rgba(255, 242, 160, 0.2) 70%,
+        transparent 100%
+    );
+    /* Difuminado interno para que cada rayo sea suave en sus costados */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%);
+    border-radius: 50px; 
+    will-change: transform, opacity;
+}
+
+.ui-godray-beam.sharp {
+    /* Los rayos afilados redujeron su intensidad para ser más sutiles */
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255, 242, 160, 0.4) 15%,
+        rgba(255, 242, 160, 0.2) 50%,
+        rgba(255, 242, 160, 0.0) 100%
+    );
+    /* Sin difuminado horizontal agresivo, líneas duras */
+    -webkit-mask-image: none;
+    mask-image: none;
+    border-radius: 2px;
+}
+
+@keyframes beam-drift {
+    0% { transform: translateX(-30px) scaleX(0.7); opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { transform: translateX(30px) scaleX(1.3); opacity: 0.4; }
+}

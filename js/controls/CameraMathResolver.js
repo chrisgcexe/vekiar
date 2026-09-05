@@ -56,8 +56,8 @@ export class CameraMathResolver {
             ctrl.target.x = THREE.MathUtils.clamp(ctrl.target.x, -rubberLimitX, rubberLimitX);
             ctrl.target.z = THREE.MathUtils.clamp(ctrl.target.z, -rubberLimitZ, rubberLimitZ);
         } else {
-            // Lerp de vuelta a los bordes legales suavemente (Efecto resorte)
-            const springForce = 12.0 * delta;
+            // Lerp de vuelta a los bordes legales suavemente (Efecto resorte independiente del framerate)
+            const springForce = 1.0 - Math.exp(-12.0 * delta);
             if (ctrl.target.x > maxRadiusX) ctrl.target.x = THREE.MathUtils.lerp(ctrl.target.x, maxRadiusX, springForce);
             if (ctrl.target.x < -maxRadiusX) ctrl.target.x = THREE.MathUtils.lerp(ctrl.target.x, -maxRadiusX, springForce);
             if (ctrl.target.z > maxRadiusZ) ctrl.target.z = THREE.MathUtils.lerp(ctrl.target.z, maxRadiusZ, springForce);
@@ -100,5 +100,6 @@ export class CameraMathResolver {
         ctrl.camera.position.z = ctrl.target.z + ctrl.distance * Math.sin(polarAngle);
 
         ctrl.camera.lookAt(ctrl.target);
+        ctrl.camera.updateMatrixWorld();
     }
 }

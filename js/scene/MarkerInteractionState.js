@@ -7,6 +7,7 @@ export class MarkerInteractionState {
         this._focusedRegionId = null;
         this._focusedRegionName = null;
         this._overviewHoveredId = null;
+        this.cursorUV = { u: -1, v: -1 };
         
         this._lastFocusedRegionId = null;
         this._needsRedraw = false;

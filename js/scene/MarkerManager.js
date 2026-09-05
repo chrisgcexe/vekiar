@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { MarkerBuilder } from './MarkerBuilder.js';
 import { MarkerRegistry } from './MarkerRegistry.js';
 import { RegionTexturePainter } from './RegionTexturePainter.js';
@@ -49,6 +50,63 @@ export class MarkerManager {
         );
 
         this.builder = new MarkerBuilder(this);
+
+        // --- GODRAYS UI ---
+        this._godraysDOM = document.createElement('div');
+        this._godraysDOM.className = 'ui-godrays-container';
+        
+        // Capa 1: Aura difusa y gruesa (Golden)
+        this._godraysWrapper = document.createElement('div');
+        this._godraysWrapper.className = 'ui-godrays-wrapper';
+        this._godraysDOM.appendChild(this._godraysWrapper);
+        
+        // Capa 2: Rayos afilados, rápidos y blancos (Piercing Light)
+        this._godraysSharpWrapper = document.createElement('div');
+        this._godraysSharpWrapper.className = 'ui-godrays-sharp-wrapper';
+        this._godraysDOM.appendChild(this._godraysSharpWrapper);
+
+        // Crear 14 haces de luz difusos
+        for (let i = 0; i < 14; i++) {
+            const beam = document.createElement('div');
+            beam.className = 'ui-godray-beam';
+            
+            const width = 15 + Math.random() * 50; 
+            const left = Math.random() * 450; 
+            const height = 50 + Math.random() * 50; 
+            const delay = -Math.random() * 8; 
+            const duration = 4 + Math.random() * 5; 
+            
+            beam.style.width = `${width}px`;
+            beam.style.left = `${left}px`;
+            beam.style.height = `${height}%`;
+            beam.style.animation = `beam-drift ${duration}s infinite alternate ease-in-out`;
+            beam.style.animationDelay = `${delay}s`;
+            
+            this._godraysWrapper.appendChild(beam);
+        }
+        
+        // Crear 8 haces de luz finos y afilados
+        for (let i = 0; i < 8; i++) {
+            const sharpBeam = document.createElement('div');
+            sharpBeam.className = 'ui-godray-beam sharp';
+            
+            const width = 1 + Math.random() * 3; // Muy finitos (1px a 4px)
+            const left = Math.random() * 450;
+            const height = 70 + Math.random() * 30; // Suelen llegar más abajo
+            const delay = -Math.random() * 8;
+            const duration = 2 + Math.random() * 3; // Se mueven un poco más rápido
+            
+            sharpBeam.style.width = `${width}px`;
+            sharpBeam.style.left = `${left}px`;
+            sharpBeam.style.height = `${height}%`;
+            sharpBeam.style.animation = `beam-drift ${duration}s infinite alternate ease-in-out`;
+            sharpBeam.style.animationDelay = `${delay}s`;
+            
+            this._godraysSharpWrapper.appendChild(sharpBeam);
+        }
+
+        this._godraysObj = new CSS2DObject(this._godraysDOM);
+        if (this.scene) this.scene.add(this._godraysObj);
 
         this._setupEventListeners();
     }
@@ -217,14 +275,28 @@ export class MarkerManager {
 
     update(zoomAlpha, cameraState, isDragging = false) {
         const pendingFocusId = this._pendingFocusItem ? this._pendingFocusItem.data.id : null;
-        this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId);
+        this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId, isDragging);
         this._lodSystem.update(zoomAlpha, cameraState);
+
+        // --- ACTUALIZAR GODRAYS ---
+        const focusedId = this._interactionState.getFocusedRegionId();
+        if (focusedId && this._mapReady) {
+            const item = this._registry.getById(focusedId);
+            if (item && item.type === 'continent') {
+                this._godraysObj.position.copy(item.worldPos);
+                this._godraysDOM.classList.add('visible');
+            } else {
+                this._godraysDOM.classList.remove('visible');
+            }
+        } else {
+            this._godraysDOM.classList.remove('visible');
+        }
 
         const { hoveredId, changed } = this._raycasterSystem.updateRaycast(cameraState, isDragging, this._mapReady);
         
         if (changed) {
             const item = this._registry.getById(hoveredId);
-            if (item && (item.type === 'region' || item.type === 'continent')) {
+            if (item && (item.type === 'region' || item.type === 'continent' || item.type === 'isla')) {
                 if (this._mapReady) {
                     if (this._interactionState.setHoveredRegion(hoveredId)) {
                         const detail = { name: item.data.name, worldPos: item.worldPos.clone() };
@@ -254,7 +326,7 @@ export class MarkerManager {
                         this._interactionState.setOverviewHover(null);
                     }
                 }
-            } else if (!hoveredId || (item && item.type !== 'region' && item.type !== 'continent')) {
+            } else if (!hoveredId || (item && item.type !== 'region' && item.type !== 'continent' && item.type !== 'isla')) {
                 if (this._mapReady) {
                     if (this._interactionState.setHoveredRegion(null)) {
                         this.eventBus.emit('marker:region-unhover', { detail: {} });

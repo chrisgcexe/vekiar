@@ -14,7 +14,7 @@ export const waterFragmentChunk = `
 float maskValue = texture2D(tMapDataPacked, vGlobalPos).g;
 float waterMix = 1.0 - maskValue;
 
-if (waterMix > 0.0) {
+if (waterMix > 0.005) {
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
     
     // Leemos la textura original CRUDA (sin la luz focal de Three.js)
@@ -22,17 +22,14 @@ if (waterMix > 0.0) {
     
     // MATA BIOLUMINISCENCIA: Desaturamos y oscurecemos el océano crudo
     float oceanLum = dot(rawColor, vec3(0.299, 0.587, 0.114));
-    rawColor = mix(vec3(oceanLum), rawColor, 0.75); // -25% de saturación
-    rawColor *= 0.65; // -35% de luz (mucho más oscuro)
+    rawColor = (vec3(oceanLum) * 0.25 + rawColor * 0.75) * 0.65;
     
     // basePaint: en la tierra (waterMix=0) usamos el color iluminado por el sol, 
     // pero en el agua (waterMix=1) usamos nuestro nuevo océano oscuro y sobrio.
     vec3 basePaint = mix(gl_FragColor.rgb, rawColor, waterMix); 
     
-    float angle = 0.785;
-    float s = sin(angle);
-    float c = cos(angle);
-    mat2 rot = mat2(c, -s, s, c);
+    // Rotación de Parallax fija pre-calculada a 45 grados (0.785 rad)
+    mat2 rot = mat2(0.7071, -0.7071, 0.7071, 0.7071);
     
     vec2 diagPos = rot * vGlobalPos;
     

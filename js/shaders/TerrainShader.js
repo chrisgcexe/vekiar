@@ -1,5 +1,7 @@
 import { waterFragmentChunk } from './chunks/WaterChunk.js';
 import { landFragmentChunk, landColorAdjustmentChunk } from './chunks/LandChunk.js';
+import { divineGlowChunk } from './chunks/DivineGlowChunk.js';
+import { seisMentirasChunk } from './chunks/SeisMentirasChunk.js';
 
 // Inyecciones para el Vertex Shader (Comunes a todo el terreno)
 export const mapVertexCommon = `
@@ -8,6 +10,7 @@ varying vec2 vGlobalPos;
 varying float vHeight;
 varying vec3 vWorldPosition;
 varying vec2 vLocalPosition;
+varying vec4 vScreenPos;
 `;
 
 export const mapVertexUv = `
@@ -24,6 +27,7 @@ vHeight = position.z;
 export const mapVertexWorldPos = `
 #include <worldpos_vertex>
 vWorldPosition = worldPosition.xyz;
+vScreenPos = projectionMatrix * viewMatrix * worldPosition;
 `;
 
 // Inyecciones para el Fragment Shader
@@ -33,6 +37,7 @@ varying vec2 vGlobalPos;
 varying float vHeight;
 varying vec3 vWorldPosition;
 varying vec2 vLocalPosition;
+varying vec4 vScreenPos;
 uniform float uTime;
 uniform float uZoomAlpha;
 uniform sampler2D tNoise;
@@ -97,27 +102,11 @@ export const mapDitheringFragment = `
 ${waterFragmentChunk}
 ${landColorAdjustmentChunk}
 
-// --- FOCUS POLÍTICO (LUZ DIVINA CON VOLUMEN Y RIQUEZA) ---
-// Extraemos la máscara original
-float regionPixelAlpha = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel) * uFocusedRegionAlpha;
+// --- FOCUS Y HOVER (LUZ DIVINA CON GODRAYS Y PARTÍCULAS) ---
+${divineGlowChunk}
 
-// 1. Ruido orgánico para darle un aura mágica y viva (más notoria y fluida)
-float auraNoise = fbm(vGlobalPos * 12.0 - vec2(uTime * 0.08, uTime * 0.04));
-
-// 2. Hacemos que la luz emane desde el centro y se desvanezca más suavemente
-float softGlow = pow(regionPixelAlpha, 1.5);
-
-// 3. Modulación EXTREMA por altura: los valles brillan poco (15%), 
-// las cumbres brillan al máximo (100%). Al usar esto, la luz NUNCA se verá plana
-// aunque usemos luz pura (aditiva) de noche.
-float heightMod = mix(0.15, 1.0, smoothstep(0.0, 2.5, vHeight));
-
-// 4. Color Divino: Oro puro y rico
-vec3 divineGold = vec3(1.0, 0.82, 0.35);
-
-// 5. Pulso celestial con auraNoise visible. 
-// La luz late, fluye y cambia con el ruido para sentirse verdaderamente mágica.
-float pulse = sin(uTime * 1.5 + auraNoise * 4.0) * 0.25 + 0.75;
+// --- SHADER ESPECÍFICO: LAS SEIS MENTIRAS ---
+${seisMentirasChunk}
 
 // --- MÁSCARAS DE TEXTO ---
 float distFocusText = length(vec2(
@@ -131,26 +120,6 @@ float distHoverText = length(vec2(
     (vGlobalPos.y - uHoverTextUV.y) / 0.05
 ));
 float isHoveredText = 1.0 - smoothstep(0.7, 1.2, distHoverText);
-
-// Intensidad general del brillo mágico
-float glowPower = softGlow * heightMod * pulse;
-
-// --- OSCURECIMIENTO DEL ENTORNO (Vignette de Focus) ---
-float rawFocusMask = dot(texture2D(tFocusMask, vGlobalPos), uFocusChannel);
-// Oscurecemos hasta un 15% todo el mapa que NO sea la región activa
-float outsideDimming = (1.0 - rawFocusMask) * uFocusedRegionAlpha;
-gl_FragColor.rgb *= (1.0 - outsideDimming * 0.15);
-
-// 6. LUZ PURA Y AUTÓNOMA (Focus)
-vec3 addedGlow = divineGold * glowPower * 0.30;
-gl_FragColor.rgb += addedGlow;
-
-// --- HOVER ILUMINACIÓN (Especial para Continentes en Overview) ---
-float rawHoverMask = dot(texture2D(tHoverMask, vGlobalPos), uHoverChannel);
-float hoverAlpha = rawHoverMask * uHoverRegionAlpha * uOverviewMode;
-// Agregamos un brillo dorado suave al terreno para el hover
-vec3 hoverGlow = divineGold * 0.15 * hoverAlpha * heightMod;
-gl_FragColor.rgb += hoverGlow;
 
 // --- EFECTO DE SUELO MOJADO Y GOTAS DE LLUVIA (Ripples) ---
 // 1. Suelo mojado (oscurece la tierra, haciendo que parezca húmeda)
@@ -192,7 +161,7 @@ vec4 microGlow = texture2D(tSubRegionTextGlow, vGlobalPos);
 vec4 regionTextNormal = clamp(macroNormal + microNormal * uMicroTextAlpha, 0.0, 1.0);
 vec4 regionTextGlow = clamp(macroGlow + microGlow * uMicroTextAlpha, 0.0, 1.0);
 
-// RESTAURADO: El texto vuelve a brillar intensamente en amarillo cuando la región está enfocada.
+
 float textGlowMask = clamp(isHoveredText * uHoverTextAlpha + isFocusedText * uFocusedRegionAlpha, 0.0, 1.0);
 
 // Mezclar texto base y texto con brillo

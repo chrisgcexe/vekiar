@@ -152,7 +152,17 @@ export class MarkerVisualController {
     }
 
     // Llamar cada frame
-    updateFrame(mapReady, cameraState, pendingFocusId) {
+    updateFrame(mapReady, cameraState, pendingFocusId, isDragging = false) {
+        if (!this.mapMaterial) {
+            this._findMapMaterial();
+        }
+        if (this.mapMaterial && this.mapMaterial.userData.uIsDragging) {
+            const targetDragging = isDragging ? 1.0 : 0.0;
+            this.mapMaterial.userData.uIsDragging.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uIsDragging.value, targetDragging, 0.1
+            );
+        }
+
         if (this._pendingFocusId !== pendingFocusId) {
             this._pendingFocusId = pendingFocusId;
             this._updateShaderRegionColor();
@@ -187,7 +197,10 @@ export class MarkerVisualController {
         }
 
         if (this.mapMaterial && this.mapMaterial.userData.uOverviewMode) {
-            this.mapMaterial.userData.uOverviewMode.value = mapReady ? 0.0 : 1.0;
+            const targetOverview = mapReady ? 0.0 : 1.0;
+            this.mapMaterial.userData.uOverviewMode.value = THREE.MathUtils.lerp(
+                this.mapMaterial.userData.uOverviewMode.value, targetOverview, 0.05
+            );
         }
 
         if (this.mapMaterial && this.mapMaterial.userData.uHoverTextUV) {
@@ -207,6 +220,11 @@ export class MarkerVisualController {
             this.mapMaterial.userData.uFocusedRegionAlpha.value = THREE.MathUtils.lerp(
                 this.mapMaterial.userData.uFocusedRegionAlpha.value, targetFocusAlpha, 0.15
             );
+        }
+
+        if (this.mapMaterial && this.mapMaterial.userData.uMouseRayOrigin && this.state.rayOrigin) {
+            this.mapMaterial.userData.uMouseRayOrigin.value.copy(this.state.rayOrigin);
+            this.mapMaterial.userData.uMouseRayDir.value.copy(this.state.rayDir);
         }
 
         // Lerp del scale de los meshes 3D
