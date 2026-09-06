@@ -22,7 +22,7 @@ export class EditorUI {
             panel.innerHTML = `
                 <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ffca28; text-align: center;">PANEL DE EDICIÓN</h3>
                 <div class="editor-field" style="margin-bottom: 10px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Forma:</label>
+                    <label for="editor-shape-select" style="font-size: 12px; display: block; margin-bottom: 4px;">Forma:</label>
                     <select id="editor-shape-select" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                         <option value="circle">Círculo</option>
                         <option value="square">Cuadrado</option>
@@ -33,7 +33,7 @@ export class EditorUI {
                     </select>
                 </div>
                 <div class="editor-field" style="margin-bottom: 10px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo (Categoría):</label>
+                    <label for="editor-type-select" style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo (Categoría):</label>
                     <select id="editor-type-select" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                         <option value="otro">Otro</option>
                         <option value="region">Región</option>
@@ -109,17 +109,17 @@ export class EditorUI {
                 <input type="hidden" id="insp-id">
                 
                 <div class="editor-field" style="margin-bottom: 10px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Nombre:</label>
+                    <label for="insp-name" style="font-size: 12px; display: block; margin-bottom: 4px;">Nombre:</label>
                     <input type="text" id="insp-name" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                 </div>
                 
                 <div class="editor-field" style="margin-bottom: 10px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Región Padre:</label>
+                    <label for="insp-region" style="font-size: 12px; display: block; margin-bottom: 4px;">Región Padre:</label>
                     <input type="text" id="insp-region" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                 </div>
                 
                 <div class="editor-field" style="margin-bottom: 10px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo:</label>
+                    <label for="insp-type" style="font-size: 12px; display: block; margin-bottom: 4px;">Tipo:</label>
                     <select id="insp-type" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                         <option value="otro">Otro</option>
                         <option value="region">Región</option>
@@ -132,28 +132,28 @@ export class EditorUI {
                 
                 <div class="editor-field region-only" id="insp-fontsize-container" style="margin-bottom: 15px; display: none; gap: 10px;">
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Tamaño (px):</label>
+                        <label for="insp-fontsize" style="font-size: 12px; display: block; margin-bottom: 4px;">Tamaño (px):</label>
                         <input type="number" id="insp-fontsize" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                     </div>
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Espaciado:</label>
+                        <label for="insp-letterspacing" style="font-size: 12px; display: block; margin-bottom: 4px;">Espaciado:</label>
                         <input type="number" id="insp-letterspacing" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="Auto">
                     </div>
                 </div>
 
                 <div class="editor-field region-only" id="insp-transform-container" style="margin-bottom: 15px; display: none; gap: 10px;">
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Rotación (°):</label>
+                        <label for="insp-rotation" style="font-size: 12px; display: block; margin-bottom: 4px;">Rotación (°):</label>
                         <input type="number" id="insp-rotation" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="0">
                     </div>
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Curvatura:</label>
+                        <label for="insp-curve" style="font-size: 12px; display: block; margin-bottom: 4px;">Curvatura:</label>
                         <input type="number" id="insp-curve" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;" placeholder="0 (Recto)">
                     </div>
                 </div>
                 
                 <div class="editor-field region-only" id="insp-color-container" style="margin-bottom: 15px; display: none;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Asignar Color de Región:</label>
+                    <div style="font-size: 12px; display: block; margin-bottom: 4px;">Asignar Color de Región:</div>
                     <input type="hidden" id="insp-color">
                     <div id="insp-color-palette" style="display: flex; flex-wrap: wrap; gap: 4px; background: #3e2723; padding: 5px; border-radius: 4px; border: 1px solid #795548;">
                         <!-- Colores generados dinámicamente -->
@@ -162,11 +162,11 @@ export class EditorUI {
                 
                 <div class="editor-field" style="margin-bottom: 15px; display: flex; gap: 10px;">
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste X (U):</label>
+                        <label for="insp-u" style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste X (U):</label>
                         <input type="number" step="0.001" id="insp-u" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                     </div>
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste Y (V):</label>
+                        <label for="insp-v" style="font-size: 12px; display: block; margin-bottom: 4px;">Ajuste Y (V):</label>
                         <input type="number" step="0.001" id="insp-v" style="width: 100%; padding: 5px; background: #3e2723; color: #fff; border: 1px solid #795548; border-radius: 4px;">
                     </div>
                 </div>
