@@ -44,7 +44,7 @@ uniform sampler2D tNoise;
 uniform sampler2D tMapDataPacked;
 uniform sampler2D tPackedMasks;
 uniform sampler2D tFlowMap;
-uniform vec2 uMountainCenter;
+
 uniform vec2 uCloudShadowOffset;
 uniform float uCloudShadowDensity;
 

@@ -24,10 +24,10 @@ export class AssetLoader {
         const rm3Promise          = textureLoader.loadAsync('./assets/images/region_masks_3.png');
         const rm4Promise          = textureLoader.loadAsync('./assets/images/region_masks_4.png');
         const mountainMaskPromise = textureLoader.loadAsync('./assets/images/mountain_snow_mask.png');
-        const customMaskPromise   = textureLoader.loadAsync('./assets/images/custom_mask.png').catch(() => null);
+        const seisMentirasMaskPromise   = textureLoader.loadAsync('./assets/images/seis_mentiras_mask.png').catch(() => null);
         // mapa_referencia.jpg (5.9 MB) se carga en lazy — solo cuando el editor la necesita
 
-        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture, customMaskTexture;
+        let colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture, seisMentirasMaskTexture;
         try {
             [
                 colorTexture,
@@ -37,7 +37,7 @@ export class AssetLoader {
                 flowmapTexture,
                 rm0, rm1, rm2, rm3, rm4,
                 mountainMaskTexture,
-                customMaskTexture
+                seisMentirasMaskTexture
             ] = await Promise.all([
                 colorPromise,
                 noisePromise,
@@ -50,10 +50,10 @@ export class AssetLoader {
                 rm3Promise,
                 rm4Promise,
                 mountainMaskPromise,
-                customMaskPromise
+                seisMentirasMaskPromise
             ]);
         } catch (err) {
-            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture, customMaskTexture]
+            [colorTexture, noiseTexture, mapDataPackedTexture, packedMasksTexture, flowmapTexture, rm0, rm1, rm2, rm3, rm4, mountainMaskTexture, seisMentirasMaskTexture]
                 .forEach(t => t?.dispose());
             ktx2Loader.dispose();
             throw new Error(`AssetLoader: fallo al cargar uno o más assets. Causa: ${err.message}`);
@@ -90,7 +90,7 @@ export class AssetLoader {
             flowmapTexture,
             regionMasksTextures,
             mountainMaskTexture,
-            customMaskTexture,
+            seisMentirasMaskTexture,
             referenceTexture: null // lazy — usar loadReferenceMap() cuando el editor la necesite
         };
     }

@@ -30,7 +30,6 @@ export class CameraInputHandler {
         this.onPanMove = this.onPanMove.bind(this);
         this.onPanEnd = this.onPanEnd.bind(this);
         this.onZoom = this.onZoom.bind(this);
-        this.onKeyDown = this.onKeyDown.bind(this);
         this.onDoubleClick = this.onDoubleClick.bind(this);
         this.onPointerMove = this.onPointerMove.bind(this);
 
@@ -42,7 +41,6 @@ export class CameraInputHandler {
             eventBus.on('input:zoom', this.onZoom);
             eventBus.on('input:double-click', this.onDoubleClick);
         }
-        window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('pointermove', this.onPointerMove);
     }
 
@@ -55,7 +53,6 @@ export class CameraInputHandler {
             eventBus.off('input:zoom', this.onZoom);
             eventBus.off('input:double-click', this.onDoubleClick);
         }
-        window.removeEventListener('keydown', this.onKeyDown);
         window.removeEventListener('pointermove', this.onPointerMove);
     }
 
@@ -146,19 +143,6 @@ export class CameraInputHandler {
         if (hit) {
             // Volar al punto con el zoom al máximo (tope de zoom in)
             ctrl.flyTo(hit, 0, false, ctrl.minDistance);
-        }
-    }
-
-    onKeyDown(e) {
-        const ctrl = this.controller;
-        if (ctrl.stateMachine.state !== 'PLAYING') return;
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-            e.preventDefault();
-            const zoomDelta = e.key === 'ArrowUp' ? -15 : 15;
-            ctrl.distance += zoomDelta;
-            ctrl.distance = THREE.MathUtils.clamp(ctrl.distance, ctrl.minDistance, ctrl.maxDistance);
-            ctrl.mathResolver.clampTargetToBounds();
-            ctrl.mathResolver.updateCameraPosition();
         }
     }
 

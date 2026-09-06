@@ -33,7 +33,7 @@ export class TerrainMaterial {
         material.userData.tPackedMasks = { value: packedMasksTexture };
         material.userData.tFlowMap = { value: flowmapTexture };
         material.userData.tMountainMask = { value: mountainMaskTexture };
-        material.userData.uMountainCenter = { value: new THREE.Vector2(0, 0) };
+
         
         // --- UNIFORM: Sigue la posición actual de los rollos ---
         material.userData.uRollX = { value: 50.1 }; 
@@ -58,27 +58,16 @@ export class TerrainMaterial {
         
         material.userData.uHoverTextUV = { value: new THREE.Vector3(-1, -1, 1) };
         material.userData.uFocusTextUV = { value: new THREE.Vector3(-1, -1, 1) };
-        material.userData.uMouseRayOrigin = { value: new THREE.Vector3(0, 0, 0) };
-        material.userData.uMouseRayDir = { value: new THREE.Vector3(0, 0, -1) };
         material.userData.uIsDragging = { value: 0.0 };
         
-        // --- CUSTOM MASKS ---
-        // Se inicializa con una textura vacía de 1024x1024
-        const blankCanvas = document.createElement('canvas');
-        blankCanvas.width = 1024;
-        blankCanvas.height = 1024;
-        const ctx = blankCanvas.getContext('2d');
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, 1024, 1024);
-        
-        // Si el usuario guardó un custom_mask.png y existe, lo estampamos
-        if (assets.customMaskTexture && assets.customMaskTexture.image) {
-            ctx.drawImage(assets.customMaskTexture.image, 0, 0, 1024, 1024);
+        // --- SEIS MENTIRAS MASK ---
+        let seisTex = assets.seisMentirasMaskTexture;
+        if (!seisTex) {
+            const emptyData = new Uint8Array([0, 0, 0, 255]);
+            seisTex = new THREE.DataTexture(emptyData, 1, 1);
+            seisTex.needsUpdate = true;
         }
-        
-        const blankTex = new THREE.CanvasTexture(blankCanvas);
-        material.userData.tCustomMask = { value: blankTex };
-        material.userData.uIsPaintingMask = { value: 0.0 };
+        material.userData.tSeisMentirasMask = { value: seisTex };
         // 1 = modo overview (alejado): el hover agranda la letra en vez de iluminarla y dejarla fija.
         // 0 = modo juego (cercano): comportamiento previo de brillo/hover.
         material.userData.uOverviewMode = { value: 0.0 };
@@ -112,19 +101,15 @@ export class TerrainMaterial {
             shader.uniforms.uHoverRegionAlpha = material.userData.uHoverRegionAlpha;
             shader.uniforms.uHoverTextAlpha = material.userData.uHoverTextAlpha;
             shader.uniforms.uFocusedRegionAlpha = material.userData.uFocusedRegionAlpha;
-            
             shader.uniforms.uHoverTextUV = material.userData.uHoverTextUV;
             shader.uniforms.uFocusTextUV = material.userData.uFocusTextUV;
-            shader.uniforms.uMouseRayOrigin = material.userData.uMouseRayOrigin;
-            shader.uniforms.uMouseRayDir = material.userData.uMouseRayDir;
             shader.uniforms.uIsDragging = material.userData.uIsDragging;
             shader.uniforms.uOverviewMode = material.userData.uOverviewMode;
             shader.uniforms.uRainIntensity = material.userData.uRainIntensity;
             shader.uniforms.uCloudShadowOffset = material.userData.uCloudShadowOffset;
             shader.uniforms.uCloudShadowDensity = material.userData.uCloudShadowDensity;
             shader.uniforms.tMountainMask = material.userData.tMountainMask;
-            shader.uniforms.tCustomMask = material.userData.tCustomMask;
-            shader.uniforms.uIsPaintingMask = material.userData.uIsPaintingMask;
+            shader.uniforms.tSeisMentirasMask = material.userData.tSeisMentirasMask;
 
             shader.vertexShader = `
 uniform float uRainIntensity;
@@ -132,7 +117,7 @@ uniform float uCloudShadowDensity;
 ` + shader.vertexShader;
 
             // 1. Inyectamos los uniforms SIN redefinir variables que rompan la compilación
-            shader.fragmentShader = "uniform float uRainIntensity;\nuniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform sampler2D tSubRegionText;\nuniform sampler2D tSubRegionTextGlow;\nuniform float uRegionOpacity;\nuniform float uMicroTextAlpha;\nuniform sampler2D tHoverMask;\nuniform vec4 uHoverChannel;\nuniform sampler2D tFocusMask;\nuniform vec4 uFocusChannel;\nuniform sampler2D tReferenceMap;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform vec3 uMouseRayOrigin;\nuniform vec3 uMouseRayDir;\nuniform float uOverviewMode;\nuniform float uIsDragging;\nuniform sampler2D tMountainMask;\nuniform sampler2D tCustomMask;\nuniform float uIsPaintingMask;\n" + shader.fragmentShader;
+            shader.fragmentShader = "uniform float uRainIntensity;\nuniform float uRollX;\nuniform sampler2D tRegionText;\nuniform sampler2D tRegionTextGlow;\nuniform sampler2D tSubRegionText;\nuniform sampler2D tSubRegionTextGlow;\nuniform float uRegionOpacity;\nuniform float uMicroTextAlpha;\nuniform sampler2D tHoverMask;\nuniform vec4 uHoverChannel;\nuniform sampler2D tFocusMask;\nuniform vec4 uFocusChannel;\nuniform sampler2D tReferenceMap;\nuniform float uHoverRegionAlpha;\nuniform float uHoverTextAlpha;\nuniform float uFocusedRegionAlpha;\nuniform vec3 uHoverTextUV;\nuniform vec3 uFocusTextUV;\nuniform float uOverviewMode;\nuniform float uIsDragging;\nuniform sampler2D tMountainMask;\nuniform sampler2D tSeisMentirasMask;\n" + shader.fragmentShader;
 
             // 2. Vertex Shader (dejamos tu lógica tal cual)
             shader.vertexShader = shader.vertexShader.replace('#include <common>', mapVertexCommon);

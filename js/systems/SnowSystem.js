@@ -13,7 +13,6 @@ export class SnowSystem {
         // El sistema de partículas comparte el uTime y uZoomAlpha del material base
         this.uTime = mapMaterial.userData.uTime;
         this.uZoomAlpha = mapMaterial.userData.uZoomAlpha;
-        this.uMountainCenter = mapMaterial.userData.uMountainCenter;
 
         this._initSystem();
     }
@@ -72,8 +71,8 @@ export class SnowSystem {
         const avgX = sumX / spawned;
         const avgZ = sumZ / spawned;
         
-        // Actualizamos el centro geométrico para el shader base
-        this.uMountainCenter.value.set(avgX, avgZ);
+        // Actualizamos el centro geométrico para la luz de la nieve
+        // (ya no se usa en el shader uMountainCenter)
         
         // Creamos la luz
         this.snowLightBaseIntensity = 15.0;

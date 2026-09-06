@@ -219,11 +219,6 @@ export class MarkerVisualController {
             );
         }
 
-        if (this.mapMaterial && this.mapMaterial.userData.uMouseRayOrigin && this.state.rayOrigin) {
-            this.mapMaterial.userData.uMouseRayOrigin.value.copy(this.state.rayOrigin);
-            this.mapMaterial.userData.uMouseRayDir.value.copy(this.state.rayDir);
-        }
-
         // Lerp del scale de los meshes 3D
         for (const item of this.registry.getAll()) {
             if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {

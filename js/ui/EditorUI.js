@@ -29,7 +29,6 @@ export class EditorUI {
                         <option value="triangle">Triángulo</option>
                         <option value="diamond">Rombo</option>
                         <option value="text">Solo Texto</option>
-                        <option value="brush">Pincel (Pintar Máscara)</option>
                     </select>
                 </div>
                 <div class="editor-field" style="margin-bottom: 10px;">
@@ -45,7 +44,6 @@ export class EditorUI {
                     <button id="editor-btn-undo" style="padding: 6px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Borrar Último</button>
                     <button id="editor-btn-clear" style="padding: 6px; background: #b71c1c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Limpiar Todos</button>
                     <button id="editor-btn-export" style="padding: 6px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Exportar JSON</button>
-                    <button id="editor-btn-export-mask" style="padding: 6px; background: #0277bd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Descargar Máscara PNG</button>
                 </div>
             `;
             document.body.appendChild(panel);
@@ -55,9 +53,6 @@ export class EditorUI {
         if (shapeSelect) {
             shapeSelect.addEventListener('change', (e) => {
                 this.editor.currentShape = e.target.value;
-                if (typeof this.editor.updateBrushState === 'function') {
-                    this.editor.updateBrushState();
-                }
             });
         }
 
@@ -85,11 +80,6 @@ export class EditorUI {
         const btnExport = document.getElementById('editor-btn-export');
         if (btnExport) {
             btnExport.addEventListener('click', () => this.editor.exportToJsonFile());
-        }
-
-        const btnExportMask = document.getElementById('editor-btn-export-mask');
-        if (btnExportMask) {
-            btnExportMask.addEventListener('click', () => this.editor.exportMaskToPNG());
         }
     }
 

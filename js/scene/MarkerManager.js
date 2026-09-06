@@ -253,19 +253,7 @@ export class MarkerManager {
             }
         });
 
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '2') {
-                this._debugHitboxesVisible = !this._debugHitboxesVisible;
-                this.markersGroup.children.forEach(child => {
-                    const isHitbox = (child.userData && child.userData.isHitbox === true)
-                        || (child.material && child.material.color && child.material.color.getHex() === 0xff0000);
-                    if (isHitbox) {
-                        child.material.opacity = this._debugHitboxesVisible ? 0.4 : 0.0;
-                        child.material.wireframe = this._debugHitboxesVisible;
-                    }
-                });
-            }
-        });
+        // Listener de debug eliminado (tecla 2)
 
         window.addEventListener('map:lod-text-change', (e) => {
             const lodLevel = e.detail.lod;
