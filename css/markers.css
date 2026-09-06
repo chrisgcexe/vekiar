@@ -65,9 +65,5 @@
     font-size: 10px;
     color: #ffe69b;
     letter-spacing: 0.04em;
-    transition: font-size 0.2s ease, opacity 0.4s ease; /* Transición suave de tamaño y opacidad */
-}
-
-.marker-otro:hover {
-    font-size: 14px !important; /* Agrandar suavemente el texto (sin cambiar de color) */
+    transition: opacity 0.4s ease; /* Transición suave de opacidad (eliminada la de font-size) */
 }

@@ -129,4 +129,9 @@ export class MapCameraController {
     // Proxy properties needed by external systems
     get state() { return this.stateMachine.state; }
     get isDragging() { return this.inputHandler.isDragging; }
+    get isCameraMovingFast() { 
+        return this.inputHandler.isDragging || 
+               this.stateMachine.state === 'FLY_TO' ||
+               this.inputHandler.panVelocity.lengthSq() > 25.0;
+    }
 }

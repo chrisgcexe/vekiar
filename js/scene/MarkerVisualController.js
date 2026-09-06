@@ -57,16 +57,6 @@ export class MarkerVisualController {
                 } else {
                     us.targetScale = isHovered ? 1.5 : 1.0;
                 }
-
-                if (item.label && item.type === 'otro') {
-                    if (isHovered && !us.wasHoveredDOM && isFocused) {
-                        item.label.element.style.setProperty('font-size', '14px', 'important');
-                        us.wasHoveredDOM = true;
-                    } else if ((!isHovered || !isFocused) && us.wasHoveredDOM) {
-                        item.label.element.style.removeProperty('font-size');
-                        us.wasHoveredDOM = false;
-                    }
-                }
             }
         }
     }
@@ -152,14 +142,21 @@ export class MarkerVisualController {
     }
 
     // Llamar cada frame
-    updateFrame(mapReady, cameraState, pendingFocusId, isDragging = false) {
+    updateFrame(mapReady, cameraState, pendingFocusId, delta = 0.016, isDragging = false) {
         if (!this.mapMaterial) {
             this._findMapMaterial();
         }
+        
+        // Factores de suavizado independientes de framerate
+        const lerpFast = 1.0 - Math.exp(-9.0 * delta);  // ~0.15 a 60fps
+        const lerpMid = 1.0 - Math.exp(-7.2 * delta);   // ~0.12 a 60fps
+        const lerpNorm = 1.0 - Math.exp(-6.0 * delta);  // ~0.10 a 60fps
+        const lerpSlow = 1.0 - Math.exp(-3.0 * delta);  // ~0.05 a 60fps
+
         if (this.mapMaterial && this.mapMaterial.userData.uIsDragging) {
             const targetDragging = isDragging ? 1.0 : 0.0;
             this.mapMaterial.userData.uIsDragging.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uIsDragging.value, targetDragging, 0.1
+                this.mapMaterial.userData.uIsDragging.value, targetDragging, lerpNorm
             );
         }
 
@@ -175,7 +172,7 @@ export class MarkerVisualController {
         if (this.mapMaterial && this.mapMaterial.userData.uRegionOpacity) {
             const targetOpacity = isCameraReady ? 1.0 : 0.0;
             this.mapMaterial.userData.uRegionOpacity.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uRegionOpacity.value, targetOpacity, 0.15
+                this.mapMaterial.userData.uRegionOpacity.value, targetOpacity, lerpFast
             );
         }
 
@@ -184,7 +181,7 @@ export class MarkerVisualController {
             const hoveredId = this.state.getHoveredRegionId() || (overviewHoverActive ? this.state._overviewHoveredId : null);
             const targetHoverAlpha = (hoveredId && hoveredId !== this.state.getFocusedRegionId()) ? 1.0 : 0.0;
             this.mapMaterial.userData.uHoverRegionAlpha.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uHoverRegionAlpha.value, targetHoverAlpha, 0.1
+                this.mapMaterial.userData.uHoverRegionAlpha.value, targetHoverAlpha, lerpNorm
             );
         }
 
@@ -192,14 +189,14 @@ export class MarkerVisualController {
             const overviewHoverActive = !mapReady && this.state._overviewHoveredId !== null;
             const targetHoverText = (this.state.getHoveredRegionId() !== null || overviewHoverActive) ? 1.0 : 0.0;
             this.mapMaterial.userData.uHoverTextAlpha.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uHoverTextAlpha.value, targetHoverText, 0.12
+                this.mapMaterial.userData.uHoverTextAlpha.value, targetHoverText, lerpMid
             );
         }
 
         if (this.mapMaterial && this.mapMaterial.userData.uOverviewMode) {
             const targetOverview = mapReady ? 0.0 : 1.0;
             this.mapMaterial.userData.uOverviewMode.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uOverviewMode.value, targetOverview, 0.05
+                this.mapMaterial.userData.uOverviewMode.value, targetOverview, lerpSlow
             );
         }
 
@@ -218,7 +215,7 @@ export class MarkerVisualController {
         if (this.mapMaterial && this.mapMaterial.userData.uFocusedRegionAlpha) {
             const targetFocusAlpha = (this.state.getFocusedRegionId() !== null || !!pendingFocusId) ? 1.0 : 0.0;
             this.mapMaterial.userData.uFocusedRegionAlpha.value = THREE.MathUtils.lerp(
-                this.mapMaterial.userData.uFocusedRegionAlpha.value, targetFocusAlpha, 0.15
+                this.mapMaterial.userData.uFocusedRegionAlpha.value, targetFocusAlpha, lerpFast
             );
         }
 
@@ -232,7 +229,7 @@ export class MarkerVisualController {
             if (item.mesh && item.mesh.userData && 'targetScale' in item.mesh.userData) {
                 const us = item.mesh.userData;
                 if (Math.abs(us.currentScale - us.targetScale) > 0.001) {
-                    us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, 0.15);
+                    us.currentScale = THREE.MathUtils.lerp(us.currentScale, us.targetScale, lerpFast);
                     item.mesh.scale.set(us.currentScale, us.currentScale, 1.0);
                 }
             }

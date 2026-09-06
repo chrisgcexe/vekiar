@@ -273,9 +273,9 @@ export class MarkerManager {
         });
     }
 
-    update(zoomAlpha, cameraState, isDragging = false) {
+    update(zoomAlpha, cameraState, delta, isDragging = false) {
         const pendingFocusId = this._pendingFocusItem ? this._pendingFocusItem.data.id : null;
-        this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId, isDragging);
+        this._visualController.updateFrame(this._mapReady, cameraState, pendingFocusId, delta, isDragging);
         this._lodSystem.update(zoomAlpha, cameraState);
 
         // --- ACTUALIZAR GODRAYS ---

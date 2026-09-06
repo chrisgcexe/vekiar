@@ -179,12 +179,13 @@ async function startApp() {
         const isPlaying = (cameraController.state === 'DROP_2' || cameraController.state === 'PLAYING');
         
         if (clouds.material && clouds.material.uniforms.uOpacity) {
+            const cloudLerp = 1.0 - Math.exp(-3.0 * delta); // Independiente del framerate
             if (isPlaying) {
                 const zoomFactor = cameraController.zoomAlpha !== undefined ? cameraController.zoomAlpha : 1.0;
                 const targetCloudOpacity = THREE.MathUtils.lerp(0.25, 1.0, zoomFactor);
-                clouds.material.uniforms.uOpacity.value += (targetCloudOpacity - clouds.material.uniforms.uOpacity.value) * 0.05;
+                clouds.material.uniforms.uOpacity.value += (targetCloudOpacity - clouds.material.uniforms.uOpacity.value) * cloudLerp;
             } else {
-                clouds.material.uniforms.uOpacity.value += (0.0 - clouds.material.uniforms.uOpacity.value) * 0.05;
+                clouds.material.uniforms.uOpacity.value += (0.0 - clouds.material.uniforms.uOpacity.value) * cloudLerp;
             }
         }
 
@@ -232,7 +233,7 @@ async function startApp() {
 
         // Actualizar visibilidad de marcadores según el zoom actual (sistema LOD) y el estado de la cámara
         if (appState.isReady) {
-            mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, cameraController.isDragging);
+            mapEditor.markerManager.update(cameraController.zoomAlpha ?? 1.0, cameraController.state, delta, cameraController.isCameraMovingFast);
             cameraStateService.updateFromMarkerManager(mapEditor.markerManager);
             
             // Actualizamos los sistemas meteorológicos
